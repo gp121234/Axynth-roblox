@@ -133,14 +133,14 @@ local function tog(p,t,gf,fn,id)
         b.TextColor3=s and TH.g or TH.t
         pcall(function() b.UIStroke.Color = s and TH.g or Color3.fromRGB(60,60,90) end)
     end)
-    b._kbBtn=kbBtn
-    b._update=function()
+    local updateFn=function()
         local s=gf()
         b.Text="  "..t..": "..(s and "ON" or "OFF")
         b.TextColor3=s and TH.g or TH.t
         pcall(function() b.UIStroke.Color = s and TH.g or Color3.fromRGB(60,60,90) end)
         kbBtn.Text=getKeyDisplay(KB[id])
     end
+    togUpdates[b]=updateFn
     return b
 end
 print("[Axynth] Helpers OK")
@@ -248,6 +248,7 @@ tabs["home"].frame.Visible=true
 tw(tabs["home"].btn,{BackgroundColor3=TH.a,TextColor3=Color3.new(1,1,1)},0.2)
 print("[Axynth] Tabs OK")
 local allToggles={}
+local togUpdates={}
 local tH=tF["home"]
 lbl(tH,">> SPEED")
 btn(tH,"Speed 100",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=100 end end end,"sp100")
@@ -695,7 +696,7 @@ U.InputBegan:Connect(function(inp,gpe)
         waitingForKey = nil
         ntf("Keybind","Key assigned! Press F4 to reopen menu.")
         for _,t in pairs(allToggles) do
-            if t._update then t._update() end
+            if togUpdates[t] then togUpdates[t]() end
         end
         if tF["set"] then
             for _,c in pairs(tF["set"]:GetDescendants()) do
@@ -721,15 +722,15 @@ U.InputBegan:Connect(function(inp,gpe)
     end
     for id,key in pairs(KB) do
         if inp.KeyCode == key or inp.UserInputType == key then
-            if id=="fly" then ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end for _,t in pairs(allToggles) do if t._update then t._update() end end
-            elseif id=="noclip" then ST.noclip=not ST.noclip for _,t in pairs(allToggles) do if t._update then t._update() end end
-            elseif id=="freecam" then ST.freeCam=not ST.freeCam if ST.freeCam then ST.freeCamPos=CAM.CFrame CAM.CameraType=Enum.CameraType.Scriptable else CAM.CameraType=Enum.CameraType.Custom if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end end for _,t in pairs(allToggles) do if t._update then t._update() end end
-            elseif id=="clicktp" then ST.clickTP=not ST.clickTP for _,t in pairs(allToggles) do if t._update then t._update() end end
-            elseif id=="esp" then ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for uid,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[uid]=nil end end for _,t in pairs(allToggles) do if t._update then t._update() end end
-            elseif id=="night" then ST.night=not ST.night if ST.night then L.ClockTime=0 else L.ClockTime=14 end for _,t in pairs(allToggles) do if t._update then t._update() end end
-            elseif id=="bright" then ST.bright=not ST.bright if ST.bright then L.Brightness=2 L.GlobalShadows=false else L.Brightness=1 L.GlobalShadows=true end for _,t in pairs(allToggles) do if t._update then t._update() end end
-            elseif id=="nofog" then ST.noFog=not ST.noFog if ST.noFog then L.FogEnd=999999 else L.FogEnd=100000 end for _,t in pairs(allToggles) do if t._update then t._update() end end
-            elseif id=="svlag" then ST.serverLag=not ST.serverLag if ST.serverLag then spawn(function() while ST.serverLag do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then pcall(function() r:FireServer() end) pcall(function() r:FireServer("lag") end) end end end) wait(math.random(50,200)/1000) end end) end for _,t in pairs(allToggles) do if t._update then t._update() end end
+            if id=="fly" then ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
+            elseif id=="noclip" then ST.noclip=not ST.noclip for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
+            elseif id=="freecam" then ST.freeCam=not ST.freeCam if ST.freeCam then ST.freeCamPos=CAM.CFrame CAM.CameraType=Enum.CameraType.Scriptable else CAM.CameraType=Enum.CameraType.Custom if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
+            elseif id=="clicktp" then ST.clickTP=not ST.clickTP for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
+            elseif id=="esp" then ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for uid,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[uid]=nil end end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
+            elseif id=="night" then ST.night=not ST.night if ST.night then L.ClockTime=0 else L.ClockTime=14 end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
+            elseif id=="bright" then ST.bright=not ST.bright if ST.bright then L.Brightness=2 L.GlobalShadows=false else L.Brightness=1 L.GlobalShadows=true end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
+            elseif id=="nofog" then ST.noFog=not ST.noFog if ST.noFog then L.FogEnd=999999 else L.FogEnd=100000 end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
+            elseif id=="svlag" then ST.serverLag=not ST.serverLag if ST.serverLag then spawn(function() while ST.serverLag do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then pcall(function() r:FireServer() end) pcall(function() r:FireServer("lag") end) end end end) wait(math.random(50,200)/1000) end end) end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
             end
         end
     end
