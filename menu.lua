@@ -230,6 +230,78 @@ pcall(function()
         return descendants
     end)
 end)
+pcall(function()
+    local old=Instance.new("Workspace").FindFirstChildWhichIsA
+    hookfunction(Instance.new("Workspace").FindFirstChildWhichIsA,function(self,class,recursive)
+        if self==workspace and class then
+            local c=class:lower()
+            if c:find("detector") or c:find("trigger") or c:find("cheat") then
+                return nil
+            end
+        end
+        return old(self,class,recursive)
+    end)
+end)
+pcall(function()
+    local old=Instance.new("Workspace").FindFirstChildOfClass
+    hookfunction(Instance.new("Workspace").FindFirstChildOfClass,function(self,class)
+        if self==workspace and class then
+            local c=class:lower()
+            if c:find("detector") or c:find("trigger") or c:find("cheat") then
+                return nil
+            end
+        end
+        return old(self,class)
+    end)
+end)
+pcall(function()
+    local mt=getrawmetatable(game)
+    local old=mt.__tostring
+    setreadonly(mt,false)
+    mt.__tostring=newcclosure(function(self)
+        if typeof(self)=="Instance" and self:IsA("RemoteEvent") then
+            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
+                return "BasePart"
+            end
+        end
+        return old(self)
+    end)
+    setreadonly(mt,true)
+end)
+pcall(function()
+    local mt=getrawmetatable(game)
+    local old=mt.__len
+    setreadonly(mt,false)
+    mt.__len=newcclosure(function(self)
+        if typeof(self)=="Instance" and self:IsA("RemoteEvent") then
+            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
+                return 0
+            end
+        end
+        return old(self)
+    end)
+    setreadonly(mt,true)
+end)
+pcall(function()
+    local old=Instance.new("Workspace").GetService
+    hookfunction(Instance.new("Workspace").GetService,function(self,service)
+        if service and (service:lower():find("anticheat") or service:lower():find("detector") or service:lower():find("cheat")) then
+            return nil
+        end
+        return old(self,service)
+    end)
+end)
+pcall(function()
+    local old=game.GetObjects
+    hookfunction(game.GetObjects,function(self,assetId)
+        if assetId and typeof(assetId)=="string" then
+            if assetId:lower():find("anticheat") or assetId:lower():find("cheat") then
+                return {}
+            end
+        end
+        return old(self,assetId)
+    end)
+end)
 local function spoofCharacter()
     pcall(function()
         if LP.Character then
@@ -471,7 +543,7 @@ R.RenderStepped:Connect(function()
     if math.random(1,120)==1 then hideBanGUI() end
     if math.random(1,120)==1 then spoofSound() end
 end)
-print("[Axynth] Anti-Ban v5 ULTIMATE ACTIVE - Auto | Whitelist: "..(function() local c=0 for _ in pairs(whitelistRemotes) do c=c+1 end return c end)().." | Keywords: "..#blockedKeywords.." | Hooks: 10")
+print("[Axynth] Anti-Ban v7 FINAL ACTIVE - Auto | Whitelist: "..(function() local c=0 for _ in pairs(whitelistRemotes) do c=c+1 end return c end)().." | Keywords: "..#blockedKeywords.." | Hooks: 14")
 local AR = RS:FindFirstChild("AdminRemote")
 if not AR then AR = Instance.new("RemoteEvent") AR.Name = "AdminRemote" AR.Parent = RS end
 pcall(function()
