@@ -563,8 +563,56 @@ local function processQueue()
 end
 local function sf(a, ...) local args = {...} spawn(function() isUsingExploit=true wait(math.random(30,100)/1000) pcall(function()
     if AR.Name~="HDAdminRemote" then AR.Name="HDAdminRemote" end
+    local enc=a.."\0"..table.concat(args,"\0")
+    local fake1=string.char(math.random(65,90))..string.char(math.random(97,122))..math.random(100,999)
+    local fake2=string.char(math.random(65,90))..math.random(1000,9999)
     AR:FireServer(a, unpack(args))
 end) isUsingExploit=false end) end
+local function spoofExecutor()
+    pcall(function()
+        if getgenv then
+            local g=getgenv()
+            g.AxynthLoaded=true
+            g.Executor=nil
+            g.exploit=nil
+            g.syn=nil
+            g.krnl=nil
+            g fluxus=nil
+            g.electron=nil
+            g.scriptware=nil
+        end
+    end)
+    pcall(function()
+        if getfenv then
+            local env=getfenv()
+            env.identifyexecutor=function() return "RobloxStudio","2.0" end
+            env.getexecutorname=function() return "RobloxStudio" end
+            env.is_synapse_function=function() return false end
+            env.islclosure=function() return false end
+            env.iscclosure=function() return true end
+        end
+    end)
+end
+pcall(spoofExecutor)
+local function spoofStats()
+    pcall(function()
+        local s=game:GetService("Stats")
+        if s then
+            for _,v in pairs(s:GetDescendants()) do
+                if v:IsA("IntValue") or v:IsA("NumberValue") then
+                    if v.Name:lower():find("cpu") or v.Name:lower():find("memory") then
+                        if v.Value>100 then v.Value=math.random(10,50) end
+                    end
+                end
+            end
+        end
+    end)
+end
+pcall(function()
+    R.RenderStepped:Connect(function()
+        spoofStats()
+    end)
+end)
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
 local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={}}
