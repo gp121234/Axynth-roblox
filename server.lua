@@ -1,4 +1,4 @@
--- Axynth Server Script
+-- Axynth Server Script v2
 -- Vale auton ton kwdiko sthn ServerScriptService > Script
 local RS = game:GetService("ReplicatedStorage")
 local P = game:GetService("Players")
@@ -41,8 +41,17 @@ local function removeFX(char, name)
     if f then f:Destroy() end
 end
 
+local lastRemote = 0
+local remoteCount = 0
+local remoteReset = tick()
+
 AR.OnServerEvent:Connect(function(player, action, ...)
     local args = {...}
+
+    local now = tick()
+    if now - remoteReset > 60 then remoteCount = 0 remoteReset = now end
+    remoteCount = remoteCount + 1
+    if remoteCount > 30 then return end
 
     if action == "bring" then
         local targets = getTargets(args[1], 1)
@@ -198,15 +207,6 @@ AR.OnServerEvent:Connect(function(player, action, ...)
             end
         end
 
-    elseif action == "stomp" then
-        local targets = getTargets(args[1], 1)
-        for _, t in pairs(targets) do
-            if t.Character then
-                local h = t.Character:FindFirstChildOfClass("Humanoid")
-                if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end) end
-            end
-        end
-
     elseif action == "trip" then
         local targets = getTargets(args[1], 1)
         for _, t in pairs(targets) do
@@ -323,6 +323,15 @@ AR.OnServerEvent:Connect(function(player, action, ...)
             end
         end
 
+    elseif action == "stomp" then
+        local targets = getTargets(args[1], 1)
+        for _, t in pairs(targets) do
+            if t.Character then
+                local h = t.Character:FindFirstChildOfClass("Humanoid")
+                if h then pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end) end
+            end
+        end
+
     elseif action == "invisible" then
         local targets = getTargets(args[1], 1)
         for _, t in pairs(targets) do
@@ -351,4 +360,4 @@ AR.OnServerEvent:Connect(function(player, action, ...)
     end
 end)
 
-print("[Axynth] Server loaded!")
+print("[Axynth] Server v2 loaded!")
