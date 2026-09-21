@@ -15,7 +15,7 @@ local CAM = W.CurrentCamera
 print("[Axynth] Services OK")
 local AR = RS:FindFirstChild("AdminRemote")
 if not AR then AR = Instance.new("RemoteEvent") AR.Name = "AdminRemote" AR.Parent = RS end
-local function sf(a, ...) spawn(function() wait(math.random(10,50)/1000) pcall(function() AR:FireServer(a, ...) end) end) end
+local function sf(a, ...) local args = {...} spawn(function() wait(math.random(10,50)/1000) pcall(function() AR:FireServer(a, unpack(args)) end) end) end
 local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,nameTags=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},nameTagList={}}
 local CFG = {MenuKey=Enum.KeyCode.F4,ESPKey=Enum.KeyCode.F9,ESPColor=Color3.fromRGB(255,0,0),ESPFillAlpha=0.5}
 local cP = Color3.fromRGB(15,15,25)
