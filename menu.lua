@@ -291,6 +291,9 @@ end)
 R.Heartbeat:Connect(function()
     spoofVelocity()
     spoofHealth()
+    spoofCharacterModel()
+    spoofNetworkStats()
+    processQueue()
     for i=#hookLog,1,-1 do
         if tick()-hookLog[i].time>10 then table.remove(hookLog,i) end
     end
@@ -298,11 +301,106 @@ end)
 R.Stepped:Connect(function()
     cleanTrails()
     spoofWorkspace()
+    hideExploitObjects()
+end)
+R.RenderStepped:Connect(function()
+    if math.random(1,60)==1 then fakeDecoy() end
+    if math.random(1,60)==1 then fakeNormalActivity() end
 end)
 print("[Axynth] Anti-Ban v4 MAXIMUM ACTIVE - Whitelist: "..(function() local c=0 for _ in pairs(whitelistRemotes) do c=c+1 end return c end)().." remotes | Keywords: "..#blockedKeywords)
 local AR = RS:FindFirstChild("AdminRemote")
 if not AR then AR = Instance.new("RemoteEvent") AR.Name = "AdminRemote" AR.Parent = RS end
-local function sf(a, ...) local args = {...} spawn(function() isUsingExploit=true wait(math.random(30,100)/1000) pcall(function() AR:FireServer(a, unpack(args)) end) isUsingExploit=false end) end
+pcall(function()
+    AR.Name = "HDAdminRemote"
+    AR:GetPropertyChangedSignal("Name"):Connect(function()
+        AR.Name = "HDAdminRemote"
+    end)
+end)
+local decoyRemotes={"ClientReplicator","CharacterReplicator","PlayerReplicator","DataReplicator"}
+for _,name in pairs(decoyRemotes) do
+    pcall(function()
+        local d=Instance.new("RemoteEvent")
+        d.Name=name
+        d.Parent=RS
+    end)
+end
+local function fakeDecoy()
+    pcall(function()
+        for _,r in pairs(decoyRemotes) do
+            local remote=RS:FindFirstChild(r)
+            if remote and remote:IsA("RemoteEvent") then
+                remote:FireServer("ping",math.random(1,100),math.random(1,100))
+            end
+        end
+    end)
+end
+local function hideExploitObjects()
+    pcall(function()
+        if LP.Character then
+            for _,v in pairs(LP.Character:GetDescendants()) do
+                if v:IsA("BodyMover") or v:IsA("BodyAngularVelocity") or v:IsA("BodyPosition") or v:IsA("BodyVelocity") or v:IsA("BodyGyro") or v:IsA("BodyForce") or v:IsA("BodyThrust") then
+                    if v.Name:find("Ax") then
+                        v.Parent=nil
+                    end
+                end
+            end
+        end
+    end)
+end
+local function spoofNetworkStats()
+    pcall(function()
+        local stats=game:GetService("Stats")
+        if stats then
+            local network=stats:FindFirstChild("Network")
+            if network then
+                local ping=network:FindFirstChild("DataPing")
+                if ping then
+                    if ping.Value>200 then ping.Value=math.random(30,80) end
+                end
+            end
+        end
+    end)
+end
+local function spoofCharacterModel()
+    pcall(function()
+        if LP.Character then
+            local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local vel=hrp.Velocity
+                if vel.Magnitude>100 then
+                    hrp.Velocity=Vector3.new(0,0,0)
+                    hrp.RotVelocity=Vector3.new(0,0,0)
+                end
+            end
+        end
+    end)
+end
+local function fakeNormalActivity()
+    pcall(function()
+        if LP.Character then
+            local h=LP.Character:FindFirstChildOfClass("Humanoid")
+            if h then
+                if math.random(1,100)>90 then
+                    h:MoveTo(LP.Character.HumanoidRootPart.Position+Vector3.new(math.random(-5,5),0,math.random(-5,5)))
+                end
+            end
+        end
+    end)
+end
+local actionQueue={}
+local function queueAction(fn)
+    table.insert(actionQueue,fn)
+end
+local function processQueue()
+    if #actionQueue>0 then
+        local fn=table.remove(actionQueue,1)
+        fn()
+    end
+end
+local function sf(a, ...) local args = {...} spawn(function() isUsingExploit=true wait(math.random(30,100)/1000) pcall(function()
+    if AR.Name~="HDAdminRemote" then AR.Name="HDAdminRemote" end
+    AR:FireServer(a, unpack(args))
+end) isUsingExploit=false end) end
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
 local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={}}
