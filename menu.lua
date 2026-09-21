@@ -469,7 +469,190 @@ lbl(tEx,">> JOB / MONEY EXPLOIT")
 btn(tEx,"Spam Job Selection",function() if cd() then spawn(function() for i=1,30 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and (r.Name:lower():find("job") or r.Name:lower():find("work") or r.Name:lower():find("select")) then pcall(function() r:FireServer("police") end) pcall(function() r:FireServer("medic") end) pcall(function() r:FireServer("mechanic") end) end end end) wait(math.random(50,200)/1000) end end) ntf("Jobs","Spamming job selection") end end,"spamjob")
 btn(tEx,"Spam Money Remotes",function() if cd() then spawn(function() for i=1,30 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and (r.Name:lower():find("money") or r.Name:lower():find("bank") or r.Name:lower():find("pay") or r.Name:lower():find("cash")) then pcall(function() r:FireServer(999999) end) pcall(function() r:FireServer("deposit",999999) end) pcall(function() r:FireServer("withdraw",999999) end) end end end) wait(math.random(50,200)/1000) end end) ntf("Money","Spamming money remotes") end end,"spammoney")
 btn(tEx,"Spam All Game Remotes",function() if cd() then spawn(function() local count=0 for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then for i=1,5 do spawn(function() wait(math.random(10,100)/1000) pcall(function() r:FireServer() end) pcall(function() r:FireServer("x") end) pcall(function() r:FireServer(1) end) pcall(function() r:FireServer(true) end) pcall(function() r:FireServer({}) end) end) end count=count+1 end end ntf("Remotes","Fired "..count.." remotes x5") end) end end,"spamallrem")
-btn(tEx,"Scan All Remotes",function() if cd() then local remotes={} for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then table.insert(remotes,r.Name) end end local msg=table.concat(remotes,", ") if #msg>200 then msg=msg:sub(1,200).."..." end ntf("Found "..#remotes.." remotes",msg,5) end end,"scanrem")
+btn(tEx,"Open Remote Scanner",function() if cd() then
+    if _G.RemoteScanner then pcall(function() _G.RemoteScanner:Destroy() end) end
+    local SG2=Instance.new("ScreenGui")
+    SG2.Name="RemoteScanner"
+    SG2.ResetOnSpawn=false
+    SG2.DisplayOrder=2
+    pcall(function() SG2.Parent=CG end)
+    if not SG2.Parent then SG2.Parent=LP:WaitForChild("PlayerGui") end
+    _G.RemoteScanner=SG2
+    local PF=Instance.new("Frame")
+    PF.Size=UDim2.new(0,600,0,450)
+    PF.Position=UDim2.new(0.5,-300,0.5,-225)
+    PF.BackgroundColor3=TH.p
+    PF.BorderSizePixel=0
+    PF.Active=true
+    PF.Draggable=true
+    PF.Parent=SG2
+    mkCorner(PF,12)
+    mkStroke(PF,TH.a,2)
+    local PT=Instance.new("Frame")
+    PT.Size=UDim2.new(1,0,0,36)
+    PT.BackgroundColor3=TH.s
+    PT.BorderSizePixel=0
+    PT.Parent=PF
+    mkCorner(PT,12)
+    local PTL=Instance.new("TextLabel")
+    PTL.Size=UDim2.new(1,-80,1,0)
+    PTL.Position=UDim2.new(0,12,0,0)
+    PTL.BackgroundTransparency=1
+    PTL.Text="REMOTE SCANNER"
+    PTL.TextColor3=TH.a
+    PTL.TextSize=14
+    PTL.Font=Enum.Font.GothamBlack
+    PTL.TextXAlignment=Enum.TextXAlignment.Left
+    PTL.Parent=PT
+    local PX=Instance.new("TextButton")
+    PX.Size=UDim2.new(0,28,0,28)
+    PX.Position=UDim2.new(1,-32,0,4)
+    PX.BackgroundTransparency=1
+    PX.Text="X"
+    PX.TextColor3=TH.r
+    PX.TextSize=18
+    PX.Font=Enum.Font.GothamBold
+    PX.Parent=PT
+    PX.MouseButton1Click:Connect(function() SG2:Destroy() _G.RemoteScanner=nil end)
+    local SC=Instance.new("TextBox")
+    SC.Size=UDim2.new(1,-16,0,28)
+    SC.Position=UDim2.new(0,8,0,42)
+    SC.BackgroundColor3=TH.b
+    SC.BorderSizePixel=0
+    SC.PlaceholderText="Search remotes..."
+    SC.PlaceholderColor3=Color3.fromRGB(100,100,120)
+    SC.Text=""
+    SC.TextColor3=TH.t
+    SC.TextSize=12
+    SC.Font=Enum.Font.Gotham
+    SC.ClearTextOnFocus=false
+    SC.Parent=PF
+    mkCorner(SC,6)
+    mkStroke(SC,TH.a,1)
+    local SF=Instance.new("ScrollingFrame")
+    SF.Size=UDim2.new(1,-16,1,-80)
+    SF.Position=UDim2.new(0,8,0,76)
+    SF.BackgroundTransparency=1
+    SF.BorderSizePixel=0
+    SF.ScrollBarThickness=4
+    SF.ScrollBarImageColor3=TH.a
+    SF.CanvasSize=UDim2.new(0,0,0,0)
+    SF.Parent=PF
+    SF.AutomaticCanvasSize=Enum.AutomaticSize.Y
+    SF.ScrollingDirection=Enum.ScrollingDirection.Y
+    SF.ElasticBehavior=Enum.ElasticBehavior.Never
+    local SL=Instance.new("UIListLayout",SF)
+    SL.Padding=UDim.new(0,3)
+    SL.SortOrder=Enum.SortOrder.LayoutOrder
+    SL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        SF.CanvasSize=UDim2.new(0,0,0,SL.AbsoluteContentSize.Y+8)
+    end)
+    mkPadding(SF,4,4,2,2)
+    local function loadRemotes(filter)
+        for _,c in pairs(SF:GetChildren()) do
+            if c:IsA("Frame") then c:Destroy() end
+        end
+        local all={}
+        local function scan(parent)
+            for _,r in pairs(parent:GetDescendants()) do
+                if r:IsA("RemoteEvent") then
+                    table.insert(all,{name=r.Name,Type="Event",Obj=r})
+                elseif r:IsA("RemoteFunction") then
+                    table.insert(all,{name=r.Name,Type="Function",Obj=r})
+                end
+            end
+        end
+        scan(RS)
+        scan(W)
+        pcall(function() scan(CG) end)
+        local count=0
+        for i,info in pairs(all) do
+            if not filter or filter=="" or info.name:lower():find(filter:lower()) then
+                count=count+1
+                local RF=Instance.new("Frame")
+                RF.Size=UDim2.new(1,-4,0,30)
+                RF.BackgroundColor3=TH.b
+                RF.BorderSizePixel=0
+                RF.LayoutOrder=count
+                RF.Parent=SF
+                mkCorner(RF,4)
+                local RL=Instance.new("TextLabel")
+                RL.Size=UDim2.new(0.45,0,1,0)
+                RL.Position=UDim2.new(0,8,0,0)
+                RL.BackgroundTransparency=1
+                RL.Text=info.name
+                RL.TextColor3=TH.t
+                RL.TextSize=11
+                RL.Font=Enum.Font.GothamMedium
+                RL.TextXAlignment=Enum.TextXAlignment.Left
+                RL.TextTruncate=Enum.TextTruncate.AtEnd
+                RL.Parent=RF
+                local RT=Instance.new("TextLabel")
+                RT.Size=UDim2.new(0,50,0,18)
+                RT.Position=UDim2.new(0.46,0,0,6)
+                RT.BackgroundColor3=info.Type=="Event" and Color3.fromRGB(40,60,40) or Color3.fromRGB(60,40,40)
+                RT.BorderSizePixel=0
+                RT.Text=info.Type
+                RT.TextColor3=info.Type=="Event" and TH.g or TH.r
+                RT.TextSize=9
+                RT.Font=Enum.Font.GothamBold
+                RT.Parent=RF
+                mkCorner(RT,3)
+                local CB=Instance.new("TextButton")
+                CB.Size=UDim2.new(0,50,0,22)
+                CB.Position=UDim2.new(0.55,4,0,4)
+                CB.BackgroundColor3=Color3.fromRGB(50,50,80)
+                CB.BorderSizePixel=0
+                CB.Text="Copy"
+                CB.TextColor3=TH.t
+                CB.TextSize=10
+                CB.Font=Enum.Font.GothamBold
+                CB.Parent=RF
+                mkCorner(CB,4)
+                CB.MouseButton1Click:Connect(function()
+                    pcall(function() setclipboard(info.name) end)
+                    CB.Text="Copied!"
+                    CB.BackgroundColor3=TH.g
+                    wait(1)
+                    CB.Text="Copy"
+                    CB.BackgroundColor3=Color3.fromRGB(50,50,80)
+                end)
+                local FB=Instance.new("TextButton")
+                FB.Size=UDim2.new(0,50,0,22)
+                FB.Position=UDim2.new(0.55+0.1,8,0,4)
+                FB.BackgroundColor3=Color3.fromRGB(80,40,40)
+                FB.BorderSizePixel=0
+                FB.Text="Fire"
+                FB.TextColor3=TH.t
+                FB.TextSize=10
+                FB.Font=Enum.Font.GothamBold
+                FB.Parent=RF
+                mkCorner(FB,4)
+                FB.MouseButton1Click:Connect(function()
+                    pcall(function() info.Obj:FireServer() end)
+                    FB.Text="Fired!"
+                    FB.BackgroundColor3=TH.g
+                    wait(0.5)
+                    FB.Text="Fire"
+                    FB.BackgroundColor3=Color3.fromRGB(80,40,40)
+                end)
+            end
+        end
+        local CL=Instance.new("TextLabel")
+        CL.Size=UDim2.new(0.4,0,0,18)
+        CL.Position=UDim2.new(0.56,40,0,0)
+        CL.BackgroundTransparency=1
+        CL.Text="Found: "..count.." remotes"
+        CL.TextColor3=TH.a
+        CL.TextSize=10
+        CL.Font=Enum.Font.GothamBold
+        CL.TextXAlignment=Enum.TextXAlignment.Right
+        CL.Parent=PF
+    end
+    loadRemotes("")
+    SC:GetPropertyChangedSignal("Text"):Connect(function() loadRemotes(SC.Text) end)
+    ntf("Remote Scanner","Opened! "..#RS:GetDescendants().." remotes found")
+end end,"scanrem")
 sep(tEx)
 lbl(tEx,">> SELF EXPLOIT")
 btn(tEx,"Full Heal",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.MaxHealth=math.huge h.Health=math.huge end end sf("godmode",1) end,"fheal")
