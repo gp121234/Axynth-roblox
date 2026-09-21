@@ -15,8 +15,11 @@ local CAM = W.CurrentCamera
 print("[Axynth] Services OK")
 local AR = RS:FindFirstChild("AdminRemote")
 if not AR then AR = Instance.new("RemoteEvent") AR.Name = "AdminRemote" AR.Parent = RS end
-local function sf(a, ...) local args = {...} spawn(function() wait(math.random(10,50)/1000) pcall(function() AR:FireServer(a, unpack(args)) end) end) end
-local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={}}
+local lastFire=0
+local function sf(a, ...) local args = {...} spawn(function() local now=tick() if now-lastFire<0.3 then wait(math.random(30,80)/1000) end lastFire=tick()+math.random(20,60)/1000 wait(math.random(30,100)/1000) pcall(function() AR:FireServer(a, unpack(args)) end) end) end
+local lastAction=0
+local function cd() local now=tick() if now-lastAction<1.5 then ntf("Cooldown","Wait "..string.format("%.1f",1.5-(now-lastAction)).."s") return false end lastAction=now return true end
+local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},lastAction=0}
 local CFG = {MenuKey=Enum.KeyCode.F4,ESPKey=Enum.KeyCode.F9,ESPColor=Color3.fromRGB(255,0,0),ESPFillAlpha=0.5}
 local TH = {p=Color3.fromRGB(18,18,32),s=Color3.fromRGB(24,24,44),b=Color3.fromRGB(35,35,60),bh=Color3.fromRGB(55,55,85),t=Color3.fromRGB(210,210,230),a=Color3.fromRGB(120,120,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local function tw(o,p,d) local t=TW:Create(o,TweenInfo.new(d or 0.25,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),p) t:Play() return t end
@@ -151,19 +154,26 @@ for i,n in pairs(tNames) do
     f.Parent=CFB
     mkCorner(f,6)
     local fr=Instance.new("ScrollingFrame")
-    fr.Size=UDim2.new(1,-16,1,-90)
-    fr.Position=UDim2.new(0,8,0,84)
+    fr.Size=UDim2.new(1,-16,1,-86)
+    fr.Position=UDim2.new(0,8,0,82)
     fr.BackgroundTransparency=1
     fr.BorderSizePixel=0
-    fr.ScrollBarThickness=3
+    fr.ScrollBarThickness=4
     fr.ScrollBarImageColor3=TH.a
     fr.CanvasSize=UDim2.new(0,0,0,0)
     fr.Visible=false
     fr.Parent=MF
     fr.AutomaticCanvasSize=Enum.AutomaticSize.Y
+    fr.ScrollingDirection=Enum.ScrollingDirection.Y
+    fr.ElasticBehavior=Enum.ElasticBehavior.Never
+    fr.TopImage="rbxasset://textures/ui/Scroll/scroll-middle.png"
+    fr.BottomImage="rbxasset://textures/ui/Scroll/scroll-middle.png"
     local layout=Instance.new("UIListLayout",fr)
     layout.Padding=UDim.new(0,4)
     layout.SortOrder=Enum.SortOrder.LayoutOrder
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        fr.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+8)
+    end)
     mkPadding(fr,4,4,2,2)
     tabs[n[1]]={btn=f,frame=fr}
     tF[n[1]]=fr
@@ -287,11 +297,11 @@ btn(tP,"Refresh Players",function() pDropBtn.Text="  Click to select..." ST.sele
 sep(tP)
 lbl(tP,">> PLAYER ACTIONS")
 btn(tP,"Goto Player",function() if ST.selectedPlayer and ST.selectedPlayer.Character and LP.Character then local t2=ST.selectedPlayer.Character:FindFirstChild("HumanoidRootPart") local m=LP.Character:FindFirstChild("HumanoidRootPart") if t2 and m then m.CFrame=t2.CFrame+Vector3.new(3,0,0) end end end)
-btn(tP,"Bring Player",function() if ST.selectedPlayer then sf("bring",ST.selectedPlayer.Name) end end)
-btn(tP,"Freeze Player",function() if ST.selectedPlayer then sf("freeze",ST.selectedPlayer.Name) end end)
-btn(tP,"Unfreeze Player",function() if ST.selectedPlayer then sf("unfreeze",ST.selectedPlayer.Name) end end)
-btn(tP,"Kill Player",function() if ST.selectedPlayer then sf("kill",ST.selectedPlayer.Name) end end)
-btn(tP,"Heal Player",function() if ST.selectedPlayer then sf("heal",ST.selectedPlayer.Name) end end)
+btn(tP,"Bring Player",function() if ST.selectedPlayer and cd() then sf("bring",ST.selectedPlayer.Name) end end)
+btn(tP,"Freeze Player",function() if ST.selectedPlayer and cd() then sf("freeze",ST.selectedPlayer.Name) end end)
+btn(tP,"Unfreeze Player",function() if ST.selectedPlayer and cd() then sf("unfreeze",ST.selectedPlayer.Name) end end)
+btn(tP,"Kill Player",function() if ST.selectedPlayer and cd() then sf("kill",ST.selectedPlayer.Name) end end)
+btn(tP,"Heal Player",function() if ST.selectedPlayer and cd() then sf("heal",ST.selectedPlayer.Name) end end)
 sep(tP)
 lbl(tP,">> SPECTATE + ESP")
 btn(tP,"Spectate",function() if ST.selectedPlayer and ST.selectedPlayer.Character then local h=ST.selectedPlayer.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=ST.selectedPlayer end end end)
@@ -320,25 +330,25 @@ tog(tP,"ESP [F9]",function() return ST.esp end,function()
 end)
 local tF2=tF["fun"]
 lbl(tF2,">> TROLL ALL")
-btn(tF2,"Fire All",function() sf("fire",100) end)
-btn(tF2,"Sparkle All",function() sf("sparkle",100) end)
-btn(tF2,"Smoke All",function() sf("smoke",100) end)
-btn(tF2,"Remove FX",function() sf("removefx",100) end)
-btn(tF2,"Big Head All",function() sf("bighead",100) end)
-btn(tF2,"Small Head All",function() sf("smallhead",100) end)
-btn(tF2,"Spin All",function() sf("spin",100) end)
-btn(tF2,"Stop Spin",function() sf("unspin",100) end)
+btn(tF2,"Fire All",function() if cd() then sf("fire",100) end end)
+btn(tF2,"Sparkle All",function() if cd() then sf("sparkle",100) end end)
+btn(tF2,"Smoke All",function() if cd() then sf("smoke",100) end end)
+btn(tF2,"Remove FX",function() if cd() then sf("removefx",100) end end)
+btn(tF2,"Big Head All",function() if cd() then sf("bighead",100) end end)
+btn(tF2,"Small Head All",function() if cd() then sf("smallhead",100) end end)
+btn(tF2,"Spin All",function() if cd() then sf("spin",100) end end)
+btn(tF2,"Stop Spin",function() if cd() then sf("unspin",100) end end)
 sep(tF2)
 lbl(tF2,">> TROLL ACTIONS")
-btn(tF2,"Stomp All",function() sf("stomp",100) end)
-btn(tF2,"Trip All",function() sf("trip",100) end)
-btn(tF2,"Vibrate All",function() sf("vibrate",100) end)
-btn(tF2,"Fling All",function() sf("fling",100) end)
-btn(tF2,"Ragdoll All",function() sf("ragdoll",100) end)
-btn(tF2,"Bang All",function() sf("bang",100) end)
-btn(tF2,"Dance All",function() sf("dance",100) end)
-btn(tF2,"Sleep All",function() sf("sleep",100) end)
-btn(tF2,"Invisible All",function() sf("invisible",100) end)
+btn(tF2,"Stomp All",function() if cd() then sf("stomp",100) end end)
+btn(tF2,"Trip All",function() if cd() then sf("trip",100) end end)
+btn(tF2,"Vibrate All",function() if cd() then sf("vibrate",100) end end)
+btn(tF2,"Fling All",function() if cd() then sf("fling",100) end end)
+btn(tF2,"Ragdoll All",function() if cd() then sf("ragdoll",100) end end)
+btn(tF2,"Bang All",function() if cd() then sf("bang",100) end end)
+btn(tF2,"Dance All",function() if cd() then sf("dance",100) end end)
+btn(tF2,"Sleep All",function() if cd() then sf("sleep",100) end end)
+btn(tF2,"Invisible All",function() if cd() then sf("invisible",100) end end)
 btn(tF2,"Visible All",function() sf("visible",100) end)
 sep(tF2)
 lbl(tF2,">> SELF FUN")
@@ -358,11 +368,11 @@ btn(tMi,"Third Person",function() pcall(function() LP.CameraMinZoomDistance=10 L
 btn(tMi,"First Person",function() pcall(function() LP.CameraMinZoomDistance=0.5 LP.CameraMaxZoomDistance=0.5 end) end)
 sep(tMi)
 lbl(tMi,">> SERVER ACTIONS")
-btn(tMi,"Kill All",function() sf("kill",100) end)
-btn(tMi,"Heal All",function() sf("heal",100) end)
-btn(tMi,"Freeze All",function() sf("freeze",100) end)
-btn(tMi,"Unfreeze All",function() sf("unfreeze",100) end)
-btn(tMi,"Explode All",function() sf("explode",100) end)
+btn(tMi,"Kill All",function() if cd() then sf("kill",100) end end)
+btn(tMi,"Heal All",function() if cd() then sf("heal",100) end end)
+btn(tMi,"Freeze All",function() if cd() then sf("freeze",100) end end)
+btn(tMi,"Unfreeze All",function() if cd() then sf("unfreeze",100) end end)
+btn(tMi,"Explode All",function() if cd() then sf("explode",100) end end)
 local tSe=tF["set"]
 lbl(tSe,">> THEME")
 btn(tSe,"Dark Purple",function() TH.p=Color3.fromRGB(18,18,32) TH.s=Color3.fromRGB(24,24,44) TH.b=Color3.fromRGB(35,35,60) TH.bh=Color3.fromRGB(55,55,85) TH.a=Color3.fromRGB(120,120,255) MF.BackgroundColor3=TH.p end)
