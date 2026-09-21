@@ -28,15 +28,25 @@ local function cd()
     lastAction=now actionCount=actionCount+1 return true
 end
 local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},serverLag=false}
-local CFG = {MenuKey=Enum.KeyCode.F4,ESPKey=Enum.KeyCode.F9,ESPColor=Color3.fromRGB(255,0,0),ESPFillAlpha=0.5}
+local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPFillAlpha=0.5}
 local TH = {p=Color3.fromRGB(18,18,32),s=Color3.fromRGB(24,24,44),b=Color3.fromRGB(35,35,60),bh=Color3.fromRGB(55,55,85),t=Color3.fromRGB(210,210,230),a=Color3.fromRGB(120,120,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
+local KB = {}
+local waitingForKey = nil
 local function tw(o,p,d) local t=TW:Create(o,TweenInfo.new(d or 0.25,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),p) t:Play() return t end
 local function mkCorner(p,r) local c=Instance.new("UICorner",p) c.CornerRadius=UDim.new(0,r or 8) return c end
 local function mkStroke(p,c,w) local s=Instance.new("UIStroke",p) s.Color=c or Color3.fromRGB(60,60,90) s.Thickness=w or 1 s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border return s end
 local function mkPadding(p,t,b,l,r2) local pd=Instance.new("UIPadding",p) pd.PaddingTop=UDim.new(0,t or 4) pd.PaddingBottom=UDim.new(0,b or 4) pd.PaddingLeft=UDim.new(0,l or 6) pd.PaddingRight=UDim.new(0,r2 or 6) return pd end
 local function sep(p) local f=Instance.new("Frame") f.Size=UDim2.new(1,-12,0,1) f.Position=UDim2.new(0,6,0,0) f.BackgroundColor3=Color3.fromRGB(50,50,75) f.BorderSizePixel=0 f.Parent=p end
 local function lbl(p,t) local l=Instance.new("TextLabel") l.Size=UDim2.new(1,-12,0,24) l.Position=UDim2.new(0,6,0,0) l.BackgroundTransparency=1 l.Text=t l.TextColor3=TH.a l.TextSize=13 l.Font=Enum.Font.GothamBold l.TextXAlignment=Enum.TextXAlignment.Left l.Parent=p return l end
-local function btn(p,t,fn)
+local function ntf(t,x,d) pcall(function() S:SetCore("SendNotification",{Title=t,Text=x,Duration=d or 3}) end) end
+local function getKeyDisplay(key)
+    if not key then return "NONE" end
+    local s = tostring(key)
+    s = s:gsub("Enum.KeyCode.","")
+    s = s:gsub("Enum.UserInputType.","")
+    return s
+end
+local function btn(p,t,fn,id)
     local b=Instance.new("TextButton")
     b.Size=UDim2.new(1,-12,0,34)
     b.Position=UDim2.new(0,6,0,0)
@@ -50,6 +60,24 @@ local function btn(p,t,fn)
     b.Parent=p
     mkCorner(b,6)
     mkStroke(b,Color3.fromRGB(60,60,90),1)
+    local kbBtn=Instance.new("TextButton")
+    kbBtn.Size=UDim2.new(0,40,0,22)
+    kbBtn.Position=UDim2.new(1,-48,0,6)
+    kbBtn.BackgroundColor3=TH.p
+    kbBtn.BorderSizePixel=0
+    kbBtn.Text=getKeyDisplay(KB[id])
+    kbBtn.TextColor3=TH.a
+    kbBtn.TextSize=9
+    kbBtn.Font=Enum.Font.GothamBold
+    kbBtn.Parent=b
+    mkCorner(kbBtn,4)
+    mkStroke(kbBtn,TH.a,1)
+    kbBtn.MouseButton1Click:Connect(function()
+        waitingForKey=id
+        kbBtn.Text="..."
+        kbBtn.TextColor3=TH.r
+        ntf("Keybind","Press any key for: "..t,5)
+    end)
     b.MouseEnter:Connect(function() tw(b,{BackgroundColor3=TH.bh,TextColor3=Color3.new(1,1,1)},0.15) end)
     b.MouseLeave:Connect(function() tw(b,{BackgroundColor3=TH.b,TextColor3=TH.t},0.15) end)
     b.MouseButton1Click:Connect(function()
@@ -60,7 +88,7 @@ local function btn(p,t,fn)
     end)
     return b
 end
-local function tog(p,t,gf,fn)
+local function tog(p,t,gf,fn,id)
     local b=Instance.new("TextButton")
     b.Size=UDim2.new(1,-12,0,34)
     b.Position=UDim2.new(0,6,0,0)
@@ -75,6 +103,24 @@ local function tog(p,t,gf,fn)
     b.Parent=p
     mkCorner(b,6)
     mkStroke(b,st and TH.g or Color3.fromRGB(60,60,90),1)
+    local kbBtn=Instance.new("TextButton")
+    kbBtn.Size=UDim2.new(0,40,0,22)
+    kbBtn.Position=UDim2.new(1,-48,0,6)
+    kbBtn.BackgroundColor3=TH.p
+    kbBtn.BorderSizePixel=0
+    kbBtn.Text=getKeyDisplay(KB[id])
+    kbBtn.TextColor3=TH.a
+    kbBtn.TextSize=9
+    kbBtn.Font=Enum.Font.GothamBold
+    kbBtn.Parent=b
+    mkCorner(kbBtn,4)
+    mkStroke(kbBtn,TH.a,1)
+    kbBtn.MouseButton1Click:Connect(function()
+        waitingForKey=id
+        kbBtn.Text="..."
+        kbBtn.TextColor3=TH.r
+        ntf("Keybind","Press any key for: "..t,5)
+    end)
     b.MouseEnter:Connect(function() tw(b,{BackgroundColor3=TH.bh},0.15) end)
     b.MouseLeave:Connect(function() tw(b,{BackgroundColor3=TH.b},0.15) end)
     b.MouseButton1Click:Connect(function()
@@ -87,9 +133,16 @@ local function tog(p,t,gf,fn)
         b.TextColor3=s and TH.g or TH.t
         pcall(function() b.UIStroke.Color = s and TH.g or Color3.fromRGB(60,60,90) end)
     end)
+    b._kbBtn=kbBtn
+    b._update=function()
+        local s=gf()
+        b.Text="  "..t..": "..(s and "ON" or "OFF")
+        b.TextColor3=s and TH.g or TH.t
+        pcall(function() b.UIStroke.Color = s and TH.g or Color3.fromRGB(60,60,90) end)
+        kbBtn.Text=getKeyDisplay(KB[id])
+    end
     return b
 end
-local function ntf(t,x,d) pcall(function() S:SetCore("SendNotification",{Title=t,Text=x,Duration=d or 3}) end) end
 print("[Axynth] Helpers OK")
 local SG=Instance.new("ScreenGui")
 SG.Name="AxynthMenu"
@@ -194,23 +247,26 @@ end
 tabs["home"].frame.Visible=true
 tw(tabs["home"].btn,{BackgroundColor3=TH.a,TextColor3=Color3.new(1,1,1)},0.2)
 print("[Axynth] Tabs OK")
+local allToggles={}
 local tH=tF["home"]
 lbl(tH,">> SPEED")
-btn(tH,"Speed 100",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=100 end end end)
-btn(tH,"Speed 250",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=250 end end end)
-btn(tH,"Speed 500",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=500 end end end)
-btn(tH,"Reset Speed",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end)
+btn(tH,"Speed 100",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=100 end end end,"sp100")
+btn(tH,"Speed 250",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=250 end end end,"sp250")
+btn(tH,"Speed 500",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=500 end end end,"sp500")
+btn(tH,"Reset Speed",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end,"sprst")
 sep(tH)
 lbl(tH,">> JUMP")
-btn(tH,"Jump 100",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=100 end end end)
-btn(tH,"Jump 300",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=300 end end end)
-btn(tH,"Jump 500",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=500 end end end)
-btn(tH,"Reset Jump",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=50 end end end)
+btn(tH,"Jump 100",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=100 end end end,"jp100")
+btn(tH,"Jump 300",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=300 end end end,"jp300")
+btn(tH,"Jump 500",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=500 end end end,"jp500")
+btn(tH,"Reset Jump",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=50 end end end,"jprst")
 sep(tH)
 lbl(tH,">> FLY + NOCLIP")
-tog(tH,"Fly [F7]",function() return ST.fly end,function() ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end end)
-tog(tH,"Noclip [F5]",function() return ST.noclip end,function() ST.noclip=not ST.noclip end)
-tog(tH,"Free Cam [F8]",function() return ST.freeCam end,function()
+local tFly=tog(tH,"Fly",function() return ST.fly end,function() ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end end,"fly")
+table.insert(allToggles,tFly)
+local tNoclip=tog(tH,"Noclip",function() return ST.noclip end,function() ST.noclip=not ST.noclip end,"noclip")
+table.insert(allToggles,tNoclip)
+local tFC=tog(tH,"Free Cam",function() return ST.freeCam end,function()
     ST.freeCam=not ST.freeCam
     if ST.freeCam then
         ST.freeCamPos=CAM.CFrame
@@ -222,24 +278,29 @@ tog(tH,"Free Cam [F8]",function() return ST.freeCam end,function()
         if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end
         ntf("FreeCam","OFF")
     end
-end)
+end,"freecam")
+table.insert(allToggles,tFC)
 sep(tH)
 lbl(tH,">> TELEPORT")
-tog(tH,"Click TP [F6]",function() return ST.clickTP end,function() ST.clickTP=not ST.clickTP ntf("ClickTP",ST.clickTP and "ON" or "OFF") end)
-btn(tH,"TP Cursor",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,3,0)) end end end)
-btn(tH,"TP Forward",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.CFrame=h.CFrame+CAM.CFrame.LookVector*100 end end end)
-btn(tH,"TP Up",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.CFrame=h.CFrame+Vector3.new(0,50,0) end end end)
-btn(tH,"TP Down",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.CFrame=h.CFrame+Vector3.new(0,-50,0) end end end)
+local tCTP=tog(tH,"Click TP",function() return ST.clickTP end,function() ST.clickTP=not ST.clickTP ntf("ClickTP",ST.clickTP and "ON" or "OFF") end,"clicktp")
+table.insert(allToggles,tCTP)
+btn(tH,"TP Cursor",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,3,0)) end end end,"tpcur")
+btn(tH,"TP Forward",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.CFrame=h.CFrame+CAM.CFrame.LookVector*100 end end end,"tpfwd")
+btn(tH,"TP Up",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.CFrame=h.CFrame+Vector3.new(0,50,0) end end end,"tpup")
+btn(tH,"TP Down",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.CFrame=h.CFrame+Vector3.new(0,-50,0) end end end,"tpdn")
 local tW=tF["world"]
 lbl(tW,">> WORLD")
-tog(tW,"Night",function() return ST.night end,function() ST.night=not ST.night if ST.night then L.ClockTime=0 else L.ClockTime=14 end end)
-tog(tW,"Fullbright",function() return ST.bright end,function() ST.bright=not ST.bright if ST.bright then L.Brightness=2 L.GlobalShadows=false else L.Brightness=1 L.GlobalShadows=true end end)
-tog(tW,"No Fog",function() return ST.noFog end,function() ST.noFog=not ST.noFog if ST.noFog then L.FogEnd=999999 else L.FogEnd=100000 end end)
+local tNight=tog(tW,"Night",function() return ST.night end,function() ST.night=not ST.night if ST.night then L.ClockTime=0 else L.ClockTime=14 end end,"night")
+table.insert(allToggles,tNight)
+local tBright=tog(tW,"Fullbright",function() return ST.bright end,function() ST.bright=not ST.bright if ST.bright then L.Brightness=2 L.GlobalShadows=false else L.Brightness=1 L.GlobalShadows=true end end,"bright")
+table.insert(allToggles,tBright)
+local tFog=tog(tW,"No Fog",function() return ST.noFog end,function() ST.noFog=not ST.noFog if ST.noFog then L.FogEnd=999999 else L.FogEnd=100000 end end,"nofog")
+table.insert(allToggles,tFog)
 sep(tW)
 lbl(tW,">> LIGHTING")
-btn(tW,"Brightness +1",function() L.Brightness=L.Brightness+1 end)
-btn(tW,"Brightness -1",function() L.Brightness=math.max(0,L.Brightness-1) end)
-btn(tW,"Reset Lighting",function() L.Brightness=1 L.GlobalShadows=true L.FogEnd=100000 L.ClockTime=14 end)
+btn(tW,"Brightness +1",function() L.Brightness=L.Brightness+1 end,"brup")
+btn(tW,"Brightness -1",function() L.Brightness=math.max(0,L.Brightness-1) end,"brdn")
+btn(tW,"Reset Lighting",function() L.Brightness=1 L.GlobalShadows=true L.FogEnd=100000 L.ClockTime=14 end,"lgrst")
 local tP=tF["plr"]
 lbl(tP,">> SELECT PLAYER")
 local pDropBtn=Instance.new("TextButton")
@@ -301,21 +362,21 @@ pDropBtn.MouseButton1Click:Connect(function()
         if pDropdown then pDropdown:Destroy() pDropdown=nil end
     end
 end)
-btn(tP,"Refresh Players",function() pDropBtn.Text="  Click to select..." ST.selectedPlayer=nil end)
+btn(tP,"Refresh Players",function() pDropBtn.Text="  Click to select..." ST.selectedPlayer=nil end,"plrrefresh")
 sep(tP)
 lbl(tP,">> PLAYER ACTIONS")
-btn(tP,"Goto Player",function() if ST.selectedPlayer and ST.selectedPlayer.Character and LP.Character then local t2=ST.selectedPlayer.Character:FindFirstChild("HumanoidRootPart") local m=LP.Character:FindFirstChild("HumanoidRootPart") if t2 and m then m.CFrame=t2.CFrame+Vector3.new(3,0,0) end end end)
-btn(tP,"Bring Player",function() if ST.selectedPlayer and cd() then sf("bring",ST.selectedPlayer.Name) end end)
-btn(tP,"Freeze Player",function() if ST.selectedPlayer and cd() then sf("freeze",ST.selectedPlayer.Name) end end)
-btn(tP,"Unfreeze Player",function() if ST.selectedPlayer and cd() then sf("unfreeze",ST.selectedPlayer.Name) end end)
-btn(tP,"Kill Player",function() if ST.selectedPlayer and cd() then sf("kill",ST.selectedPlayer.Name) end end)
-btn(tP,"Heal Player",function() if ST.selectedPlayer and cd() then sf("heal",ST.selectedPlayer.Name) end end)
-btn(tP,"Explode Player",function() if ST.selectedPlayer and cd() then sf("explode",ST.selectedPlayer.Name) end end)
+btn(tP,"Goto Player",function() if ST.selectedPlayer and ST.selectedPlayer.Character and LP.Character then local t2=ST.selectedPlayer.Character:FindFirstChild("HumanoidRootPart") local m=LP.Character:FindFirstChild("HumanoidRootPart") if t2 and m then m.CFrame=t2.CFrame+Vector3.new(3,0,0) end end end,"goto")
+btn(tP,"Bring Player",function() if ST.selectedPlayer and cd() then sf("bring",ST.selectedPlayer.Name) end end,"bring")
+btn(tP,"Freeze Player",function() if ST.selectedPlayer and cd() then sf("freeze",ST.selectedPlayer.Name) end end,"freeze")
+btn(tP,"Unfreeze Player",function() if ST.selectedPlayer and cd() then sf("unfreeze",ST.selectedPlayer.Name) end end,"unfreeze")
+btn(tP,"Kill Player",function() if ST.selectedPlayer and cd() then sf("kill",ST.selectedPlayer.Name) end end,"kill")
+btn(tP,"Heal Player",function() if ST.selectedPlayer and cd() then sf("heal",ST.selectedPlayer.Name) end end,"heal")
+btn(tP,"Explode Player",function() if ST.selectedPlayer and cd() then sf("explode",ST.selectedPlayer.Name) end end,"expl")
 sep(tP)
 lbl(tP,">> SPECTATE + ESP")
-btn(tP,"Spectate",function() if ST.selectedPlayer and ST.selectedPlayer.Character then local h=ST.selectedPlayer.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=ST.selectedPlayer end end end)
-btn(tP,"Stop Spectate",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end CAM.CameraType=Enum.CameraType.Custom ST.spectating=nil end end)
-tog(tP,"ESP [F9]",function() return ST.esp end,function()
+btn(tP,"Spectate",function() if ST.selectedPlayer and ST.selectedPlayer.Character then local h=ST.selectedPlayer.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=ST.selectedPlayer end end end,"spec")
+btn(tP,"Stop Spectate",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end CAM.CameraType=Enum.CameraType.Custom ST.spectating=nil end end,"stopspec")
+local tESP=tog(tP,"ESP",function() return ST.esp end,function()
     ST.esp=not ST.esp
     if ST.esp then
         for _,pp in pairs(P:GetPlayers()) do
@@ -336,47 +397,48 @@ tog(tP,"ESP [F9]",function() return ST.esp end,function()
             ST.espList[id]=nil
         end
     end
-end)
+end,"esp")
+table.insert(allToggles,tESP)
 local tF2=tF["fun"]
 lbl(tF2,">> TROLL ALL")
-btn(tF2,"Fire All",function() if cd() then sf("fire",100) end end)
-btn(tF2,"Sparkle All",function() if cd() then sf("sparkle",100) end end)
-btn(tF2,"Smoke All",function() if cd() then sf("smoke",100) end end)
-btn(tF2,"Remove FX",function() if cd() then sf("removefx",100) end end)
-btn(tF2,"Big Head All",function() if cd() then sf("bighead",100) end end)
-btn(tF2,"Small Head All",function() if cd() then sf("smallhead",100) end end)
-btn(tF2,"Spin All",function() if cd() then sf("spin",100) end end)
-btn(tF2,"Stop Spin",function() if cd() then sf("unspin",100) end end)
+btn(tF2,"Fire All",function() if cd() then sf("fire",100) end end,"fire")
+btn(tF2,"Sparkle All",function() if cd() then sf("sparkle",100) end end,"sparkle")
+btn(tF2,"Smoke All",function() if cd() then sf("smoke",100) end end,"smoke")
+btn(tF2,"Remove FX",function() if cd() then sf("removefx",100) end end,"rmfx")
+btn(tF2,"Big Head All",function() if cd() then sf("bighead",100) end end,"bhead")
+btn(tF2,"Small Head All",function() if cd() then sf("smallhead",100) end end,"shead")
+btn(tF2,"Spin All",function() if cd() then sf("spin",100) end end,"spin")
+btn(tF2,"Stop Spin",function() if cd() then sf("unspin",100) end end,"unspin")
 sep(tF2)
 lbl(tF2,">> TROLL ACTIONS")
-btn(tF2,"Stomp All",function() if cd() then sf("stomp",100) end end)
-btn(tF2,"Trip All",function() if cd() then sf("trip",100) end end)
-btn(tF2,"Vibrate All",function() if cd() then sf("vibrate",100) end end)
-btn(tF2,"Fling All",function() if cd() then sf("fling",100) end end)
-btn(tF2,"Ragdoll All",function() if cd() then sf("ragdoll",100) end end)
-btn(tF2,"Bang All",function() if cd() then sf("bang",100) end end)
-btn(tF2,"Dance All",function() if cd() then sf("dance",100) end end)
-btn(tF2,"Sleep All",function() if cd() then sf("sleep",100) end end)
-btn(tF2,"Invisible All",function() if cd() then sf("invisible",100) end end)
-btn(tF2,"Visible All",function() sf("visible",100) end)
+btn(tF2,"Stomp All",function() if cd() then sf("stomp",100) end end,"stomp")
+btn(tF2,"Trip All",function() if cd() then sf("trip",100) end end,"trip")
+btn(tF2,"Vibrate All",function() if cd() then sf("vibrate",100) end end,"vibrate")
+btn(tF2,"Fling All",function() if cd() then sf("fling",100) end end,"fling")
+btn(tF2,"Ragdoll All",function() if cd() then sf("ragdoll",100) end end,"ragdoll")
+btn(tF2,"Bang All",function() if cd() then sf("bang",100) end end,"bang")
+btn(tF2,"Dance All",function() if cd() then sf("dance",100) end end,"dance")
+btn(tF2,"Sleep All",function() if cd() then sf("sleep",100) end end,"sleep")
+btn(tF2,"Invisible All",function() if cd() then sf("invisible",100) end end,"invis")
+btn(tF2,"Visible All",function() sf("visible",100) end,"vis")
 sep(tF2)
 lbl(tF2,">> SELF FUN")
-btn(tF2,"Self Fire",function() sf("fire",1) end)
-btn(tF2,"Self Sparkle",function() sf("sparkle",1) end)
-btn(tF2,"Self Dance",function() sf("dance",1) end)
-btn(tF2,"Self Bang",function() sf("bang",1) end)
-btn(tF2,"Self Sleep",function() sf("sleep",1) end)
-btn(tF2,"Self Spin",function() sf("spin",1) end)
-btn(tF2,"Self Stop Spin",function() sf("unspin",1) end)
+btn(tF2,"Self Fire",function() sf("fire",1) end,"sfire")
+btn(tF2,"Self Sparkle",function() sf("sparkle",1) end,"ssparkle")
+btn(tF2,"Self Dance",function() sf("dance",1) end,"sdance")
+btn(tF2,"Self Bang",function() sf("bang",1) end,"sbang")
+btn(tF2,"Self Sleep",function() sf("sleep",1) end,"ssleep")
+btn(tF2,"Self Spin",function() sf("spin",1) end,"sspin")
+btn(tF2,"Self Stop Spin",function() sf("unspin",1) end,"sunspin")
 local tEx=tF["exploit"]
 lbl(tEx,">> SILENT BAN / KICK")
-btn(tEx,"Report Spam Target",function() if ST.selectedPlayer and cd() then for i=1,10 do spawn(function() wait(math.random(50,200)/1000) pcall(function() local r=RS:FindFirstChild("ReportPlayer") if r then r:FireServer(ST.selectedPlayer,"Exploiting","Exploiting") end end) pcall(function() local r=RS:FindFirstChild("Report") if r then r:FireServer(ST.selectedPlayer,"Exploiting") end end) pcall(function() local r=RS:FindFirstChild("AntiCheatReport") if r then r:FireServer(ST.selectedPlayer,"cheating") end end) end) end ntf("Report","Spamming reports on "..ST.selectedPlayer.Name) end end)
-btn(tEx,"Vote Kick Target",function() if ST.selectedPlayer and cd() then pcall(function() local r=RS:FindFirstChild("VoteKick") if r then r:FireServer(ST.selectedPlayer) end end) pcall(function() local r=RS:FindFirstChild("Votekick") if r then r:FireServer(ST.selectedPlayer.Name) end end) pcall(function() local r=RS:FindFirstChild("Kick") if r then r:FireServer(ST.selectedPlayer.Name,"Exploiting") end end) ntf("VoteKick","Trying to kick "..ST.selectedPlayer.Name) end end)
-btn(tEx,"Trigger Anticheat Target",function() if ST.selectedPlayer and cd() then for i=1,5 do spawn(function() wait(math.random(100,500)/1000) pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and r.Name:lower():find("anti") then r:FireServer(ST.selectedPlayer,"flag") end end end) end) end ntf("Anticheat","Triggering on "..ST.selectedPlayer.Name) end end)
-btn(tEx,"Spam Reports All",function() if cd() then for i=1,20 do spawn(function() wait(math.random(100,400)/1000) pcall(function() local r=RS:FindFirstChild("ReportPlayer") if r then r:FireServer(P:GetChildren()[math.random(2,#P:GetChildren())],"Exploiting") end end) end) end ntf("Reports","Spamming all reports") end end)
+btn(tEx,"Report Spam Target",function() if ST.selectedPlayer and cd() then for i=1,10 do spawn(function() wait(math.random(50,200)/1000) pcall(function() local r=RS:FindFirstChild("ReportPlayer") if r then r:FireServer(ST.selectedPlayer,"Exploiting","Exploiting") end end) pcall(function() local r=RS:FindFirstChild("Report") if r then r:FireServer(ST.selectedPlayer,"Exploiting") end end) pcall(function() local r=RS:FindFirstChild("AntiCheatReport") if r then r:FireServer(ST.selectedPlayer,"cheating") end end) end) end ntf("Report","Spamming reports on "..ST.selectedPlayer.Name) end end,"repspam")
+btn(tEx,"Vote Kick Target",function() if ST.selectedPlayer and cd() then pcall(function() local r=RS:FindFirstChild("VoteKick") if r then r:FireServer(ST.selectedPlayer) end end) pcall(function() local r=RS:FindFirstChild("Votekick") if r then r:FireServer(ST.selectedPlayer.Name) end end) pcall(function() local r=RS:FindFirstChild("Kick") if r then r:FireServer(ST.selectedPlayer.Name,"Exploiting") end end) ntf("VoteKick","Trying to kick "..ST.selectedPlayer.Name) end end,"votekick")
+btn(tEx,"Trigger Anticheat Target",function() if ST.selectedPlayer and cd() then for i=1,5 do spawn(function() wait(math.random(100,500)/1000) pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and r.Name:lower():find("anti") then r:FireServer(ST.selectedPlayer,"flag") end end end) end) end ntf("Anticheat","Triggering on "..ST.selectedPlayer.Name) end end,"triganti")
+btn(tEx,"Spam Reports All",function() if cd() then for i=1,20 do spawn(function() wait(math.random(100,400)/1000) pcall(function() local r=RS:FindFirstChild("ReportPlayer") if r then r:FireServer(P:GetChildren()[math.random(2,#P:GetChildren())],"Exploiting") end end) end) end ntf("Reports","Spamming all reports") end end,"repall")
 sep(tEx)
 lbl(tEx,">> SERVER LAG / FREEZE")
-tog(tEx,"Server Lag [F10]",function() return ST.serverLag end,function()
+local tLag=tog(tEx,"Server Lag",function() return ST.serverLag end,function()
     ST.serverLag=not ST.serverLag
     if ST.serverLag then
         ntf("Server Lag","ON - spamming remotes")
@@ -397,51 +459,71 @@ tog(tEx,"Server Lag [F10]",function() return ST.serverLag end,function()
     else
         ntf("Server Lag","OFF")
     end
-end)
-btn(tEx,"Spam All Remotes",function() if cd() then spawn(function() for i=1,50 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then pcall(function() r:FireServer(LP) end) end end end) wait(math.random(10,50)/1000) end end) ntf("Spam","Fired 50 rounds of remotes") end end)
-btn(tEx,"Touch All Parts",function() if cd() and LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then spawn(function() for _,obj in pairs(W:GetDescendants()) do if obj:IsA("BasePart") and (obj.Position-hrp.Position).Magnitude<100 then pcall(function() firetouchinterest(hrp,obj,0) end) pcall(function() firetouchinterest(hrp,obj,1) end) wait(math.random(5,30)/1000) end end end) ntf("Touch","Touching nearby parts") end end end)
-btn(tEx,"Fire All ClickDetectors",function() if cd() then spawn(function() for _,obj in pairs(W:GetDescendants()) do if obj:IsA("ClickDetector") then pcall(function() obj.MouseClick:Fire() end) wait(math.random(10,50)/1000) end end end) ntf("ClickDetectors","Firing all click detectors") end end)
+end,"svlag")
+table.insert(allToggles,tLag)
+btn(tEx,"Spam All Remotes",function() if cd() then spawn(function() for i=1,50 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then pcall(function() r:FireServer(LP) end) end end end) wait(math.random(10,50)/1000) end end) ntf("Spam","Fired 50 rounds of remotes") end end,"spamrem")
+btn(tEx,"Touch All Parts",function() if cd() and LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then spawn(function() for _,obj in pairs(W:GetDescendants()) do if obj:IsA("BasePart") and (obj.Position-hrp.Position).Magnitude<100 then pcall(function() firetouchinterest(hrp,obj,0) end) pcall(function() firetouchinterest(hrp,obj,1) end) wait(math.random(5,30)/1000) end end end) ntf("Touch","Touching nearby parts") end end end,"touchall")
+btn(tEx,"Fire All ClickDetectors",function() if cd() then spawn(function() for _,obj in pairs(W:GetDescendants()) do if obj:IsA("ClickDetector") then pcall(function() obj.MouseClick:Fire() end) wait(math.random(10,50)/1000) end end end) ntf("ClickDetectors","Firing all click detectors") end end,"clickdet")
 sep(tEx)
 lbl(tEx,">> JOB / MONEY EXPLOIT")
-btn(tEx,"Spam Job Selection",function() if cd() then spawn(function() for i=1,30 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and (r.Name:lower():find("job") or r.Name:lower():find("work") or r.Name:lower():find("select")) then pcall(function() r:FireServer("police") end) pcall(function() r:FireServer("medic") end) pcall(function() r:FireServer("mechanic") end) end end end) wait(math.random(50,200)/1000) end end) ntf("Jobs","Spamming job selection") end end)
-btn(tEx,"Spam Money Remotes",function() if cd() then spawn(function() for i=1,30 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and (r.Name:lower():find("money") or r.Name:lower():find("bank") or r.Name:lower():find("pay") or r.Name:lower():find("cash")) then pcall(function() r:FireServer(999999) end) pcall(function() r:FireServer("deposit",999999) end) pcall(function() r:FireServer("withdraw",999999) end) end end end) wait(math.random(50,200)/1000) end end) ntf("Money","Spamming money remotes") end end)
-btn(tEx,"Spam All Game Remotes",function() if cd() then spawn(function() local count=0 for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then for i=1,5 do spawn(function() wait(math.random(10,100)/1000) pcall(function() r:FireServer() end) pcall(function() r:FireServer("x") end) pcall(function() r:FireServer(1) end) pcall(function() r:FireServer(true) end) pcall(function() r:FireServer({}) end) end) end count=count+1 end end ntf("Remotes","Fired "..count.." remotes x5") end) end end)
-btn(tEx,"Scan All Remotes",function() if cd() then local remotes={} for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then table.insert(remotes,r.Name) end end local msg=table.concat(remotes,", ") if #msg>200 then msg=msg:sub(1,200).."..." end ntf("Found "..#remotes.." remotes",msg,5) end end)
+btn(tEx,"Spam Job Selection",function() if cd() then spawn(function() for i=1,30 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and (r.Name:lower():find("job") or r.Name:lower():find("work") or r.Name:lower():find("select")) then pcall(function() r:FireServer("police") end) pcall(function() r:FireServer("medic") end) pcall(function() r:FireServer("mechanic") end) end end end) wait(math.random(50,200)/1000) end end) ntf("Jobs","Spamming job selection") end end,"spamjob")
+btn(tEx,"Spam Money Remotes",function() if cd() then spawn(function() for i=1,30 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and (r.Name:lower():find("money") or r.Name:lower():find("bank") or r.Name:lower():find("pay") or r.Name:lower():find("cash")) then pcall(function() r:FireServer(999999) end) pcall(function() r:FireServer("deposit",999999) end) pcall(function() r:FireServer("withdraw",999999) end) end end end) wait(math.random(50,200)/1000) end end) ntf("Money","Spamming money remotes") end end,"spammoney")
+btn(tEx,"Spam All Game Remotes",function() if cd() then spawn(function() local count=0 for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then for i=1,5 do spawn(function() wait(math.random(10,100)/1000) pcall(function() r:FireServer() end) pcall(function() r:FireServer("x") end) pcall(function() r:FireServer(1) end) pcall(function() r:FireServer(true) end) pcall(function() r:FireServer({}) end) end) end count=count+1 end end ntf("Remotes","Fired "..count.." remotes x5") end) end end,"spamallrem")
+btn(tEx,"Scan All Remotes",function() if cd() then local remotes={} for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then table.insert(remotes,r.Name) end end local msg=table.concat(remotes,", ") if #msg>200 then msg=msg:sub(1,200).."..." end ntf("Found "..#remotes.." remotes",msg,5) end end,"scanrem")
 sep(tEx)
 lbl(tEx,">> SELF EXPLOIT")
-btn(tEx,"Full Heal",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.MaxHealth=math.huge h.Health=math.huge end end sf("godmode",1) end)
-btn(tEx,"Max Armor",function() sf("godmode",1) pcall(function() LP.Character:FindFirstChildOfClass("Humanoid").MaxHealth=math.huge LP.Character:FindFirstChildOfClass("Humanoid").Health=math.huge end) end)
-btn(tEx,"TP All To Me",function() if cd() then sf("bring",100) end end)
-btn(tEx,"Kill All",function() if cd() then sf("kill",100) end end)
-btn(tEx,"Freeze All",function() if cd() then sf("freeze",100) end end)
-btn(tEx,"Explode All",function() if cd() then sf("explode",100) end end)
+btn(tEx,"Full Heal",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.MaxHealth=math.huge h.Health=math.huge end end sf("godmode",1) end,"fheal")
+btn(tEx,"Max Armor",function() sf("godmode",1) pcall(function() LP.Character:FindFirstChildOfClass("Humanoid").MaxHealth=math.huge LP.Character:FindFirstChildOfClass("Humanoid").Health=math.huge end) end,"marmor")
+btn(tEx,"TP All To Me",function() if cd() then sf("bring",100) end end,"tpall")
+btn(tEx,"Kill All",function() if cd() then sf("kill",100) end end,"killall")
+btn(tEx,"Freeze All",function() if cd() then sf("freeze",100) end end,"frall")
+btn(tEx,"Explode All",function() if cd() then sf("explode",100) end end,"expall")
 local tMi=tF["misc"]
 lbl(tMi,">> MISC")
-btn(tMi,"Reset Character",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.Health=0 end end end)
-btn(tMi,"God Mode",function() sf("godmode",1) end)
-btn(tMi,"Anti-AFK",function() pcall(function() LP.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Running) end) end)
-btn(tMi,"Third Person",function() pcall(function() LP.CameraMinZoomDistance=10 LP.CameraMaxZoomDistance=10 end) end)
-btn(tMi,"First Person",function() pcall(function() LP.CameraMinZoomDistance=0.5 LP.CameraMaxZoomDistance=0.5 end) end)
+btn(tMi,"Reset Character",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.Health=0 end end end,"reset")
+btn(tMi,"God Mode",function() sf("godmode",1) end,"godmode")
+btn(tMi,"Anti-AFK",function() pcall(function() LP.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Running) end) end,"antiafk")
+btn(tMi,"Third Person",function() pcall(function() LP.CameraMinZoomDistance=10 LP.CameraMaxZoomDistance=10 end) end,"3rdperson")
+btn(tMi,"First Person",function() pcall(function() LP.CameraMinZoomDistance=0.5 LP.CameraMaxZoomDistance=0.5 end) end,"1stperson")
 sep(tMi)
 lbl(tMi,">> SERVER ACTIONS")
-btn(tMi,"Kill All",function() if cd() then sf("kill",100) end end)
-btn(tMi,"Heal All",function() if cd() then sf("heal",100) end end)
-btn(tMi,"Freeze All",function() if cd() then sf("freeze",100) end end)
-btn(tMi,"Unfreeze All",function() if cd() then sf("unfreeze",100) end end)
-btn(tMi,"Explode All",function() if cd() then sf("explode",100) end end)
+btn(tMi,"Kill All",function() if cd() then sf("kill",100) end end,"svkill")
+btn(tMi,"Heal All",function() if cd() then sf("heal",100) end end,"svheal")
+btn(tMi,"Freeze All",function() if cd() then sf("freeze",100) end end,"svfreeze")
+btn(tMi,"Unfreeze All",function() if cd() then sf("unfreeze",100) end end,"svunfreeze")
+btn(tMi,"Explode All",function() if cd() then sf("explode",100) end end,"svexplode")
 local tSe=tF["set"]
 lbl(tSe,">> THEME")
-btn(tSe,"Dark Purple",function() TH.p=Color3.fromRGB(18,18,32) TH.s=Color3.fromRGB(24,24,44) TH.b=Color3.fromRGB(35,35,60) TH.bh=Color3.fromRGB(55,55,85) TH.a=Color3.fromRGB(120,120,255) MF.BackgroundColor3=TH.p end)
-btn(tSe,"Dark Red",function() TH.p=Color3.fromRGB(28,12,12) TH.s=Color3.fromRGB(38,16,16) TH.b=Color3.fromRGB(55,25,25) TH.bh=Color3.fromRGB(75,35,35) TH.a=Color3.fromRGB(255,80,80) MF.BackgroundColor3=TH.p end)
-btn(tSe,"Dark Green",function() TH.p=Color3.fromRGB(12,24,12) TH.s=Color3.fromRGB(16,32,16) TH.b=Color3.fromRGB(25,50,25) TH.bh=Color3.fromRGB(35,70,35) TH.a=Color3.fromRGB(80,255,120) MF.BackgroundColor3=TH.p end)
-btn(tSe,"Midnight",function() TH.p=Color3.fromRGB(8,8,20) TH.s=Color3.fromRGB(12,12,28) TH.b=Color3.fromRGB(20,20,40) TH.bh=Color3.fromRGB(30,30,55) TH.a=Color3.fromRGB(100,180,255) MF.BackgroundColor3=TH.p end)
+btn(tSe,"Dark Purple",function() TH.p=Color3.fromRGB(18,18,32) TH.s=Color3.fromRGB(24,24,44) TH.b=Color3.fromRGB(35,35,60) TH.bh=Color3.fromRGB(55,55,85) TH.a=Color3.fromRGB(120,120,255) MF.BackgroundColor3=TH.p end,"thpurple")
+btn(tSe,"Dark Red",function() TH.p=Color3.fromRGB(28,12,12) TH.s=Color3.fromRGB(38,16,16) TH.b=Color3.fromRGB(55,25,25) TH.bh=Color3.fromRGB(75,35,35) TH.a=Color3.fromRGB(255,80,80) MF.BackgroundColor3=TH.p end,"thred")
+btn(tSe,"Dark Green",function() TH.p=Color3.fromRGB(12,24,12) TH.s=Color3.fromRGB(16,32,16) TH.b=Color3.fromRGB(25,50,25) TH.bh=Color3.fromRGB(35,70,35) TH.a=Color3.fromRGB(80,255,120) MF.BackgroundColor3=TH.p end,"thgreen")
+btn(tSe,"Midnight",function() TH.p=Color3.fromRGB(8,8,20) TH.s=Color3.fromRGB(12,12,28) TH.b=Color3.fromRGB(20,20,40) TH.bh=Color3.fromRGB(30,30,55) TH.a=Color3.fromRGB(100,180,255) MF.BackgroundColor3=TH.p end,"thmid")
 sep(tSe)
-lbl(tSe,">> HOTKEYS")
-btn(tSe,"Show All Keys",function() ntf("F4=Menu F5=Noclip F6=ClickTP","F7=Fly F8=FreeCam F9=ESP F10=Lag") end)
+lbl(tSe,">> KEYBINDS INFO")
+lbl(tSe,"Click the small box on any button")
+lbl(tSe,"then press a key to set hotkey.")
+lbl(tSe,"All features = click OR hotkey.")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
-    if inp.KeyCode==CFG.MenuKey then
+    if waitingForKey then
+        local key = inp.KeyCode ~= Enum.KeyCode.Unknown and inp.KeyCode or inp.UserInputType
+        KB[waitingForKey] = key
+        waitingForKey = nil
+        ntf("Keybind","Key assigned! Press F4 to reopen menu.")
+        for _,t in pairs(allToggles) do
+            if t._update then t._update() end
+        end
+        if tF["set"] then
+            for _,c in pairs(tF["set"]:GetDescendants()) do
+                if c:IsA("TextButton") and c.Text:find("NONE") then
+                    c.Text = getKeyDisplay(KB[c.Parent._bindId]) or "NONE"
+                end
+            end
+        end
+        return
+    end
+    if inp.KeyCode==(KB["menu"] or Enum.KeyCode.F4) then
         ST.menuOpen=not ST.menuOpen
         if ST.menuOpen then
             MF.Visible=true
@@ -453,44 +535,20 @@ U.InputBegan:Connect(function(inp,gpe)
             MF.Visible=false
             MF.BackgroundTransparency=0.02
         end
-    elseif inp.KeyCode==Enum.KeyCode.F5 then ST.noclip=not ST.noclip ntf("Noclip",ST.noclip and "ON" or "OFF")
-    elseif inp.KeyCode==Enum.KeyCode.F6 then ST.clickTP=not ST.clickTP ntf("ClickTP",ST.clickTP and "ON" or "OFF")
-    elseif inp.KeyCode==Enum.KeyCode.F7 then ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end ntf("Fly",ST.fly and "ON" or "OFF")
-    elseif inp.KeyCode==Enum.KeyCode.F8 then
-        ST.freeCam=not ST.freeCam
-        if ST.freeCam then
-            ST.freeCamPos=CAM.CFrame
-            ST.freeCamVel=Vector3.new(0,0,0)
-            CAM.CameraType=Enum.CameraType.Scriptable
-            ntf("FreeCam","ON - WASD + Shift")
-        else
-            CAM.CameraType=Enum.CameraType.Custom
-            if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end
-            ntf("FreeCam","OFF")
+    end
+    for id,key in pairs(KB) do
+        if inp.KeyCode == key or inp.UserInputType == key then
+            if id=="fly" then ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end for _,t in pairs(allToggles) do if t._update then t._update() end end
+            elseif id=="noclip" then ST.noclip=not ST.noclip for _,t in pairs(allToggles) do if t._update then t._update() end end
+            elseif id=="freecam" then ST.freeCam=not ST.freeCam if ST.freeCam then ST.freeCamPos=CAM.CFrame CAM.CameraType=Enum.CameraType.Scriptable else CAM.CameraType=Enum.CameraType.Custom if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end end for _,t in pairs(allToggles) do if t._update then t._update() end end
+            elseif id=="clicktp" then ST.clickTP=not ST.clickTP for _,t in pairs(allToggles) do if t._update then t._update() end end
+            elseif id=="esp" then ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for uid,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[uid]=nil end end for _,t in pairs(allToggles) do if t._update then t._update() end end
+            elseif id=="night" then ST.night=not ST.night if ST.night then L.ClockTime=0 else L.ClockTime=14 end for _,t in pairs(allToggles) do if t._update then t._update() end end
+            elseif id=="bright" then ST.bright=not ST.bright if ST.bright then L.Brightness=2 L.GlobalShadows=false else L.Brightness=1 L.GlobalShadows=true end for _,t in pairs(allToggles) do if t._update then t._update() end end
+            elseif id=="nofog" then ST.noFog=not ST.noFog if ST.noFog then L.FogEnd=999999 else L.FogEnd=100000 end for _,t in pairs(allToggles) do if t._update then t._update() end end
+            elseif id=="svlag" then ST.serverLag=not ST.serverLag if ST.serverLag then spawn(function() while ST.serverLag do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then pcall(function() r:FireServer() end) pcall(function() r:FireServer("lag") end) end end end) wait(math.random(50,200)/1000) end end) end for _,t in pairs(allToggles) do if t._update then t._update() end end
+            end
         end
-    elseif inp.KeyCode==Enum.KeyCode.F10 then
-        ST.serverLag=not ST.serverLag
-        if ST.serverLag then
-            ntf("Server Lag","ON")
-            spawn(function()
-                while ST.serverLag do
-                    pcall(function()
-                        for _,r in pairs(RS:GetDescendants()) do
-                            if r:IsA("RemoteEvent") then
-                                pcall(function() r:FireServer() end)
-                                pcall(function() r:FireServer("lag") end)
-                            end
-                        end
-                    end)
-                    wait(math.random(50,200)/1000)
-                end
-            end)
-        else
-            ntf("Server Lag","OFF")
-        end
-    elseif inp.KeyCode==CFG.ESPKey then
-        ST.esp=not ST.esp
-        if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end ntf("ESP",ST.esp and "ON" or "OFF")
     end
 end)
 MS.Button1Down:Connect(function() if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,3,0)) end end end)
