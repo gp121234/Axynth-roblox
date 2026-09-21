@@ -396,7 +396,7 @@ U.InputBegan:Connect(function(inp,gpe)
             ST.freeCamPos=CAM.CFrame
             ST.freeCamVel=Vector3.new(0,0,0)
             CAM.CameraType=Enum.CameraType.Scriptable
-            ntf("FreeCam","ON - WASD + Mouse")
+ntf("FreeCam","ON - WASD + Shift")
         else
             CAM.CameraType=Enum.CameraType.Custom
             if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end
@@ -440,9 +440,6 @@ R.RenderStepped:Connect(function()
         if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end
         if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end
         if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end
-        if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
-        if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
-        if dir.Magnitude>0 then dir=dir.Unit end
         CAM.CFrame=CAM.CFrame+dir*sp
     end
 end)
