@@ -13,6 +13,60 @@ local LP = P.LocalPlayer
 local MS = LP:GetMouse()
 local CAM = W.CurrentCamera
 print("[Axynth] Services OK")
+-- ANTI-BAN SYSTEM
+local bannedRemotes={"Anticheat.Anticheat","Anticheat.vMenu","Anticheat.vMenuCharacter","LoggerEvent"}
+local safeRemotes={"Teams.ChangeJob","efood.efoodJob","Bank.TablesEvents.Prompt","Bank.Lockpick.Vault","NoclipEvent","ToggleSirenEvent","HDAdminHDClient.Signals.RequestCommand"}
+local hookLog={}
+local function isSafe(name) for _,v in pairs(safeRemotes) do if name:find(v) then return true end end return false end
+local function isBlocked(name) for _,v in pairs(bannedRemotes) do if name:find(v) then return true end end return false end
+pcall(function()
+    local oldNamecall
+    oldNamecall = hookmetamethod(game,"__namecall",newcclosure(function(self,...)
+        local method=getnamecallmethod()
+        local args={...}
+        if method=="FireServer" and self:IsA("RemoteEvent") then
+            if isBlocked(self.Name) then
+                table.insert(hookLog,{time=tick(),remote=self.Name,blocked=true})
+                return nil
+            end
+        end
+        return oldNamecall(self,unpack(args))
+    end))
+end)
+pcall(function()
+    local oldFire
+    oldFire = hookfunction(game:GetService("Players").LocalPlayer.PlayerGui and Instance.new("RemoteEvent").FireServer or function() end,function(self,...)
+        if self and self:IsA("RemoteEvent") and isBlocked(self.Name) then
+            table.insert(hookLog,{time=tick(),remote=self.Name,blocked=true})
+            return nil
+        end
+        return oldFire(self,...)
+    end)
+end)
+local function spoofPosition()
+    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp=LP.Character.HumanoidRootPart
+        local pos=hrp.Position
+        pcall(function() hrp.Velocity=Vector3.new(0,0,0) end)
+        pcall(function() hrp.RotVelocity=Vector3.new(0,0,0) end)
+    end
+end
+local function cleanTrail()
+    pcall(function()
+        for _,v in pairs(LP.Character:GetDescendants()) do
+            if v:IsA("BodyAngularVelocity") or v:IsA("BodyPosition") or v:IsA("BodyVelocity") then
+                if v.Name:find("Ax") then v:Destroy() end
+            end
+        end
+    end)
+end
+R.Heartbeat:Connect(function()
+    spoofPosition()
+    for i=#hookLog,1,-1 do
+        if tick()-hookLog[i].time>10 then table.remove(hookLog,i) end
+    end
+end)
+print("[Axynth] Anti-Ban Active")
 local AR = RS:FindFirstChild("AdminRemote")
 if not AR then AR = Instance.new("RemoteEvent") AR.Name = "AdminRemote" AR.Parent = RS end
 local function sf(a, ...) local args = {...} spawn(function() wait(math.random(30,100)/1000) pcall(function() AR:FireServer(a, unpack(args)) end) end) end
