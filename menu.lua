@@ -13,15 +13,50 @@ local LP = P.LocalPlayer
 local MS = LP:GetMouse()
 local CAM = W.CurrentCamera
 print("[Axynth] Services OK")
--- ANTI-BAN SYSTEM v2 - AGGRESSIVE
+-- ANTI-BAN SYSTEM v3 - ULTRA AGGRESSIVE
 local hookLog={}
-local blockedKeywords={"anticheat","anti","cheat","detect","ban","kick","report","flag","log","trace","monitor","watch","scan","validate","verify","check"}
+local blockedKeywords={"anticheat","anti","cheat","detect","ban","kick","report","flag","log","trace","monitor","watch","scan","validate","verify","check","suspicious","abnormal","illegal","unauthorized","modified","exploit","hack","teleport","speed","noclip","fly"}
+local whitelistRemotes={
+    ["HDAdminHDClient.Signals.RequestCommand"]=true,
+    ["HDAdminHDClient.Signals.ExecuteClientCommand"]=true,
+    ["Teams.ChangeJob"]=true,
+    ["efood.efoodJob"]=true,
+    ["efood.acceptOrder"]=true,
+    ["Bank.TablesEvents.Prompt"]=true,
+    ["Bank.Lockpick.Vault"]=true,
+    ["Bank.Lockpick.Lock"]=true,
+    ["Bank.Lockpick.Lock2"]=true,
+    ["Bank.Lockpick.Vault2"]=true,
+    ["NoclipEvent"]=true,
+    ["ToggleSirenEvent"]=true,
+    ["Crosshairs.ApplyCrosshair"]=true,
+    ["Cars.CarDealer"]=true,
+    ["Inventory.Inventory"]=true,
+    ["Chat"]=true,
+    ["CreateMafia.RemoteEvent"]=true,
+    ["ThiefSystem.RemoteEvent"]=true,
+    ["Armory.RemoteEvent"]=true,
+    ["Hospital.EKAB"]=true,
+    ["SupermarketEvent.AcceptJob"]=true,
+    ["SupermarketEvent.FinishJob"]=true,
+    ["WeaponsSystem.Network.WeaponFired"]=true,
+    ["WeaponsSystem.Network.WeaponHit"]=true,
+    ["WeaponsSystem.Network.WeaponReloadRequest"]=true,
+}
+local isUsingExploit=false
 local function isBlocked(name)
     local lower=name:lower()
     for _,kw in pairs(blockedKeywords) do
         if lower:find(kw) then return true end
     end
+    if whitelistRemotes[name] then return false end
     return false
+end
+local function isWhitelisted(name)
+    return whitelistRemotes[name]==true
+end
+local function randomDelay()
+    return math.random(50,200)/1000
 end
 pcall(function()
     local oldNamecall
@@ -29,21 +64,18 @@ pcall(function()
         local method=getnamecallmethod()
         local args={...}
         if (method=="FireServer" or method=="InvokeServer") and self:IsA("RemoteEvent") then
-            if isBlocked(self.Name) then
+            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
                 table.insert(hookLog,{time=tick(),remote=self.Name,blocked=true})
+                return nil
+            end
+            if isUsingExploit and not isWhitelisted(self.Name) then
+                task.delay(randomDelay(),function()
+                    oldNamecall(self,unpack(args))
+                end)
                 return nil
             end
         end
         return oldNamecall(self,unpack(args))
-    end))
-end)
-pcall(function()
-    local oldIndex
-    oldIndex = hookmetamethod(game,"__index",newcclosure(function(self,key)
-        if self==game:GetService("Players").LocalPlayer and (key=="Character" or key=="Backpack") then
-            return oldIndex(self,key)
-        end
-        return oldIndex(self,key)
     end))
 end)
 pcall(function()
@@ -54,7 +86,13 @@ pcall(function()
         local method=getnamecallmethod()
         local args={...}
         if (method=="FireServer" or method=="InvokeServer") and self:IsA("RemoteEvent") then
-            if isBlocked(self.Name) then
+            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
+                return nil
+            end
+            if isUsingExploit and not isWhitelisted(self.Name) then
+                task.delay(randomDelay(),function()
+                    oldNamecall(self,unpack(args))
+                end)
                 return nil
             end
         end
@@ -63,13 +101,31 @@ pcall(function()
     setreadonly(mt,true)
 end)
 pcall(function()
-    local oldFire=Instance.new("RemoteEvent").FireServer
-    hookfunction(Instance.new("RemoteEvent").FireServer,function(self,...)
-        if self and self:IsA("RemoteEvent") and isBlocked(self.Name) then
-            return nil
+    local oldNewIndex
+    oldNewIndex = hookmetamethod(game,"__newindex",newcclosure(function(self,key,value)
+        if self:IsA("Humanoid") and (key=="WalkSpeed" or key=="JumpPower" or key=="HipHeight") then
+            if value>50 then
+                return oldNewIndex(self,key,16)
+            end
         end
-        return oldFire(self,...)
-    end)
+        if self:IsA("HumanoidRootPart") and key=="CFrame" then
+            if isUsingExploit then
+                return oldNewIndex(self,key,value)
+            end
+        end
+        return oldNewIndex(self,key,value)
+    end))
+end)
+pcall(function()
+    local oldIndex
+    oldIndex = hookmetamethod(game,"__index",newcclosure(function(self,key)
+        if self:IsA("Humanoid") and (key=="WalkSpeed" or key=="JumpPower" or key=="HipHeight") then
+            local val=oldIndex(self,key)
+            if val>50 then return 16 end
+            return val
+        end
+        return oldIndex(self,key)
+    end))
 end)
 local lastRemoteFire={}
 local function rateLimit(name,cd)
@@ -78,13 +134,19 @@ local function rateLimit(name,cd)
     lastRemoteFire[name]=now
     return true
 end
-local function spoofHumanoid()
+local function spoofCharacter()
     pcall(function()
         if LP.Character then
+            local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
             local h=LP.Character:FindFirstChildOfClass("Humanoid")
+            if hrp then
+                hrp.Velocity=Vector3.new(0,0,0)
+                hrp.RotVelocity=Vector3.new(0,0,0)
+            end
             if h then
                 if h.WalkSpeed>50 then h.WalkSpeed=16 end
                 if h.JumpPower>100 then h.JumpPower=50 end
+                if h.HipHeight>3 then h.HipHeight=0 end
             end
         end
     end)
@@ -93,7 +155,7 @@ local function cleanTrails()
     pcall(function()
         if LP.Character then
             for _,v in pairs(LP.Character:GetDescendants()) do
-                if v:IsA("BodyAngularVelocity") or v:IsA("BodyPosition") or v:IsA("BodyVelocity") then
+                if v:IsA("BodyAngularVelocity") or v:IsA("BodyPosition") or v:IsA("BodyVelocity") or v:IsA("BodyGyro") or v:IsA("BodyForce") then
                     if v.Name:find("Ax") then v:Destroy() end
                 end
             end
@@ -109,16 +171,61 @@ local function spoofVelocity()
         end
     end)
 end
+local function spoofHealth()
+    pcall(function()
+        if LP.Character then
+            local h=LP.Character:FindFirstChildOfClass("Humanoid")
+            if h then
+                if h.Health>h.MaxHealth then h.Health=h.MaxHealth end
+            end
+        end
+    end)
+end
+pcall(function()
+    local oldFire=Instance.new("RemoteEvent").FireServer
+    hookfunction(Instance.new("RemoteEvent").FireServer,function(self,...)
+        if self and self:IsA("RemoteEvent") then
+            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
+                return nil
+            end
+            if isUsingExploit and not isWhitelisted(self.Name) then
+                task.delay(randomDelay(),function()
+                    oldFire(self,...)
+                end)
+                return nil
+            end
+        end
+        return oldFire(self,...)
+    end)
+end)
+pcall(function()
+    local oldInvoke=Instance.new("RemoteFunction").InvokeServer
+    hookfunction(Instance.new("RemoteFunction").InvokeServer,function(self,...)
+        if self and self:IsA("RemoteFunction") then
+            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
+                return nil
+            end
+            if isUsingExploit and not isWhitelisted(self.Name) then
+                task.delay(randomDelay(),function()
+                    oldInvoke(self,...)
+                end)
+                return nil
+            end
+        end
+        return oldInvoke(self,...)
+    end)
+end)
 R.Heartbeat:Connect(function()
     spoofVelocity()
+    spoofHealth()
     for i=#hookLog,1,-1 do
         if tick()-hookLog[i].time>10 then table.remove(hookLog,i) end
     end
 end)
-print("[Axynth] Anti-Ban v2 Active - Blocking "..#blockedKeywords.." keywords")
+print("[Axynth] Anti-Ban v3 ULTRA ACTIVE - Whitelist: "..(function() local c=0 for _ in pairs(whitelistRemotes) do c=c+1 end return c end)().." remotes")
 local AR = RS:FindFirstChild("AdminRemote")
 if not AR then AR = Instance.new("RemoteEvent") AR.Name = "AdminRemote" AR.Parent = RS end
-local function sf(a, ...) local args = {...} spawn(function() wait(math.random(30,100)/1000) pcall(function() AR:FireServer(a, unpack(args)) end) end) end
+local function sf(a, ...) local args = {...} spawn(function() isUsingExploit=true wait(math.random(30,100)/1000) pcall(function() AR:FireServer(a, unpack(args)) end) isUsingExploit=false end) end
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
 local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={}}
