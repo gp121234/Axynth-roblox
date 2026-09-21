@@ -192,6 +192,19 @@ sep(tH)
 lbl(tH,">> FLY + NOCLIP")
 tog(tH,"Fly [F7]",function() return ST.fly end,function() ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end end)
 tog(tH,"Noclip [F5]",function() return ST.noclip end,function() ST.noclip=not ST.noclip end)
+tog(tH,"Free Cam [F8]",function() return ST.freeCam end,function()
+    ST.freeCam=not ST.freeCam
+    if ST.freeCam then
+        ST.freeCamPos=CAM.CFrame
+        ST.freeCamVel=Vector3.new(0,0,0)
+        CAM.CameraType=Enum.CameraType.Scriptable
+        ntf("FreeCam","ON - WASD + Mouse")
+    else
+        CAM.CameraType=Enum.CameraType.Custom
+        if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end
+        ntf("FreeCam","OFF")
+    end
+end)
 sep(tH)
 lbl(tH,">> TELEPORT")
 tog(tH,"Click TP [F6]",function() return ST.clickTP end,function() ST.clickTP=not ST.clickTP ntf("ClickTP",ST.clickTP and "ON" or "OFF") end)
@@ -358,7 +371,7 @@ btn(tSe,"Dark Green",function() TH.p=Color3.fromRGB(12,24,12) TH.s=Color3.fromRG
 btn(tSe,"Midnight",function() TH.p=Color3.fromRGB(8,8,20) TH.s=Color3.fromRGB(12,12,28) TH.b=Color3.fromRGB(20,20,40) TH.bh=Color3.fromRGB(30,30,55) TH.a=Color3.fromRGB(100,180,255) MF.BackgroundColor3=TH.p end)
 sep(tSe)
 lbl(tSe,">> HOTKEYS")
-btn(tSe,"Show All Keys",function() ntf("F4=Menu F5=Noclip","F6=ClickTP F7=Fly F9=ESP") end)
+btn(tSe,"Show All Keys",function() ntf("F4=Menu F5=Noclip F6=ClickTP","F7=Fly F8=FreeCam F9=ESP") end)
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -377,6 +390,18 @@ U.InputBegan:Connect(function(inp,gpe)
     elseif inp.KeyCode==Enum.KeyCode.F5 then ST.noclip=not ST.noclip ntf("Noclip",ST.noclip and "ON" or "OFF")
     elseif inp.KeyCode==Enum.KeyCode.F6 then ST.clickTP=not ST.clickTP ntf("ClickTP",ST.clickTP and "ON" or "OFF")
     elseif inp.KeyCode==Enum.KeyCode.F7 then ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end ntf("Fly",ST.fly and "ON" or "OFF")
+    elseif inp.KeyCode==Enum.KeyCode.F8 then
+        ST.freeCam=not ST.freeCam
+        if ST.freeCam then
+            ST.freeCamPos=CAM.CFrame
+            ST.freeCamVel=Vector3.new(0,0,0)
+            CAM.CameraType=Enum.CameraType.Scriptable
+            ntf("FreeCam","ON - WASD + Mouse")
+        else
+            CAM.CameraType=Enum.CameraType.Custom
+            if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end
+            ntf("FreeCam","OFF")
+        end
     elseif inp.KeyCode==CFG.ESPKey then
         ST.esp=not ST.esp
         if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end ntf("ESP",ST.esp and "ON" or "OFF")
@@ -405,6 +430,20 @@ R.RenderStepped:Connect(function()
         for _,p2 in pairs(LP.Character:GetDescendants()) do
             if p2:IsA("BasePart") then p2.CanCollide=false end
         end
+    end
+    if ST.freeCam then
+        CAM.CameraType=Enum.CameraType.Scriptable
+        local dir=Vector3.new(0,0,0)
+        local sp=1
+        if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=2 end
+        if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end
+        if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end
+        if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end
+        if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end
+        if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
+        if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
+        if dir.Magnitude>0 then dir=dir.Unit end
+        CAM.CFrame=CAM.CFrame+dir*sp
     end
 end)
 P.PlayerAdded:Connect(function(pp)
