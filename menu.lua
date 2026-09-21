@@ -651,7 +651,7 @@ local function spoofExecutor()
             g.exploit=nil
             g.syn=nil
             g.krnl=nil
-            g fluxus=nil
+            g.fluxus=nil
             g.electron=nil
             g.scriptware=nil
         end
