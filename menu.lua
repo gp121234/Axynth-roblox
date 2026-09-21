@@ -470,6 +470,7 @@ end
 pcall(function()
     local oldFire=Instance.new("RemoteEvent").FireServer
     hookfunction(Instance.new("RemoteEvent").FireServer,function(self,...)
+        local args={...}
         if self and self:IsA("RemoteEvent") then
             if isBlocked(self.Name) and not isWhitelisted(self.Name) then
                 return nil
@@ -477,17 +478,18 @@ pcall(function()
             if isUsingExploit and not isWhitelisted(self.Name) then
                 perActionDelay(self.Name)
                 task.delay(randomDelay(),function()
-                    oldFire(self,...)
+                    oldFire(self,unpack(args))
                 end)
                 return nil
             end
         end
-        return oldFire(self,...)
+        return oldFire(self,unpack(args))
     end)
 end)
 pcall(function()
     local oldInvoke=Instance.new("RemoteFunction").InvokeServer
     hookfunction(Instance.new("RemoteFunction").InvokeServer,function(self,...)
+        local args={...}
         if self and self:IsA("RemoteFunction") then
             if isBlocked(self.Name) and not isWhitelisted(self.Name) then
                 return nil
@@ -495,12 +497,12 @@ pcall(function()
             if isUsingExploit and not isWhitelisted(self.Name) then
                 perActionDelay(self.Name)
                 task.delay(randomDelay(),function()
-                    oldInvoke(self,...)
+                    oldInvoke(self,unpack(args))
                 end)
                 return nil
             end
         end
-        return oldInvoke(self,...)
+        return oldInvoke(self,unpack(args))
     end)
 end)
 pcall(function()
