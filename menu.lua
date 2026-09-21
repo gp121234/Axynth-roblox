@@ -16,9 +16,17 @@ print("[Axynth] Services OK")
 local AR = RS:FindFirstChild("AdminRemote")
 if not AR then AR = Instance.new("RemoteEvent") AR.Name = "AdminRemote" AR.Parent = RS end
 local lastFire=0
-local function sf(a, ...) local args = {...} spawn(function() local now=tick() if now-lastFire<0.3 then wait(math.random(30,80)/1000) end lastFire=tick()+math.random(20,60)/1000 wait(math.random(30,100)/1000) pcall(function() AR:FireServer(a, unpack(args)) end) end) end
+local actionCount=0
+local actionReset=tick()
+local function sf(a, ...) local args = {...} spawn(function() local now=tick() if now-lastFire<0.5 then wait(math.random(80,200)/1000) end lastFire=tick()+math.random(50,150)/1000 wait(math.random(50,200)/1000) pcall(function() AR:FireServer(a, unpack(args)) end) end) end
 local lastAction=0
-local function cd() local now=tick() if now-lastAction<1.5 then ntf("Cooldown","Wait "..string.format("%.1f",1.5-(now-lastAction)).."s") return false end lastAction=now return true end
+local function cd()
+    local now=tick()
+    if now-actionReset>60 then actionCount=0 actionReset=now end
+    if actionCount>=8 then ntf("Rate Limit","Slow down - wait a bit") return false end
+    if now-lastAction<2 then ntf("Cooldown","Wait "..string.format("%.1f",2-(now-lastAction)).."s") return false end
+    lastAction=now actionCount=actionCount+1 return true
+end
 local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},lastAction=0}
 local CFG = {MenuKey=Enum.KeyCode.F4,ESPKey=Enum.KeyCode.F9,ESPColor=Color3.fromRGB(255,0,0),ESPFillAlpha=0.5}
 local TH = {p=Color3.fromRGB(18,18,32),s=Color3.fromRGB(24,24,44),b=Color3.fromRGB(35,35,60),bh=Color3.fromRGB(55,55,85),t=Color3.fromRGB(210,210,230),a=Color3.fromRGB(120,120,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
