@@ -749,9 +749,9 @@ btn(tW,"Gravity: Zero",function() W.Gravity=0 ntf("Gravity","Zero-G (0)") end,"g
 btn(tW,"Gravity: Super",function() W.Gravity=400 ntf("Gravity","Super (400)") end,"gravsuper")
 sep(tW)
 lbl(tW,">> VEHICLE SPEED")
-btn(tW,"Vehicle MaxSpeed",function() pcall(function() local ch=LP.Character if ch then local seat=ch:FindFirstChildOfClass("VehicleSeat") or ch:FindFirstChild("Seat") then seat.MaxSpeed=200 ntf("Vehicle","MaxSpeed: 200") end end end) end,"vmax")
-btn(tW,"Vehicle Turbo",function() pcall(function() local ch=LP.Character if ch then local seat=ch:FindFirstChildOfClass("VehicleSeat") or ch:FindFirstChild("Seat") then seat.MaxSpeed=500 ntf("Vehicle","Turbo: 500") end end end) end,"vturbo")
-btn(tW,"Vehicle Reset",function() pcall(function() local ch=LP.Character if ch then local seat=ch:FindFirstChildOfClass("VehicleSeat") or ch:FindFirstChild("Seat") then seat.MaxSpeed=25 ntf("Vehicle","Reset: 25") end end end) end,"vreset")
+btn(tW,"Vehicle MaxSpeed",function() pcall(function() local ch=LP.Character if ch then local seat=ch:FindFirstChildOfClass("VehicleSeat") or ch:FindFirstChild("Seat") if seat then seat.MaxSpeed=200 ntf("Vehicle","MaxSpeed: 200") end end end end) end,"vmax")
+btn(tW,"Vehicle Turbo",function() pcall(function() local ch=LP.Character if ch then local seat=ch:FindFirstChildOfClass("VehicleSeat") or ch:FindFirstChild("Seat") if seat then seat.MaxSpeed=500 ntf("Vehicle","Turbo: 500") end end end end) end,"vturbo")
+btn(tW,"Vehicle Reset",function() pcall(function() local ch=LP.Character if ch then local seat=ch:FindFirstChildOfClass("VehicleSeat") or ch:FindFirstChild("Seat") if seat then seat.MaxSpeed=25 ntf("Vehicle","Reset: 25") end end end end) end,"vreset")
 local tP=tF["plr"]
 lbl(tP,">> SELECT PLAYER")
 local pDropBtn=Instance.new("TextButton") pDropBtn.Size=UDim2.new(1,-12,0,34) pDropBtn.Position=UDim2.new(0,6,0,0) pDropBtn.BackgroundColor3=TH.b pDropBtn.BorderSizePixel=0 pDropBtn.Text="  Click to select..." pDropBtn.TextColor3=TH.t pDropBtn.TextSize=13 pDropBtn.Font=Enum.Font.GothamMedium pDropBtn.TextXAlignment=Enum.TextXAlignment.Left pDropBtn.Parent=tP mkCorner(pDropBtn,6) mkStroke(pDropBtn,TH.a,1)
