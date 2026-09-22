@@ -13,9 +13,9 @@ local LP = P.LocalPlayer
 local MS = LP:GetMouse()
 local CAM = W.CurrentCamera
 print("[Axynth] Services OK")
--- ANTI-BAN SYSTEM v5 ULTIMATE - FULLY AUTOMATIC
+-- ANTI-BAN SYSTEM v8 LITE - LIGHTWEIGHT + POWERFUL
 local hookLog={}
-local blockedKeywords={"anticheat","anti","cheat","detect","ban","kick","report","flag","log","trace","monitor","watch","scan","validate","verify","check","suspicious","abnormal","illegal","unauthorized","modified","exploit","hack","teleport","speed","noclip","fly","cheatdetected","serverintegrity","integritycheck","remotespy","remoteblock","remotecheck","adminremote","admin"}
+local blockedKeywords={"anticheat","anti","cheat","detect","ban","kick","report","flag","log","trace","monitor","watch","scan","validate","verify","check","suspicious","abnormal","illegal","unauthorized","modified","exploit","hack","teleport","speed","noclip","fly"}
 local whitelistRemotes={
     ["HDAdminHDClient.Signals.RequestCommand"]=true,
     ["HDAdminHDClient.Signals.ExecuteClientCommand"]=true,
@@ -52,32 +52,19 @@ local whitelistRemotes={
     ["ClaimEvent"]=true,
 }
 local isUsingExploit=false
-local strictMode=false
-local lastFireTimes={}
-local MIN_FIRE_INTERVAL=0.12
-local fakeAdminRemote=nil
 local function isBlocked(name)
     if whitelistRemotes[name] then return false end
     local lower=name:lower()
     for _,kw in pairs(blockedKeywords) do
         if lower:find(kw) then return true end
     end
-    if strictMode then return true end
     return false
 end
 local function isWhitelisted(name)
     return whitelistRemotes[name]==true
 end
 local function randomDelay()
-    return math.random(100,500)/1000
-end
-local function perActionDelay(name)
-    local now=tick()
-    local last=lastFireTimes[name] or 0
-    if now-last<MIN_FIRE_INTERVAL then
-        task.wait(MIN_FIRE_INTERVAL-(now-last))
-    end
-    lastFireTimes[name]=tick()
+    return math.random(100,400)/1000
 end
 pcall(function()
     local oldNC
@@ -90,7 +77,6 @@ pcall(function()
                 return nil
             end
             if isUsingExploit and not isWhitelisted(self.Name) then
-                perActionDelay(self.Name)
                 task.delay(randomDelay(),function()
                     oldNC(self,unpack(args))
                 end)
@@ -114,7 +100,6 @@ pcall(function()
                 return nil
             end
             if isUsingExploit and not isWhitelisted(self.Name) then
-                perActionDelay(self.Name)
                 task.delay(randomDelay(),function()
                     oldNC(self,unpack(args))
                 end)
@@ -135,17 +120,6 @@ pcall(function()
                 if val>100 then return 50 end
                 return val
             end
-            if key=="HipHeight" then
-                local val=oldIdx(self,key)
-                if val>3 then return 0 end
-                return val
-            end
-        end
-        if typeof(self)=="Instance" and self:IsA("HumanoidRootPart") and key=="CFrame" then
-            return oldIdx(self,key)
-        end
-        if typeof(self)=="Instance" and self:IsA("Player") and key=="Character" then
-            return oldIdx(self,key)
         end
         return oldIdx(self,key)
     end)
@@ -153,10 +127,6 @@ pcall(function()
         if typeof(self)=="Instance" and self:IsA("Humanoid") then
             if key=="WalkSpeed" and value>50 then return oldNew(self,key,16) end
             if key=="JumpPower" and value>100 then return oldNew(self,key,50) end
-            if key=="HipHeight" and value>3 then return oldNew(self,key,0) end
-        end
-        if typeof(self)=="Instance" and self:IsA("HumanoidRootPart") and key=="CFrame" then
-            if isUsingExploit then return oldNew(self,key,value) end
         end
         return oldNew(self,key,value)
     end)
@@ -166,7 +136,7 @@ pcall(function()
     local oldGetService
     oldGetService = hookfunction(game.GetService,function(self,service)
         local s=service:lower()
-        if s:find("anticheat") or s:find("antichet") or s:find("ac") or s:find("detector") or s:find("moderation") then
+        if s:find("anticheat") or s:find("detector") or s:find("cheat") then
             return nil
         end
         return oldGetService(self,service)
@@ -177,296 +147,13 @@ pcall(function()
     hookfunction(Instance.new("Workspace").FindFirstChild,function(self,name,recursive)
         if self==workspace and name then
             local n=name:lower()
-            if n:find("anticheat") or n:find("detector") or n:find("trigger") or n:find("cheat") or n:find("admin") then
+            if n:find("anticheat") or n:find("detector") or n:find("trigger") or n:find("cheat") then
                 return nil
             end
         end
         return oldFFI(self,name,recursive)
     end)
 end)
-pcall(function()
-    local oldFindFirstChildOfClass=Instance.new("Workspace").FindFirstChildOfClass
-    hookfunction(Instance.new("Workspace").FindFirstChildOfClass,function(self,class)
-        if self==workspace and class then
-            local c=class:lower()
-            if c:find("detector") or c:find("trigger") or c:find("cheat") then
-                return nil
-            end
-        end
-        return oldFindFirstChildOfClass(self,class)
-    end)
-end)
-pcall(function()
-    local oldGetChildren=Instance.new("Workspace").GetChildren
-    hookfunction(Instance.new("Workspace").GetChildren,function(self)
-        local children=oldGetChildren(self)
-        if self==workspace then
-            local filtered={}
-            for _,v in pairs(children) do
-                local name=v.Name:lower()
-                if not (name:find("anticheat") or name:find("detector") or name:find("trigger") or name:find("cheat")) then
-                    table.insert(filtered,v)
-                end
-            end
-            return filtered
-        end
-        return children
-    end)
-end)
-pcall(function()
-    local oldGetDescendants=Instance.new("Workspace").GetDescendants
-    hookfunction(Instance.new("Workspace").GetDescendants,function(self)
-        local descendants=oldGetDescendants(self)
-        if self==workspace then
-            local filtered={}
-            for _,v in pairs(descendants) do
-                local name=v.Name:lower()
-                if not (name:find("anticheat") or name:find("detector") or name:find("trigger") or name:find("cheat")) then
-                    table.insert(filtered,v)
-                end
-            end
-            return filtered
-        end
-        return descendants
-    end)
-end)
-pcall(function()
-    local old=Instance.new("Workspace").FindFirstChildWhichIsA
-    hookfunction(Instance.new("Workspace").FindFirstChildWhichIsA,function(self,class,recursive)
-        if self==workspace and class then
-            local c=class:lower()
-            if c:find("detector") or c:find("trigger") or c:find("cheat") then
-                return nil
-            end
-        end
-        return old(self,class,recursive)
-    end)
-end)
-pcall(function()
-    local old=Instance.new("Workspace").FindFirstChildOfClass
-    hookfunction(Instance.new("Workspace").FindFirstChildOfClass,function(self,class)
-        if self==workspace and class then
-            local c=class:lower()
-            if c:find("detector") or c:find("trigger") or c:find("cheat") then
-                return nil
-            end
-        end
-        return old(self,class)
-    end)
-end)
-pcall(function()
-    local mt=getrawmetatable(game)
-    local old=mt.__tostring
-    setreadonly(mt,false)
-    mt.__tostring=newcclosure(function(self)
-        if typeof(self)=="Instance" and self:IsA("RemoteEvent") then
-            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
-                return "BasePart"
-            end
-        end
-        return old(self)
-    end)
-    setreadonly(mt,true)
-end)
-pcall(function()
-    local mt=getrawmetatable(game)
-    local old=mt.__len
-    setreadonly(mt,false)
-    mt.__len=newcclosure(function(self)
-        if typeof(self)=="Instance" and self:IsA("RemoteEvent") then
-            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
-                return 0
-            end
-        end
-        return old(self)
-    end)
-    setreadonly(mt,true)
-end)
-pcall(function()
-    local old=Instance.new("Workspace").GetService
-    hookfunction(Instance.new("Workspace").GetService,function(self,service)
-        if service and (service:lower():find("anticheat") or service:lower():find("detector") or service:lower():find("cheat")) then
-            return nil
-        end
-        return old(self,service)
-    end)
-end)
-pcall(function()
-    local old=game.GetObjects
-    hookfunction(game.GetObjects,function(self,assetId)
-        if assetId and typeof(assetId)=="string" then
-            if assetId:lower():find("anticheat") or assetId:lower():find("cheat") then
-                return {}
-            end
-        end
-        return old(self,assetId)
-    end)
-end)
-local function spoofCharacter()
-    pcall(function()
-        if LP.Character then
-            local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
-            local h=LP.Character:FindFirstChildOfClass("Humanoid")
-            if hrp then
-                hrp.Velocity=Vector3.new(0,0,0)
-                hrp.RotVelocity=Vector3.new(0,0,0)
-            end
-            if h then
-                if h.WalkSpeed>50 then h.WalkSpeed=16 end
-                if h.JumpPower>100 then h.JumpPower=50 end
-                if h.HipHeight>3 then h.HipHeight=0 end
-            end
-        end
-    end)
-end
-local function cleanTrails()
-    pcall(function()
-        if LP.Character then
-            for _,v in pairs(LP.Character:GetDescendants()) do
-                if v:IsA("BodyMover") or v:IsA("BodyAngularVelocity") or v:IsA("BodyPosition") or v:IsA("BodyVelocity") or v:IsA("BodyGyro") or v:IsA("BodyForce") or v:IsA("BodyThrust") then
-                    if v.Name:find("Ax") then v:Destroy() end
-                end
-            end
-        end
-    end)
-end
-local function spoofVelocity()
-    pcall(function()
-        if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp=LP.Character.HumanoidRootPart
-            hrp.Velocity=Vector3.new(0,0,0)
-            hrp.RotVelocity=Vector3.new(0,0,0)
-        end
-    end)
-end
-local function spoofHealth()
-    pcall(function()
-        if LP.Character then
-            local h=LP.Character:FindFirstChildOfClass("Humanoid")
-            if h then
-                if h.Health>h.MaxHealth then h.Health=h.MaxHealth end
-            end
-        end
-    end)
-end
-local function spoofLeaderstats()
-    pcall(function()
-        if LP:FindFirstChild("leaderstats") then
-            for _,v in pairs(LP.leaderstats:GetChildren()) do
-                if v:IsA("IntValue") or v:IsA("NumberValue") then
-                    if v.Value>1000000 then v.Value=math.random(100,500) end
-                end
-            end
-        end
-    end)
-end
-local function spoofWorkspace()
-    pcall(function()
-        for _,v in pairs(W:GetDescendants()) do
-            if v:IsA("BodyMover") or v:IsA("BodyAngularVelocity") or v:IsA("BodyPosition") or v:IsA("BodyVelocity") or v:IsA("BodyGyro") or v:IsA("BodyForce") then
-                if v.Name:find("Ax") then v:Destroy() end
-            end
-        end
-    end)
-end
-local function hideExploitObjects()
-    pcall(function()
-        if LP.Character then
-            for _,v in pairs(LP.Character:GetDescendants()) do
-                if v:IsA("BodyMover") or v:IsA("BodyAngularVelocity") or v:IsA("BodyPosition") or v:IsA("BodyVelocity") or v:IsA("BodyGyro") or v:IsA("BodyForce") or v:IsA("BodyThrust") then
-                    if v.Name:find("Ax") then v.Parent=nil end
-                end
-            end
-        end
-    end)
-end
-local function spoofNetworkStats()
-    pcall(function()
-        local stats=game:GetService("Stats")
-        if stats then
-            local network=stats:FindFirstChild("Network")
-            if network then
-                local ping=network:FindFirstChild("DataPing")
-                if ping then
-                    if ping.Value>200 then ping.Value=math.random(30,80) end
-                end
-            end
-        end
-    end)
-end
-local function spoofCharacterModel()
-    pcall(function()
-        if LP.Character then
-            local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local vel=hrp.Velocity
-                if vel.Magnitude>100 then
-                    hrp.Velocity=Vector3.new(0,0,0)
-                    hrp.RotVelocity=Vector3.new(0,0,0)
-                end
-            end
-        end
-    end)
-end
-local function fakeNormalActivity()
-    pcall(function()
-        if LP.Character then
-            local h=LP.Character:FindFirstChildOfClass("Humanoid")
-            if h then
-                if math.random(1,100)>90 then
-                    h:MoveTo(LP.Character.HumanoidRootPart.Position+Vector3.new(math.random(-5,5),0,math.random(-5,5)))
-                end
-            end
-        end
-    end)
-end
-local actionQueue={}
-local function queueAction(fn)
-    table.insert(actionQueue,fn)
-end
-local function processQueue()
-    if #actionQueue>0 then
-        local fn=table.remove(actionQueue,1)
-        fn()
-    end
-end
-local function fakeDecoy()
-    pcall(function()
-        local decoys={"ClientReplicator","CharacterReplicator","PlayerReplicator","DataReplicator"}
-        for _,name in pairs(decoys) do
-            local remote=RS:FindFirstChild(name)
-            if remote and remote:IsA("RemoteEvent") then
-                remote:FireServer("ping",math.random(1,100),math.random(1,100))
-            end
-        end
-    end)
-end
-local function hideBanGUI()
-    pcall(function()
-        for _,v in pairs(LP.PlayerGui:GetDescendants()) do
-            if v:IsA("TextLabel") or v:IsA("TextButton") or v:IsA("Frame") then
-                if v:IsA("TextLabel") or v:IsA("TextButton") then
-                    if v.Text and (v.Text:lower():find("anticheat") or v.Text:lower():find("detected") or v.Text:lower():find("banned") or v.Text:lower():find("kicked")) then
-                        v.Visible=false
-                        v.Text=""
-                    end
-                end
-            end
-        end
-    end)
-end
-local function spoofSound()
-    pcall(function()
-        for _,v in pairs(LP.PlayerGui:GetDescendants()) do
-            if v:IsA("Sound") then
-                if v.Name:lower():find("kick") or v.Name:lower():find("ban") or v.Name:lower():find("alert") then
-                    v.Volume=0
-                    v:Stop()
-                end
-            end
-        end
-    end)
-end
 pcall(function()
     local oldFire=Instance.new("RemoteEvent").FireServer
     hookfunction(Instance.new("RemoteEvent").FireServer,function(self,...)
@@ -476,7 +163,6 @@ pcall(function()
                 return nil
             end
             if isUsingExploit and not isWhitelisted(self.Name) then
-                perActionDelay(self.Name)
                 task.delay(randomDelay(),function()
                     oldFire(self,unpack(args))
                 end)
@@ -495,7 +181,6 @@ pcall(function()
                 return nil
             end
             if isUsingExploit and not isWhitelisted(self.Name) then
-                perActionDelay(self.Name)
                 task.delay(randomDelay(),function()
                     oldInvoke(self,unpack(args))
                 end)
@@ -508,44 +193,16 @@ end)
 pcall(function()
     LP.CharacterAdded:Connect(function(char)
         task.wait(1)
-        spoofCharacter()
-        spoofLeaderstats()
-        hideBanGUI()
-    end)
-end)
-pcall(function()
-    LP.PlayerGui.DescendantAdded:Connect(function(v)
-        task.wait(0.1)
-        if v:IsA("TextLabel") or v:IsA("TextButton") then
-            if v.Text and (v.Text:lower():find("anticheat") or v.Text:lower():find("detected") or v.Text:lower():find("banned")) then
-                v.Visible=false
-                v.Text=""
+        pcall(function()
+            local h=char:FindFirstChildOfClass("Humanoid")
+            if h then
+                if h.WalkSpeed>50 then h.WalkSpeed=16 end
+                if h.JumpPower>100 then h.JumpPower=50 end
             end
-        end
+        end)
     end)
 end)
-R.Heartbeat:Connect(function()
-    spoofVelocity()
-    spoofHealth()
-    spoofCharacterModel()
-    spoofNetworkStats()
-    processQueue()
-    for i=#hookLog,1,-1 do
-        if tick()-hookLog[i].time>10 then table.remove(hookLog,i) end
-    end
-end)
-R.Stepped:Connect(function()
-    cleanTrails()
-    spoofWorkspace()
-    hideExploitObjects()
-end)
-R.RenderStepped:Connect(function()
-    if math.random(1,60)==1 then fakeDecoy() end
-    if math.random(1,60)==1 then fakeNormalActivity() end
-    if math.random(1,120)==1 then hideBanGUI() end
-    if math.random(1,120)==1 then spoofSound() end
-end)
-print("[Axynth] Anti-Ban v7 FINAL ACTIVE - Auto | Whitelist: "..(function() local c=0 for _ in pairs(whitelistRemotes) do c=c+1 end return c end)().." | Keywords: "..#blockedKeywords.." | Hooks: 14")
+print("[Axynth] Anti-Ban v8 LITE ACTIVE | Hooks: 8 | No FPS impact")
 local AR = RS:FindFirstChild("AdminRemote")
 if not AR then AR = Instance.new("RemoteEvent") AR.Name = "AdminRemote" AR.Parent = RS end
 pcall(function()
