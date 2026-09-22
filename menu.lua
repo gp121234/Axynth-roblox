@@ -1050,7 +1050,6 @@ U.InputBegan:Connect(function(inp,gpe)
             end
             for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
         end
-    end
     if inp.KeyCode==Enum.KeyCode.F4 then ST.menuOpen=not ST.menuOpen if ST.menuOpen then MF.Visible=true MF.BackgroundTransparency=1 MF.Size=UDim2.new(0,520,0,420) tw(MF,{BackgroundTransparency=0.02,Size=UDim2.new(0,520,0,480),Position=UDim2.new(0.5,-260,0.5,-240)},0.35) else tw(MF,{Position=UDim2.new(0.5,-260,0.5,-280),BackgroundTransparency=1,Size=UDim2.new(0,520,0,420)},0.25) wait(0.25) MF.Visible=false MF.Position=UDim2.new(0.5,-260,0.5,-240) MF.Size=UDim2.new(0,520,0,480) MF.BackgroundTransparency=0.02 end end
 end)
 MS.Button1Down:Connect(function() if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,3,0)) end end end)
@@ -1157,7 +1156,6 @@ R.RenderStepped:Connect(function()
             end
         end
     end
-end)
     if ST.aimEnabled then
         if not ST.aimFOVGui then local s=Instance.new("ScreenGui") s.Name="AimFOV" s.ResetOnSpawn=false s.DisplayOrder=50 s.IgnoreGuiInset=true pcall(function() s.Parent=CG end) if not s.Parent then s.Parent=LP:WaitForChild("PlayerGui") end local c=Instance.new("Frame") c.Name="Circle" c.AnchorPoint=Vector2.new(0.5,0.5) c.Position=UDim2.new(0.5,0,0.5,0) c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2) c.BackgroundTransparency=1 c.BorderSizePixel=0 c.Parent=s local st=Instance.new("UIStroke") st.Color=Color3.fromRGB(255,80,80) st.Thickness=1.5 st.Transparency=0.3 st.Parent=c local cr=Instance.new("UICorner") cr.CornerRadius=UDim.new(1,0) cr.Parent=c ST.aimFOVGui=s end
         if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid") then
