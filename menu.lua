@@ -525,7 +525,7 @@ XBtn.MouseButton1Click:Connect(function() ST.menuOpen=false tw(MF,{Position=UDim
 local CFB=Instance.new("Frame") CFB.Size=UDim2.new(1,0,0,38) CFB.Position=UDim2.new(0,0,0,40) CFB.BackgroundColor3=Color3.fromRGB(20,20,36) CFB.BorderSizePixel=0 CFB.Parent=MF
 print("[Axynth] GUI OK")
 local tabs={} local tF={}
-local tNames={{"home","Home"},{"world","World"},{"plr","Players"},{"fun","Fun+Troll"},{"exploit","Exploit"},{"set","Settings"}}
+local tNames={{"home","Home"},{"world","World"},{"plr","Players"},{"exploit","Exploit"},{"set","Settings"}}
 for i,n in pairs(tNames) do
     local f=Instance.new("TextButton") f.Size=UDim2.new(0,78,0,30) f.Position=UDim2.new(0,(i-1)*82+4,0,4) f.BackgroundColor3=TH.p f.BorderSizePixel=0 f.Text=n[2] f.TextColor3=TH.t f.TextSize=10 f.Font=Enum.Font.GothamBold f.Parent=CFB mkCorner(f,6)
     local fr=Instance.new("ScrollingFrame") fr.Size=UDim2.new(1,-16,1,-86) fr.Position=UDim2.new(0,8,0,82) fr.BackgroundTransparency=1 fr.BorderSizePixel=0 fr.ScrollBarThickness=4 fr.ScrollBarImageColor3=TH.a fr.CanvasSize=UDim2.new(0,0,0,0) fr.Visible=false fr.Parent=MF fr.AutomaticCanvasSize=Enum.AutomaticSize.Y fr.ScrollingDirection=Enum.ScrollingDirection.Y fr.ElasticBehavior=Enum.ElasticBehavior.Never fr.TopImage="rbxasset://textures/ui/Scroll/scroll-middle.png" fr.BottomImage="rbxasset://textures/ui/Scroll/scroll-middle.png"
@@ -672,13 +672,6 @@ btn(tP,"TP to WP 3",function() pcall(function() if ST.waypoints and ST.waypoints
 btn(tP,"TP to WP 4",function() pcall(function() if ST.waypoints and ST.waypoints[4] and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame=CFrame.new(ST.waypoints[4]) end end) end,"tpwp4")
 btn(tP,"TP to WP 5",function() pcall(function() if ST.waypoints and ST.waypoints[5] and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame=CFrame.new(ST.waypoints[5]) end end) end,"tpwp5")
 btn(tP,"Clear All Waypoints",function() ST.waypoints={} ntf("Waypoint","All cleared!") end,"clrwp")
-local tF2=tF["fun"]
-lbl(tF2,">> PARTICLE EFFECTS")
-btn(tF2,"Sparkles On",function() pcall(function() local ch=LP.Character if ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local p=Instance.new("Sparkles") p.Parent=hrp end end end) end,"sparkon")
-btn(tF2,"Fire On",function() pcall(function() local ch=LP.Character if ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local p=Instance.new("Fire") p.Size=10 p.Heat=10 p.Parent=hrp end end end) end,"fireon")
-btn(tF2,"Smoke On",function() pcall(function() local ch=LP.Character if ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local p=Instance.new("Smoke") p.Size=5 p.Opacity=0.8 p.Color=Color3.fromRGB(0,200,255) p.Parent=hrp end end end) end,"smokeon")
-btn(tF2,"Neon Glow",function() pcall(function() local ch=LP.Character if ch then for _,p in pairs(ch:GetDescendants()) do if p:IsA("BasePart") then local s=Instance.new("SurfaceLight") s.Brightness=2 s.Range=10 s.Color=Color3.fromRGB(120,120,255) s.Face=Enum.NormalId.Front s.Parent=p end end end end) end,"neon")
-btn(tF2,"Remove All FX",function() pcall(function() local ch=LP.Character if ch then for _,p in pairs(ch:GetDescendants()) do if p:IsA("Sparkles") or p:IsA("Fire") or p:IsA("Smoke") or p:IsA("SurfaceLight") or p:IsA("PointLight") or p:IsA("ParticleEmitter") then p:Destroy() end end end end) end,"rmvfx")
 local tEx=tF["exploit"]
 lbl(tEx,">> GRAND RP EXPLOITS")
 sep(tEx)
