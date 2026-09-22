@@ -622,7 +622,7 @@ local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
 local ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,cursorTPPreview=nil,cycleTP=false,cycleMarkers={},cycleIndex=1,botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=120,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimFOVGui=nil,aimTarget=nil}
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
-local TH = {p=Color3.fromRGB(18,18,32),s=Color3.fromRGB(24,24,44),b=Color3.fromRGB(35,35,60),bh=Color3.fromRGB(55,55,85),t=Color3.fromRGB(210,210,230),a=Color3.fromRGB(120,120,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
+local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
 local waitingForKey = nil
 local togUpdates={}
@@ -632,12 +632,12 @@ local function mkCorner(p,r) local c=Instance.new("UICorner",p) c.CornerRadius=U
 local function mkStroke(p,c,w) local s=Instance.new("UIStroke",p) s.Color=c or Color3.fromRGB(60,60,90) s.Thickness=w or 1 s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border return s end
 local function mkPadding(p,t,b,l,r2) local pd=Instance.new("UIPadding",p) pd.PaddingTop=UDim.new(0,t or 4) pd.PaddingBottom=UDim.new(0,b or 4) pd.PaddingLeft=UDim.new(0,l or 6) pd.PaddingRight=UDim.new(0,r2 or 6) return pd end
 local function sep(p) local f=Instance.new("Frame") f.Size=UDim2.new(1,-12,0,1) f.Position=UDim2.new(0,6,0,0) f.BackgroundColor3=Color3.fromRGB(50,50,75) f.BorderSizePixel=0 f.Parent=p end
-local function lbl(p,t) local l=Instance.new("TextLabel") l.Size=UDim2.new(1,-12,0,24) l.Position=UDim2.new(0,6,0,0) l.BackgroundTransparency=1 l.Text=t l.TextColor3=TH.a l.TextSize=13 l.Font=Enum.Font.GothamBold l.TextXAlignment=Enum.TextXAlignment.Left l.Parent=p return l end
+local function lbl(p,t) local l=Instance.new("TextLabel") l.Size=UDim2.new(1,-12,0,22) l.Position=UDim2.new(0,6,0,0) l.BackgroundTransparency=1 l.Text=t l.TextColor3=TH.a l.TextSize=11 l.Font=Enum.Font.GothamBold l.TextXAlignment=Enum.TextXAlignment.Left l.Parent=p return l end
 local function ntf(t,x,d) pcall(function() S:SetCore("SendNotification",{Title=t,Text=x,Duration=d or 3}) end) end
 local function getKeyDisplay(key) if not key then return "NONE" end local s=tostring(key) s=s:gsub("Enum.KeyCode.","") s=s:gsub("Enum.UserInputType.","") return s end
 local function findRemote(name) return RS:FindFirstChild(name) end
 local function btn(p,t,fn,id)
-    local b=Instance.new("TextButton") b.Size=UDim2.new(1,-12,0,34) b.Position=UDim2.new(0,6,0,0) b.BackgroundColor3=TH.b b.BorderSizePixel=0 b.Text="  "..t b.TextColor3=TH.t b.TextSize=13 b.Font=Enum.Font.GothamMedium b.TextXAlignment=Enum.TextXAlignment.Left b.Parent=p
+    local b=Instance.new("TextButton") b.Size=UDim2.new(1,-12,0,30) b.Position=UDim2.new(0,6,0,0) b.BackgroundColor3=TH.b b.BorderSizePixel=0 b.Text="  "..t b.TextColor3=TH.t b.TextSize=12 b.Font=Enum.Font.GothamMedium b.TextXAlignment=Enum.TextXAlignment.Left b.Parent=p
     mkCorner(b,6) mkStroke(b,Color3.fromRGB(60,60,90),1)
     local kbBtn=Instance.new("TextButton") kbBtn.Size=UDim2.new(0,40,0,22) kbBtn.Position=UDim2.new(1,-48,0,6) kbBtn.BackgroundColor3=TH.p kbBtn.BorderSizePixel=0 kbBtn.Text=getKeyDisplay(KB[id]) kbBtn.TextColor3=TH.a kbBtn.TextSize=9 kbBtn.Font=Enum.Font.GothamBold kbBtn.Parent=b mkCorner(kbBtn,4) mkStroke(kbBtn,TH.a,1)
     kbBtn.MouseButton1Click:Connect(function() waitingForKey=id kbBtn.Text="..." kbBtn.TextColor3=TH.r ntf("Keybind","Press any key for: "..t,5) end)
@@ -781,6 +781,18 @@ btn(tP,"Spectate: Prev Player",function() local plrs=P:GetPlayers() local idx=1 
 btn(tP,"Spectate: Overhead",function() if ST.spectating and ST.spectating.Character and ST.spectating.Character:FindFirstChild("HumanoidRootPart") then CAM.CameraType=Enum.CameraType.Scriptable local pos=ST.spectating.Character.HumanoidRootPart.Position CAM.CFrame=CFrame.new(pos+Vector3.new(0,30,0),pos) ntf("Spectate","Overhead view") end end,"specover")
 local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Enabled=CFG.ESPFillEnabled hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
 table.insert(allToggles,tESP)
+btn(tP,"ESP Color: Red",function() CFG.ESPColor=Color3.fromRGB(255,0,0) CFG.ESPTracerColor=Color3.fromRGB(255,0,0) ntf("ESP","Color: Red") end,"espcred")
+btn(tP,"ESP Color: Blue",function() CFG.ESPColor=Color3.fromRGB(0,100,255) CFG.ESPTracerColor=Color3.fromRGB(0,100,255) ntf("ESP","Color: Blue") end,"esp cblu")
+btn(tP,"ESP Color: White",function() CFG.ESPColor=Color3.fromRGB(255,255,255) CFG.ESPTracerColor=Color3.fromRGB(255,255,255) ntf("ESP","Color: White") end,"esp cwht")
+btn(tP,"Toggle: Names",function() CFG.ESPShowName=not CFG.ESPShowName ntf("ESP","Names: "..(CFG.ESPShowName and "ON" or "OFF")) end,"espname")
+btn(tP,"Toggle: Health Bar",function() CFG.ESPShowHealth=not CFG.ESPShowHealth ntf("ESP","Health: "..(CFG.ESPShowHealth and "ON" or "OFF")) end,"esphealth")
+btn(tP,"Toggle: Distance",function() CFG.ESPShowDistance=not CFG.ESPShowDistance ntf("ESP","Distance: "..(CFG.ESPShowDistance and "ON" or "OFF")) end,"espdist")
+btn(tP,"Toggle: Fill",function() CFG.ESPFillEnabled=not CFG.ESPFillEnabled ntf("ESP","Fill: "..(CFG.ESPFillEnabled and "ON" or "OFF")) end,"espfill")
+btn(tP,"Toggle: Outline",function() CFG.ESPOutlineEnabled=not CFG.ESPOutlineEnabled ntf("ESP","Outline: "..(CFG.ESPOutlineEnabled and "ON" or "OFF")) end,"espoline")
+btn(tP,"Max Dist: 2000",function() CFG.ESPMaxDist=2000 ntf("ESP","MaxDist: 2000") end,"espmd2k")
+btn(tP,"Max Dist: 5000",function() CFG.ESPMaxDist=5000 ntf("ESP","MaxDist: 5000") end,"espmd5k")
+local tESP2D=tog(tP,"2D Box ESP",function() return CFG.ESP2D end,function() CFG.ESP2D=not CFG.ESP2D ntf("ESP","2D Box: "..(CFG.ESP2D and "ON" or "OFF")) end,"esp2d")
+table.insert(allToggles,tESP2D)
 sep(tP)
 lbl(tP,">> MACETP (FOLLOW)")
 local tMace=tog(tP,"MaceTP",function() return ST.maceTP end,function() ST.maceTP=not ST.maceTP ntf("MaceTP",ST.maceTP and "ON - Follow nearest" or "OFF") end,"macetp")
@@ -1060,11 +1072,11 @@ R.RenderStepped:Connect(function()
                 end
                 local bb=pp.Character:FindFirstChild("AxESP_BB")
                 if not bb then
-                    bb=Instance.new("BillboardGui") bb.Name="AxESP_BB" bb.Size=UDim2.new(0,200,0,50) bb.StudsOffset=Vector3.new(0,3.5,0) bb.AlwaysOnTop=true bb.LightInfluence=0 bb.Parent=pp.Character
-                    local nL=Instance.new("TextLabel") nL.Name="NL" nL.Size=UDim2.new(1,0,0.4,0) nL.Position=UDim2.new(0,0,0,0) nL.BackgroundTransparency=1 nL.TextColor3=CFG.ESPTextColor nL.TextStrokeTransparency=0.5 nL.TextStrokeColor3=Color3.new(0,0,0) nL.TextSize=14 nL.Font=Enum.Font.GothamBold nL.Parent=bb
+                    bb=Instance.new("BillboardGui") bb.Name="AxESP_BB" bb.Size=UDim2.new(0,150,0,40) bb.StudsOffset=Vector3.new(0,3,0) bb.AlwaysOnTop=true bb.LightInfluence=0 bb.Parent=pp.Character
+                    local nL=Instance.new("TextLabel") nL.Name="NL" nL.Size=UDim2.new(1,0,0.4,0) nL.Position=UDim2.new(0,0,0,0) nL.BackgroundTransparency=1 nL.TextColor3=CFG.ESPTextColor nL.TextStrokeTransparency=0.5 nL.TextStrokeColor3=Color3.new(0,0,0) nL.TextSize=11 nL.Font=Enum.Font.GothamBold nL.Parent=bb
                     local hB=Instance.new("Frame") hB.Name="HB" hB.Size=UDim2.new(0.8,0,0.2,0) hB.Position=UDim2.new(0.1,0,0.5,0) hB.BackgroundColor3=Color3.new(0.2,0.2,0.2) hB.BorderSizePixel=0 hB.Parent=bb
                     local hF=Instance.new("Frame") hF.Name="HF" hF.Size=UDim2.new(1,0,1,0) hF.BackgroundColor3=TH.g hF.BorderSizePixel=0 hF.Parent=hB
-                    local dL=Instance.new("TextLabel") dL.Name="DL" dL.Size=UDim2.new(1,0,0.3,0) dL.Position=UDim2.new(0,0,0.7,0) dL.BackgroundTransparency=1 dL.TextColor3=CFG.ESPTextColor dL.TextStrokeTransparency=0.5 dL.TextStrokeColor3=Color3.new(0,0,0) dL.TextSize=10 dL.Font=Enum.Font.Gotham dL.Parent=bb
+                    local dL=Instance.new("TextLabel") dL.Name="DL" dL.Size=UDim2.new(1,0,0.3,0) dL.Position=UDim2.new(0,0,0.7,0) dL.BackgroundTransparency=1 dL.TextColor3=CFG.ESPTextColor dL.TextStrokeTransparency=0.5 dL.TextStrokeColor3=Color3.new(0,0,0) dL.TextSize=8 dL.Font=Enum.Font.Gotham dL.Parent=bb
                 end
                 local nL=bb:FindFirstChild("NL")
                 local hB=bb:FindFirstChild("HB")
