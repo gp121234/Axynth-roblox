@@ -83,16 +83,16 @@ pcall(function()
                 end)
                 return nil
             end
-            if ST.aimEnabled and (method=="FireServer" or method=="InvokeServer") then
+            if _G.AxST and _G.AxST.aimEnabled and (method=="FireServer" or method=="InvokeServer") then
                 if self.Name:find("WeaponFired") or self.Name:find("Shoot") or self.Name:find("Fire") or self.Name:find("Attack") or self.Name:find("Hit") then
                     pcall(function()
+                        local ST2=_G.AxST
                         local camPos=CAM.CFrame.Position
-                        local bestTarget=nil local bestDist=ST.aimFOV
+                        local bestTarget=nil local bestDist=ST2.aimFOV
                         for _,pp in pairs(P:GetPlayers()) do
-                            if pp~=LP and pp.Character and pp.Character:FindFirstChild(ST.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
+                            if pp~=LP and pp.Character and pp.Character:FindFirstChild(ST2.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
                                 if pp.Character:FindFirstChildOfClass("Humanoid").Health>0 then
-                                    if ST.aimTeamCheck and pp.Team==LP.Team then continue end
-                                    local tgtPos=pp.Character[ST.aimTargetPart].Position
+                                    local tgtPos=pp.Character[ST2.aimTargetPart].Position
                                     local sp,onscreen=CAM:WorldToViewportPoint(tgtPos)
                                     if onscreen then
                                         local vp=Vector2.new(sp.X,sp.Y)
@@ -103,8 +103,8 @@ pcall(function()
                                 end
                             end
                         end
-                        if bestTarget and bestTarget.Character and bestTarget.Character:FindFirstChild(ST.aimTargetPart) then
-                            local tgtPos=bestTarget.Character[ST.aimTargetPart].Position
+                        if bestTarget and bestTarget.Character and bestTarget.Character:FindFirstChild(ST2.aimTargetPart) then
+                            local tgtPos=bestTarget.Character[ST2.aimTargetPart].Position
                             for i=1,#args do
                                 local v=args[i]
                                 if typeof(v)=="Vector3" then
@@ -115,9 +115,9 @@ pcall(function()
                                     args[i]=CFrame.lookAt(camPos,tgtPos)
                                 end
                             end
-                            ST.aimTarget=bestTarget
+                            ST2.aimTarget=bestTarget
                         else
-                            ST.aimTarget=nil
+                            ST2.aimTarget=nil
                         end
                     end)
                 end
@@ -160,16 +160,16 @@ pcall(function()
                 end)
                 return nil
             end
-            if ST.aimEnabled then
+            if _G.AxST and _G.AxST.aimEnabled then
                 if self.Name:find("WeaponFired") or self.Name:find("Shoot") or self.Name:find("Fire") or self.Name:find("Attack") or self.Name:find("Hit") then
                     pcall(function()
+                        local ST2=_G.AxST
                         local camPos=CAM.CFrame.Position
-                        local bestTarget=nil local bestDist=ST.aimFOV
+                        local bestTarget=nil local bestDist=ST2.aimFOV
                         for _,pp in pairs(P:GetPlayers()) do
-                            if pp~=LP and pp.Character and pp.Character:FindFirstChild(ST.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
+                            if pp~=LP and pp.Character and pp.Character:FindFirstChild(ST2.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
                                 if pp.Character:FindFirstChildOfClass("Humanoid").Health>0 then
-                                    if ST.aimTeamCheck and pp.Team==LP.Team then continue end
-                                    local tgtPos=pp.Character[ST.aimTargetPart].Position
+                                    local tgtPos=pp.Character[ST2.aimTargetPart].Position
                                     local sp,onscreen=CAM:WorldToViewportPoint(tgtPos)
                                     if onscreen then
                                         local vp=Vector2.new(sp.X,sp.Y)
@@ -192,9 +192,9 @@ pcall(function()
                                     args[i]=CFrame.lookAt(camPos,tgtPos)
                                 end
                             end
-                            ST.aimTarget=bestTarget
+                            ST2.aimTarget=bestTarget
                         else
-                            ST.aimTarget=nil
+                            ST2.aimTarget=nil
                         end
                     end)
                 end
@@ -685,18 +685,19 @@ end
 tabs["home"].frame.Visible=true tw(tabs["home"].btn,{BackgroundColor3=TH.a,TextColor3=Color3.new(1,1,1)},0.2)
 print("[Axynth] Tabs OK")
 local allToggles={}
+_G.AxST=ST
 local tH=tF["home"]
 lbl(tH,">> SPEED")
-btn(tH,"Speed 100",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=100 end end end,"sp100")
-btn(tH,"Speed 250",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=250 end end end,"sp250")
-btn(tH,"Speed 500",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=500 end end end,"sp500")
-btn(tH,"Reset Speed",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end,"sprst")
+btn(tH,"Speed 100",function() pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=100 end end end) end,"sp100")
+btn(tH,"Speed 250",function() pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=250 end end end) end,"sp250")
+btn(tH,"Speed 500",function() pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=500 end end end) end,"sp500")
+btn(tH,"Reset Speed",function() pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) end,"sprst")
 sep(tH)
 lbl(tH,">> JUMP")
-btn(tH,"Jump 100",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=100 end end end,"jp100")
-btn(tH,"Jump 300",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=300 end end end,"jp300")
-btn(tH,"Jump 500",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=500 end end end,"jp500")
-btn(tH,"Reset Jump",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=50 end end end,"jprst")
+btn(tH,"Jump 100",function() pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=100 end end end) end,"jp100")
+btn(tH,"Jump 300",function() pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=300 end end end) end,"jp300")
+btn(tH,"Jump 500",function() pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=500 end end end) end,"jp500")
+btn(tH,"Reset Jump",function() pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=50 end end end) end,"jprst")
 local tInfJ=tog(tH,"Infinite Jump",function() return ST.infJump end,function() ST.infJump=not ST.infJump ntf("InfJump",ST.infJump and "ON" or "OFF") end,"infjump")
 table.insert(allToggles,tInfJ)
 local tGML=tog(tH,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop ntf("Godmode",ST.godmodeLoop and "ON" or "OFF") end,"godloop")
@@ -724,8 +725,7 @@ local tCTP=tog(tH,"Click TP",function() return ST.clickTP end,function() ST.clic
 table.insert(allToggles,tCTP)
 btn(tH,"TP Cursor",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,3,0)) ntf("TP","Teleported to cursor!") end end end,"tpcur")
 btn(tH,"TP Forward",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.CFrame=h.CFrame+CAM.CFrame.LookVector*100 end end end,"tpfwd")
-btn(tH,"TP Up",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.CFrame=h.CFrame+Vector3.new(0,50,0) end end end,"tpup")
-btn(tH,"TP Down",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.CFrame=h.CFrame+Vector3.new(0,-50,0) end end end,"tpdn")
+
 local tW=tF["world"]
 lbl(tW,">> WORLD")
 local tNight=tog(tW,"Night",function() return ST.night end,function() ST.night=not ST.night if ST.night then L.ClockTime=0 else L.ClockTime=14 end end,"night")
@@ -785,21 +785,14 @@ sep(tP)
 lbl(tP,">> MACETP (FOLLOW)")
 local tMace=tog(tP,"MaceTP",function() return ST.maceTP end,function() ST.maceTP=not ST.maceTP ntf("MaceTP",ST.maceTP and "ON - Follow nearest" or "OFF") end,"macetp")
 table.insert(allToggles,tMace)
-btn(tP,"MaceTP: Closer",function() ntf("MaceTP","Offset Z-1") end,"mzcloser")
-btn(tP,"MaceTP: Further",function() ntf("MaceTP","Offset Z+1") end,"mzfurther")
+btn(tP,"MaceTP: Closer",function() if not ST.maceTPOffset then ST.maceTPOffset=3 end ST.maceTPOffset=ST.maceTPOffset-1 ntf("MaceTP","Offset: "..ST.maceTPOffset) end,"mzcloser")
+btn(tP,"MaceTP: Further",function() if not ST.maceTPOffset then ST.maceTPOffset=3 end ST.maceTPOffset=ST.maceTPOffset+1 ntf("MaceTP","Offset: "..ST.maceTPOffset) end,"mzfurther")
 sep(tP)
 lbl(tP,">> MARKER SYSTEM")
 btn(tP,"Set Marker Here",function() pcall(function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then if ST.markerObj then ST.markerObj:Destroy() end local p=Instance.new("Part") p.Name="AxMarker" p.Size=Vector3.new(4,0.2,4) p.Anchored=true p.CanCollide=false p.Material=Enum.Material.Neon p.Color=Color3.fromRGB(0,150,255) p.Transparency=0.3 p.Position=LP.Character.HumanoidRootPart.Position-Vector3.new(0,3,0) p.Parent=W ST.markerObj=p local bb=Instance.new("BillboardGui") bb.Size=UDim2.new(0,100,0,40) bb.StudsOffset=Vector3.new(0,3,0) bb.AlwaysOnTop=true bb.Parent=p local tl=Instance.new("TextLabel") tl.Size=UDim2.new(1,0,1,0) tl.BackgroundTransparency=1 tl.Text="MARKER" tl.TextColor3=Color3.fromRGB(0,200,255) tl.TextSize=14 tl.Font=Enum.Font.GothamBold tl.Parent=bb ntf("Marker","Set!") end end) end,"setmarker")
 btn(tP,"TP to Marker",function() pcall(function() if ST.markerObj and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame=CFrame.new(ST.markerObj.Position+Vector3.new(0,3,0)) end end) end,"tpmarker")
 btn(tP,"Clear Marker",function() pcall(function() if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil ntf("Marker","Cleared!") end end) end,"clrmarker")
-sep(tP)
-lbl(tP,">> COORDINATES TP")
-local cxBox=Instance.new("TextBox") cxBox.Size=UDim2.new(0,60,0,28) cxBox.Position=UDim2.new(0,6,0,0) cxBox.BackgroundColor3=TH.b cxBox.BorderSizePixel=0 cxBox.PlaceholderText="X" cxBox.PlaceholderColor3=Color3.fromRGB(100,100,120) cxBox.Text="" cxBox.TextColor3=TH.t cxBox.TextSize=12 cxBox.Font=Enum.Font.Gotham cxBox.ClearTextOnFocus=false cxBox.Parent=tP mkCorner(cxBox,4) mkStroke(cxBox,TH.a,1)
-local cyBox=Instance.new("TextBox") cyBox.Size=UDim2.new(0,60,0,28) cyBox.Position=UDim2.new(0,72,0,0) cyBox.BackgroundColor3=TH.b cyBox.BorderSizePixel=0 cyBox.PlaceholderText="Y" cyBox.PlaceholderColor3=Color3.fromRGB(100,100,120) cyBox.Text="" cyBox.TextColor3=TH.t cyBox.TextSize=12 cyBox.Font=Enum.Font.Gotham cyBox.ClearTextOnFocus=false cyBox.Parent=tP mkCorner(cyBox,4) mkStroke(cyBox,TH.a,1)
-local czBox=Instance.new("TextBox") czBox.Size=UDim2.new(0,60,0,28) czBox.Position=UDim2.new(0,138,0,0) czBox.BackgroundColor3=TH.b czBox.BorderSizePixel=0 czBox.PlaceholderText="Z" czBox.PlaceholderColor3=Color3.fromRGB(100,100,120) czBox.Text="" czBox.TextColor3=TH.t czBox.TextSize=12 czBox.Font=Enum.Font.Gotham czBox.ClearTextOnFocus=false czBox.Parent=tP mkCorner(czBox,4) mkStroke(czBox,TH.a,1)
-btn(tP,"TP to Coords",function() pcall(function() local x=tonumber(cxBox.Text) or 0 local y=tonumber(cyBox.Text) or 0 local z=tonumber(czBox.Text) or 0 if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame=CFrame.new(x,y,z) ntf("Teleport","To coords!") end end) end,"tpcoords")
-btn(tP,"Fill Current Pos",function() pcall(function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local p=LP.Character.HumanoidRootPart.Position cxBox.Text=tostring(math.floor(p.X)) cyBox.Text=tostring(math.floor(p.Y)) czBox.Text=tostring(math.floor(p.Z)) end end) end,"fillpos")
-sep(tP)
+
 lbl(tP,">> CYCLE TP")
 local tCycle=tog(tP,"Cycle TP",function() return ST.cycleTP end,function() ST.cycleTP=not ST.cycleTP if ST.cycleTP then ST.cycleIndex=1 ntf("CycleTP","ON - Cycling markers") else ntf("CycleTP","OFF") end end,"cycletp")
 table.insert(allToggles,tCycle)
@@ -808,24 +801,24 @@ btn(tP,"Remove Last Marker",function() if #ST.cycleMarkers>0 then local m=table.
 btn(tP,"Clear All Markers",function() for _,m in pairs(ST.cycleMarkers) do if m.part and m.part.Parent then m.part:Destroy() end end ST.cycleMarkers={} ST.cycleIndex=1 ntf("CycleTP","All markers cleared!") end,"clrcmarks")
 local tF2=tF["fun"]
 lbl(tF2,">> SELF ANIMATIONS")
-btn(tF2,"Dance",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://182435998" h:LoadAnimation(a).Played:Connect(function() wait(2) end) end end end) end,"dance")
-btn(tF2,"Wave",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://12501376998" h:LoadAnimation(a).Played:Connect(function() wait(2) end) end end end) end,"wave")
-btn(tF2,"Laugh",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://182436395" h:LoadAnimation(a).Played:Connect(function() wait(2) end) end end end) end,"laugh")
-btn(tF2,"Cheer",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://182436338" h:LoadAnimation(a).Played:Connect(function() wait(2) end) end end end) end,"cheer")
-btn(tF2,"Point",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://182436292" h:LoadAnimation(a).Played:Connect(function() wait(2) end) end end end) end,"point")
-btn(tF2,"RKick",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://182436251" h:LoadAnimation(a).Played:Connect(function() wait(2) end) end end end) end,"rkick")
+btn(tF2,"Dance",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://182435998" local t=h:LoadAnimation(a) t:Play() t.Ended:Connect(function() t:Destroy() end) end end end) end,"dance")
+btn(tF2,"Wave",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://12501376998" local t=h:LoadAnimation(a) t:Play() t.Ended:Connect(function() t:Destroy() end) end end end) end,"wave")
+btn(tF2,"Laugh",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://182436395" local t=h:LoadAnimation(a) t:Play() t.Ended:Connect(function() t:Destroy() end) end end end) end,"laugh")
+btn(tF2,"Cheer",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://182436338" local t=h:LoadAnimation(a) t:Play() t.Ended:Connect(function() t:Destroy() end) end end end) end,"cheer")
+btn(tF2,"Point",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://182436292" local t=h:LoadAnimation(a) t:Play() t.Ended:Connect(function() t:Destroy() end) end end end) end,"point")
+btn(tF2,"RKick",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then local a=Instance.new("Animation") a.AnimationId="rbxassetid://182436251" local t=h:LoadAnimation(a) t:Play() t.Ended:Connect(function() t:Destroy() end) end end end) end,"rkick")
 sep(tF2)
 lbl(tF2,">> BIG / SMALL HEAD")
-btn(tF2,"Big Head",function() pcall(function() local ch=LP.Character if ch then local head=ch:FindFirstChild("Head") if head then head.Size=Vector3.new(3,3,3) head.Transparency=0 end end end) end,"bighed")
-btn(tF2,"Normal Head",function() pcall(function() local ch=LP.Character if ch then local head=ch:FindFirstChild("Head") if head then head.Size=Vector3.new(2,1,1) head.Transparency=0 end end end) end,"normhed")
-btn(tF2,"Small Head",function() pcall(function() local ch=LP.Character if ch then local head=ch:FindFirstChild("Head") if head then head.Size=Vector3.new(0.5,0.5,0.5) head.Transparency=0 end end end) end,"smahed")
+btn(tF2,"Big Head",function() pcall(function() local ch=LP.Character if ch then local s=ch:FindFirstChild("BodyHeadScale") if s then s.Value=3 else local head=ch:FindFirstChild("Head") if head then head:ScaleTo(Vector3.new(3,3,3)) end end end end) end,"bighed")
+btn(tF2,"Normal Head",function() pcall(function() local ch=LP.Character if ch then local s=ch:FindFirstChild("BodyHeadScale") if s then s.Value=1 else local head=ch:FindFirstChild("Head") if head then head:ScaleTo(Vector3.new(2,1,1)) end end end end) end,"normhed")
+btn(tF2,"Small Head",function() pcall(function() local ch=LP.Character if ch then local s=ch:FindFirstChild("BodyHeadScale") if s then s.Value=0.5 else local head=ch:FindFirstChild("Head") if head then head:ScaleTo(Vector3.new(0.5,0.5,0.5)) end end end end) end,"smahed")
 sep(tF2)
 lbl(tF2,">> BODY SCALE (VISIBLE)")
-btn(tF2,"Giant Body",function() pcall(function() local ch=LP.Character if ch then for _,n in pairs({"BodyHeightScale","BodyWidthScale","BodyDepthScale"}) do local s=ch:FindFirstChild(n) if s then s.Value=3 end end end end) end,"giant")
-btn(tF2,"Tiny Body",function() pcall(function() local ch=LP.Character if ch then for _,n in pairs({"BodyHeightScale","BodyWidthScale","BodyDepthScale"}) do local s=ch:FindFirstChild(n) if s then s.Value=0.5 end end end end) end,"tiny")
-btn(tF2,"Tall Body",function() pcall(function() local ch=LP.Character if ch then local s=ch:FindFirstChild("BodyHeightScale") if s then s.Value=5 end local w=ch:FindFirstChild("BodyWidthScale") if w then w.Value=0.5 end local d=ch:FindFirstChild("BodyDepthScale") if d then d.Value=0.5 end end end) end,"tall")
-btn(tF2,"Wide Body",function() pcall(function() local ch=LP.Character if ch then local s=ch:FindFirstChild("BodyHeightScale") if s then s.Value=0.5 end local w=ch:FindFirstChild("BodyWidthScale") if w then w.Value=5 end local d=ch:FindFirstChild("BodyDepthScale") if d then d.Value=5 end end end) end,"wide")
-btn(tF2,"Normal Body",function() pcall(function() local ch=LP.Character if ch then for _,n in pairs({"BodyHeightScale","BodyWidthScale","BodyDepthScale"}) do local s=ch:FindFirstChild(n) if s then s.Value=1 end end end end) end,"normbody")
+btn(tF2,"Giant Body",function() pcall(function() local ch=LP.Character if ch then for _,n in pairs({"BodyHeightScale","BodyWidthScale","BodyDepthScale","BodyTypeScale"}) do local s=ch:FindFirstChild(n) if s then s.Value=3 end end end end) end,"giant")
+btn(tF2,"Tiny Body",function() pcall(function() local ch=LP.Character if ch then for _,n in pairs({"BodyHeightScale","BodyWidthScale","BodyDepthScale","BodyTypeScale"}) do local s=ch:FindFirstChild(n) if s then s.Value=0.5 end end end end) end,"tiny")
+btn(tF2,"Tall Body",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChild("BodyHeightScale") if h then h.Value=5 end local w=ch:FindFirstChild("BodyWidthScale") if w then w.Value=0.7 end local d=ch:FindFirstChild("BodyDepthScale") if d then d.Value=0.7 end end end) end,"tall")
+btn(tF2,"Wide Body",function() pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChild("BodyHeightScale") if h then h.Value=0.7 end local w=ch:FindFirstChild("BodyWidthScale") if w then w.Value=5 end local d=ch:FindFirstChild("BodyDepthScale") if d then d.Value=5 end end end) end,"wide")
+btn(tF2,"Normal Body",function() pcall(function() local ch=LP.Character if ch then for _,n in pairs({"BodyHeightScale","BodyWidthScale","BodyDepthScale","BodyTypeScale"}) do local s=ch:FindFirstChild(n) if s then s.Value=1 end end end end) end,"normbody")
 sep(tF2)
 lbl(tF2,">> CHARACTER EFFECTS")
 btn(tF2,"Headless",function() pcall(function() local ch=LP.Character if ch then local head=ch:FindFirstChild("Head") if head then head.Transparency=1 local h=ch:FindFirstChildOfClass("Humanoid") if h then h.DisplayDistanceType=Enum.HumanoidDisplayDistanceType.None end end end end) end,"headless")
@@ -1018,21 +1011,21 @@ U.InputBegan:Connect(function(inp,gpe)
         end
     if inp.KeyCode==Enum.KeyCode.F4 then ST.menuOpen=not ST.menuOpen if ST.menuOpen then MF.Visible=true MF.BackgroundTransparency=1 MF.Size=UDim2.new(0,520,0,420) tw(MF,{BackgroundTransparency=0.02,Size=UDim2.new(0,520,0,480),Position=UDim2.new(0.5,-260,0.5,-240)},0.35) else tw(MF,{Position=UDim2.new(0.5,-260,0.5,-280),BackgroundTransparency=1,Size=UDim2.new(0,520,0,420)},0.25) wait(0.25) MF.Visible=false MF.Position=UDim2.new(0.5,-260,0.5,-240) MF.Size=UDim2.new(0,520,0,480) MF.BackgroundTransparency=0.02 end end
 end)
-MS.Button1Down:Connect(function() if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,3,0)) end end end)
+MS.Button1Down:Connect(function() if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,2,0)) end end end)
 print("[Axynth] Events OK")
 R.RenderStepped:Connect(function()
     if ST.fly and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") local hum=LP.Character:FindFirstChildOfClass("Humanoid") if h and hum then hum.PlatformStand=true h.Velocity=Vector3.new(0,0,0) h.RotVelocity=Vector3.new(0,0,0) local dir=Vector3.new(0,0,0) local sp=ST.flySpeed if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=sp*3 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if dir.Magnitude>0 then dir=dir.Unit end h.CFrame=h.CFrame+dir*sp/60 end end
-    if ST.godmodeLoop and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum then hum.Health=hum.MaxHealth end end
-    if ST.speedHard and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=70 end end
-    if ST.vehicleSpeedOn and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum and hum.SeatPart and hum.SeatPart:IsA("VehicleSeat") then local vehModel=hum.SeatPart.Parent if vehModel then for _,desc in pairs(vehModel:GetDescendants()) do if desc:IsA("VehicleSeat") then desc.MaxSpeed=120 end end end end end
-    if ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") then if ST.savedCollide[p2]==nil then ST.savedCollide[p2]=p2.CanCollide end p2.CanCollide=false end end end
-    if ST.spinner and LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then local sv=hrp:FindFirstChild("AxSpin") if not sv then sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) end end
+    if ST.godmodeLoop and LP.Character then pcall(function() local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum then hum.Health=hum.MaxHealth end end) end
+    if ST.speedHard and LP.Character then pcall(function() local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=70 end end) end
+    if ST.vehicleSpeedOn and LP.Character then pcall(function() local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum and hum.SeatPart and hum.SeatPart:IsA("VehicleSeat") then local vehModel=hum.SeatPart.Parent if vehModel then for _,desc in pairs(vehModel:GetDescendants()) do if desc:IsA("VehicleSeat") then desc.MaxSpeed=120 end end end end end) end
+    if ST.noclip and LP.Character then pcall(function() for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") then if ST.savedCollide[p2]==nil then ST.savedCollide[p2]=p2.CanCollide end p2.CanCollide=false end end end) end
+    if ST.spinner and LP.Character then pcall(function() local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then local sv=hrp:FindFirstChild("AxSpin") if not sv then sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) end end) end
     if ST.autoClicker then pcall(function() mouse1click() end) end
-    if ST.maceTP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local myRoot=LP.Character.HumanoidRootPart local nearestDist=math.huge local nearestRoot=nil for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and pp.Character:FindFirstChildOfClass("Humanoid") then local hum2=pp.Character:FindFirstChildOfClass("Humanoid") if hum2.Health>0 then local d=(myRoot.Position-pp.Character.HumanoidRootPart.Position).Magnitude if d<nearestDist then nearestDist=d nearestRoot=pp.Character.HumanoidRootPart end end end end if nearestRoot then myRoot.CFrame=nearestRoot.CFrame*CFrame.new(0,0,3) end end
+    if ST.maceTP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local myRoot=LP.Character.HumanoidRootPart local nearestDist=math.huge local nearestRoot=nil for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and pp.Character:FindFirstChildOfClass("Humanoid") then local hum2=pp.Character:FindFirstChildOfClass("Humanoid") if hum2.Health>0 then local d=(myRoot.Position-pp.Character.HumanoidRootPart.Position).Magnitude if d<nearestDist then nearestDist=d nearestRoot=pp.Character.HumanoidRootPart end end end end if nearestRoot then local off=ST.maceTPOffset or 3 myRoot.CFrame=nearestRoot.CFrame*CFrame.new(0,0,off) end end
     if ST.botRecord and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then table.insert(ST.botFrames,{t=tick()-ST.botStart,cf=LP.Character.HumanoidRootPart.CFrame:clone()}) end
     if ST.botPlay and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then if #ST.botFrames>0 then local elapsed=tick()-ST.botStart local idx=1 for i=1,#ST.botFrames do if ST.botFrames[i].t<=elapsed then idx=i else break end end if idx>#ST.botFrames then if ST.botLoop then ST.botStart=tick() idx=1 else ST.botPlay=false ntf("Bot","Playback finished!") end end if ST.botPlay and ST.botFrames[idx] then LP.Character.HumanoidRootPart.CFrame=ST.botFrames[idx].cf end end end
     if ST.cursorTPPreview then if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local m=MS.Hit if m then ST.cursorTPPreview.Position=m.Position+Vector3.new(0,3,0) end end end
-    if ST.freeCam then CAM.CameraType=Enum.CameraType.Scriptable local dir=Vector3.new(0,0,0) local sp=1 if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=2 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end local md=U:GetMouseDelta() if md then ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.002 ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.002,-1.2,1.2) end local cf=CFrame.new(CAM.CFrame.Position)*CFrame.Angles(0,ST.freeCamYaw or 0,0)*CFrame.Angles(ST.freeCamPitch or 0,0,0) CAM.CFrame=cf+dir*sp end
+    if ST.freeCam then pcall(function() CAM.CameraType=Enum.CameraType.Scriptable local dir=Vector3.new(0,0,0) local sp=1 if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=2 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end local md=U:GetMouseDelta() if md then ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.002 ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.002,-1.2,1.2) end local cf=CFrame.new(CAM.CFrame.Position)*CFrame.Angles(0,ST.freeCamYaw or 0,0)*CFrame.Angles(ST.freeCamPitch or 0,0,0) CAM.CFrame=cf+dir*sp end) end
     if ST.esp and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
         local myPos=LP.Character.HumanoidRootPart.Position
         for _,pp in pairs(P:GetPlayers()) do
