@@ -971,7 +971,7 @@ btn(tMi,"Unfreeze All",function() if cd() then sf("unfreeze",100) end end,"svunf
 btn(tMi,"Revive All",function() if cd() then sf("heal",100) pcall(function() for _,pp in pairs(P:GetPlayers()) do if pp.Character then local h=pp.Character:FindFirstChildOfClass("Humanoid") if h then h.Health=h.MaxHealth h.PlatformStand=false end end end end) ntf("Revive","All revived!") end end,"svrevive")
 sep(tMi)
 lbl(tMi,">> ANTI-AFK")
-btn(tMi,"Anti-AFK (Proper)",function() pcall(function() if not ST._antiafkHooked then local vu=game:GetService("VirtualUser") LP.Idled:Connect(function() vu:CaptureController() vu:ClickButton2(Vector2.new()) end) ST._antiafkHooked=true ntf("Anti-AFK","Hooked with VirtualUser!") end) end,"antiafk2")
+btn(tMi,"Anti-AFK (Proper)",function() pcall(function() if not ST._antiafkHooked then local vu=game:GetService("VirtualUser") LP.Idled:Connect(function() vu:CaptureController() vu:ClickButton2(Vector2.new()) end) ST._antiafkHooked=true ntf("Anti-AFK","Hooked with VirtualUser!") end end end end,"antiafk2")
 sep(tMi)
 lbl(tMi,">> BOT (RECORD/PLAY)")
 local tBotR=tog(tMi,"Bot Record",function() return ST.botRecord end,function() ST.botRecord=not ST.botRecord if ST.botRecord then ST.botFrames={} ST.botStart=tick() ntf("Bot","Recording...") else ntf("Bot","Stopped. Frames: "..#ST.botFrames) end end,"botrec")
