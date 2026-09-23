@@ -523,6 +523,95 @@ local function getKeyDisplay(key) if not key then return "NONE" end local s=tost
 local function refreshKBBtns() for id,kb in pairs(kbBtns) do if kb and kb.Parent then kb.Text=getKeyDisplay(KB[id]) kb.TextColor3=(KBMode[id]=="hold") and Color3.fromRGB(255,200,80) or TH.a end end end
 local function cycleKBMode(id) KBMode[id]=(KBMode[id]=="hold") and "toggle" or "hold" refreshKBBtns() ntf("Keybind",(KBMode[id]=="hold") and "Mode: HOLD (while key down)" or "Mode: TOGGLE (press once)") end
 local function setFrozen(f) pcall(function() if LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hrp and (not hum or not hum.Seated) then hrp.Anchored=f if f then hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end end end end) end
+local function setFreeCam(on)
+    if on then
+        if ST.freeCam then return end
+        ST.freeCam=true
+        pcall(function()
+            local ch=LP.Character
+            local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+            local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+            if hrp then ST.freeCamAnchor=hrp.Position hrp.Anchored=true hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end
+            if hum then ST._fcWalk=hum.WalkSpeed ST._fcJump=hum.JumpPower hum.WalkSpeed=0 hum.JumpPower=0 end
+            local rx,ry,rz=CAM.CFrame:ToEulerAnglesYXZ()
+            ST.freeCamYaw=ry
+            ST.freeCamPitch=rx
+            ST.freeCamPos=CAM.CFrame.Position
+            CAM.CameraType=Enum.CameraType.Scriptable
+            U.MouseBehavior=Enum.MouseBehavior.Default
+        end)
+        ntf("FreeCam","ON - player frozen, WASD + hold RMB")
+    else
+        local was=ST.freeCam
+        ST.freeCam=false
+        pcall(function()
+            local ch=LP.Character
+            local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+            local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+            if hrp then hrp.Anchored=false end
+            if hum then hum.WalkSpeed=ST._fcWalk or 16 hum.JumpPower=ST._fcJump or 50 CAM.CameraSubject=hum end
+            CAM.CameraType=Enum.CameraType.Custom
+            U.MouseBehavior=Enum.MouseBehavior.Default
+        end)
+        ST._fcWalk=nil ST._fcJump=nil ST.freeCamAnchor=nil ST.freeCamPos=nil
+        if was then ntf("FreeCam","OFF") end
+    end
+end
+pcall(function()
+    R:BindToRenderStep("AxFreecam",Enum.RenderPriority.Camera.Value+50,function()
+        if not ST.freeCam then return end
+        pcall(function()
+            CAM.CameraType=Enum.CameraType.Scriptable
+            local ch=LP.Character
+            if ch then
+                local hrp=ch:FindFirstChild("HumanoidRootPart")
+                local hum=ch:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
+                    if hum.JumpPower~=0 then hum.JumpPower=0 end
+                end
+                if hrp and (not hum or not hum.Seated) then
+                    if not hrp.Anchored then hrp.Anchored=true end
+                    if ST.freeCamAnchor and (hrp.Position-ST.freeCamAnchor).Magnitude>1 then
+                        hrp.CFrame=CFrame.new(ST.freeCamAnchor)*(hrp.CFrame-hrp.CFrame.Position)
+                    end
+                    hrp.Velocity=Vector3.new(0,0,0)
+                    hrp.RotVelocity=Vector3.new(0,0,0)
+                end
+            end
+            local pos=ST.freeCamPos or CAM.CFrame.Position
+            local yaw=ST.freeCamYaw or 0
+            local pitch=ST.freeCamPitch or 0
+            local dir=Vector3.new(0,0,0)
+            local sp=1
+            if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=3 end
+            local base=CFrame.new(pos)*CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
+            if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+base.LookVector end
+            if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-base.LookVector end
+            if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-base.RightVector end
+            if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+base.RightVector end
+            if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
+            if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
+            if dir.Magnitude>0 then
+                pos=pos+dir.Unit*sp
+                ST.freeCamPos=pos
+            end
+            if U:IsKeyDown(Enum.UserInputType.MouseButton2) then
+                U.MouseBehavior=Enum.MouseBehavior.LockCenter
+                local md=U:GetMouseDelta()
+                if md then
+                    ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.003
+                    ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.003,-1.4,1.4)
+                end
+            else
+                U.MouseBehavior=Enum.MouseBehavior.Default
+            end
+            local cf=CFrame.new(pos)*CFrame.Angles(0,ST.freeCamYaw or 0,0)*CFrame.Angles(ST.freeCamPitch or 0,0,0)
+            CAM.CFrame=cf
+            CAM.Focus=cf
+        end)
+    end)
+end)
 local function findRemote(name)
     local cur=RS
     local okPath=true
@@ -586,7 +675,7 @@ local XBtn=Instance.new("TextButton") XBtn.Size=UDim2.new(0,32,0,32) XBtn.Positi
 XBtn.MouseEnter:Connect(function() twFast(XBtn,{TextColor3=Color3.new(1,1,1)}) end)
 XBtn.MouseLeave:Connect(function() tw(XBtn,{TextColor3=TH.r},0.2) end)
 XBtn.MouseButton1Click:Connect(function() ST.menuOpen=false tw(MF,{Position=UDim2.new(0.5,-260,0.5,-280),BackgroundTransparency=1,Size=UDim2.new(0,520,0,420)},0.3) wait(0.3) MF.Visible=false MF.Position=UDim2.new(0.5,-260,0.5,-240) MF.Size=UDim2.new(0,520,0,480) MF.BackgroundTransparency=0.02 end)
-local OVF=Instance.new("Frame") OVF.Name="AxOverlay" OVF.Size=UDim2.fromScale(1,1) OVF.BackgroundTransparency=1 OVF.BorderSizePixel=0 OVF.ZIndex=100 OVF.Active=false OVF.Parent=SG
+local OVF=Instance.new("Frame") OVF.Name="AxOverlay" OVF.Size=UDim2.fromScale(1,1) OVF.BackgroundTransparency=1 OVF.BorderSizePixel=0 OVF.ZIndex=100 OVF.Active=false OVF.ClipsDescendants=false OVF.Parent=SG
 local CFB=Instance.new("Frame") CFB.Size=UDim2.new(1,0,0,38) CFB.Position=UDim2.new(0,0,0,40) CFB.BackgroundColor3=Color3.fromRGB(20,20,36) CFB.BorderSizePixel=0 CFB.Parent=MF
 print("[Axynth] GUI OK")
 local tabs={} local tF={}
@@ -630,7 +719,7 @@ local tFly=tog(tH,"Fly",function() return ST.fly end,function() ST.fly=not ST.fl
 table.insert(allToggles,tFly)
 local tNoclip=tog(tH,"Noclip",function() return ST.noclip end,function() ST.noclip=not ST.noclip if not ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") and ST.savedCollide[p2]~=nil then p2.CanCollide=ST.savedCollide[p2] end end ST.savedCollide={} end end,"noclip")
 table.insert(allToggles,tNoclip)
-local tFC=tog(tH,"Free Cam",function() return ST.freeCam end,function() ST.freeCam=not ST.freeCam if ST.freeCam then ST.freeCamPos=CAM.CFrame ST.freeCamYaw=0 ST.freeCamPitch=0 setFrozen(true) CAM.CameraType=Enum.CameraType.Scriptable U.MouseBehavior=Enum.MouseBehavior.Default ntf("FreeCam","ON - you are frozen, WASD + hold RMB") else setFrozen(false) CAM.CameraType=Enum.CameraType.Custom U.MouseBehavior=Enum.MouseBehavior.Default if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end ntf("FreeCam","OFF") end end,"freecam")
+local tFC=tog(tH,"Free Cam",function() return ST.freeCam end,function() setFreeCam(not ST.freeCam) end,"freecam")
 table.insert(allToggles,tFC)
 local tSpin=tog(tH,"Spinner (Self)",function() return ST.spinner end,function() ST.spinner=not ST.spinner if not ST.spinner and LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end end,"spinner")
 table.insert(allToggles,tSpin)
@@ -680,13 +769,63 @@ pDropBtn.MouseButton1Click:Connect(function()
     pDropOpen=not pDropOpen
     if pDropOpen then
         if pDropdown then pDropdown:Destroy() end
-        pDropdown=Instance.new("ScrollingFrame") pDropdown.Size=UDim2.fromOffset(pDropBtn.AbsoluteSize.X,120) pDropdown.BackgroundColor3=TH.s pDropdown.BorderSizePixel=0 pDropdown.ScrollBarThickness=3 pDropdown.ScrollBarImageColor3=TH.a pDropdown.ZIndex=101 pDropdown.Parent=OVF mkCorner(pDropdown,6) mkStroke(pDropdown,TH.a,1)
-        local bp=pDropBtn.AbsolutePosition pDropdown.Position=UDim2.fromOffset(bp.X,bp.Y+pDropBtn.AbsoluteSize.Y)
-        Instance.new("UIListLayout",pDropdown).Padding=UDim.new(0,2) mkPadding(pDropdown,2,2,4,4)
-        local pl=P:GetPlayers() pDropdown.CanvasSize=UDim2.new(0,0,0,#pl*28)
-        for _,pp in pairs(pl) do if pp~=LP then local o=Instance.new("TextButton") o.Size=UDim2.new(1,-8,0,26) o.BackgroundColor3=TH.p o.BorderSizePixel=0 o.Text="  "..pp.DisplayName o.TextColor3=TH.t o.TextXAlignment=Enum.TextXAlignment.Left o.TextSize=12 o.Font=Enum.Font.Gotham o.Parent=pDropdown mkCorner(o,4)
-            o.MouseEnter:Connect(function() twFast(o,{BackgroundColor3=TH.bh}) end) o.MouseLeave:Connect(function() tw(o,{BackgroundColor3=TH.p},0.2) end)
-            o.MouseButton1Click:Connect(function() ST.selectedPlayer=pp pDropBtn.Text="  > "..pp.DisplayName pDropOpen=false if pDropdown then pDropdown:Destroy() pDropdown=nil end end) end end
+        pDropdown=Instance.new("ScrollingFrame")
+        local bw=pDropBtn.AbsoluteSize.X
+        if bw<40 then bw=300 end
+        pDropdown.Size=UDim2.fromOffset(bw,140)
+        pDropdown.BackgroundColor3=TH.s
+        pDropdown.BorderSizePixel=0
+        pDropdown.ScrollBarThickness=3
+        pDropdown.ScrollBarImageColor3=TH.a
+        pDropdown.ZIndex=110
+        pDropdown.Active=true
+        pDropdown.Parent=OVF
+        pDropdown.CanvasSize=UDim2.new(0,0,0,0)
+        pDropdown.AutomaticCanvasSize=Enum.AutomaticSize.Y
+        pDropdown.ScrollingDirection=Enum.ScrollingDirection.Y
+        mkCorner(pDropdown,6)
+        mkStroke(pDropdown,TH.a,1)
+        mkPadding(pDropdown,2,2,4,4)
+        local bp=pDropBtn.AbsolutePosition
+        local op=OVF.AbsolutePosition
+        pDropdown.Position=UDim2.fromOffset(bp.X-op.X,bp.Y-op.Y+pDropBtn.AbsoluteSize.Y)
+        local y=4
+        local pl=P:GetPlayers()
+        for _,pp in pairs(pl) do
+            if pp~=LP then
+                local o=Instance.new("TextButton")
+                o.Size=UDim2.new(1,-8,0,26)
+                o.Position=UDim2.new(0,4,0,y)
+                o.BackgroundColor3=TH.b
+                o.BorderSizePixel=0
+                o.Text="  "..pp.DisplayName
+                o.TextColor3=TH.t
+                o.TextXAlignment=Enum.TextXAlignment.Left
+                o.TextSize=12
+                o.Font=Enum.Font.Gotham
+                o.ZIndex=111
+                o.Parent=pDropdown
+                mkCorner(o,4)
+                y=y+28
+                o.MouseEnter:Connect(function() o.BackgroundColor3=TH.bh end)
+                o.MouseLeave:Connect(function() o.BackgroundColor3=TH.b end)
+                o.MouseButton1Click:Connect(function() ST.selectedPlayer=pp pDropBtn.Text="  > "..pp.DisplayName pDropOpen=false if pDropdown then pDropdown:Destroy() pDropdown=nil end end)
+            end
+        end
+        if y<=4 then
+            local e=Instance.new("TextLabel")
+            e.Size=UDim2.new(1,-8,0,26)
+            e.Position=UDim2.new(0,4,0,4)
+            e.BackgroundTransparency=1
+            e.Text="  No other players"
+            e.TextColor3=TH.t
+            e.TextXAlignment=Enum.TextXAlignment.Left
+            e.TextSize=12
+            e.Font=Enum.Font.Gotham
+            e.ZIndex=111
+            e.Parent=pDropdown
+        end
+        pDropdown.CanvasSize=UDim2.new(0,0,0,y+4)
     else if pDropdown then pDropdown:Destroy() pDropdown=nil end end
 end)
 btn(tP,"Refresh Players",function() pDropBtn.Text="  Click to select..." ST.selectedPlayer=nil end,"plrrefresh")
@@ -876,13 +1015,47 @@ aimDropBtn.MouseButton1Click:Connect(function()
     aimDropOpen=not aimDropOpen
     if aimDropOpen then
         if aimDropList then aimDropList:Destroy() end
-        aimDropList=Instance.new("ScrollingFrame") aimDropList.Size=UDim2.fromOffset(aimDropBtn.AbsoluteSize.X,148) aimDropList.BackgroundColor3=TH.s aimDropList.BorderSizePixel=0 aimDropList.ScrollBarThickness=3 aimDropList.ScrollBarImageColor3=TH.a aimDropList.ZIndex=101 aimDropList.Parent=OVF mkCorner(aimDropList,6) mkStroke(aimDropList,TH.a,1)
-        local abp=aimDropBtn.AbsolutePosition aimDropList.Position=UDim2.fromOffset(abp.X,abp.Y+aimDropBtn.AbsoluteSize.Y)
-        Instance.new("UIListLayout",aimDropList).Padding=UDim.new(0,2) mkPadding(aimDropList,2,2,4,4)
-        aimDropList.CanvasSize=UDim2.new(0,0,0,#aimParts*28)
-        for _,pn in pairs(aimParts) do local o=Instance.new("TextButton") o.Size=UDim2.new(1,-8,0,26) o.BackgroundColor3=TH.p o.BorderSizePixel=0 o.Text="  "..pn o.TextColor3=TH.t o.TextXAlignment=Enum.TextXAlignment.Left o.TextSize=12 o.Font=Enum.Font.Gotham o.Parent=aimDropList mkCorner(o,4)
-            o.MouseEnter:Connect(function() twFast(o,{BackgroundColor3=TH.bh}) end) o.MouseLeave:Connect(function() tw(o,{BackgroundColor3=TH.p},0.2) end)
-            o.MouseButton1Click:Connect(function() ST.aimTargetPart=pn aimDropBtn.Text="  Target: "..pn aimDropOpen=false if aimDropList then aimDropList:Destroy() aimDropList=nil end ntf("Aimbot","Target: "..pn) end) end
+        aimDropList=Instance.new("ScrollingFrame")
+        local bw=aimDropBtn.AbsoluteSize.X
+        if bw<40 then bw=300 end
+        aimDropList.Size=UDim2.fromOffset(bw,160)
+        aimDropList.BackgroundColor3=TH.s
+        aimDropList.BorderSizePixel=0
+        aimDropList.ScrollBarThickness=3
+        aimDropList.ScrollBarImageColor3=TH.a
+        aimDropList.ZIndex=110
+        aimDropList.Active=true
+        aimDropList.Parent=OVF
+        aimDropList.CanvasSize=UDim2.new(0,0,0,0)
+        aimDropList.AutomaticCanvasSize=Enum.AutomaticSize.Y
+        aimDropList.ScrollingDirection=Enum.ScrollingDirection.Y
+        mkCorner(aimDropList,6)
+        mkStroke(aimDropList,TH.a,1)
+        mkPadding(aimDropList,2,2,4,4)
+        local abp=aimDropBtn.AbsolutePosition
+        local aop=OVF.AbsolutePosition
+        aimDropList.Position=UDim2.fromOffset(abp.X-aop.X,abp.Y-aop.Y+aimDropBtn.AbsoluteSize.Y)
+        local y=4
+        for _,pn in pairs(aimParts) do
+            local o=Instance.new("TextButton")
+            o.Size=UDim2.new(1,-8,0,26)
+            o.Position=UDim2.new(0,4,0,y)
+            o.BackgroundColor3=TH.b
+            o.BorderSizePixel=0
+            o.Text="  "..pn
+            o.TextColor3=TH.t
+            o.TextXAlignment=Enum.TextXAlignment.Left
+            o.TextSize=12
+            o.Font=Enum.Font.Gotham
+            o.ZIndex=111
+            o.Parent=aimDropList
+            mkCorner(o,4)
+            y=y+28
+            o.MouseEnter:Connect(function() o.BackgroundColor3=TH.bh end)
+            o.MouseLeave:Connect(function() o.BackgroundColor3=TH.b end)
+            o.MouseButton1Click:Connect(function() ST.aimTargetPart=pn aimDropBtn.Text="  Target: "..pn aimDropOpen=false if aimDropList then aimDropList:Destroy() aimDropList=nil end ntf("Aimbot","Target: "..pn) end)
+        end
+        aimDropList.CanvasSize=UDim2.new(0,0,0,y+4)
     else if aimDropList then aimDropList:Destroy() aimDropList=nil end end
 end)
 makeSlider(tEx,"FOV",20,400,function() return ST.aimFOV end,function(v) ST.aimFOV=math.floor(v) if ST.aimFOVGui then local c=ST.aimFOVGui:FindFirstChild("Circle") if c then c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2) end end end)
@@ -931,7 +1104,7 @@ btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=rea
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
-btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false ST.freeCam=false setFrozen(false) U.MouseBehavior=Enum.MouseBehavior.Default ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
+btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -952,7 +1125,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     KBActive[id]=true
                     if id=="fly" then ST.fly=true
                     elseif id=="noclip" then ST.noclip=true
-                    elseif id=="freecam" then ST.freeCam=true setFrozen(true) CAM.CameraType=Enum.CameraType.Scriptable U.MouseBehavior=Enum.MouseBehavior.Default
+                    elseif id=="freecam" then setFreeCam(true)
                     elseif id=="esp" then ST.esp=true
                     elseif id=="night" then ST.night=true
                     elseif id=="bright" then ST.bright=true if not ST.savedLighting then ST.savedLighting={Brightness=L.Brightness,GlobalShadows=L.GlobalShadows,FogEnd=L.FogEnd,Ambient=L.Ambient,OutdoorAmbient=L.OutdoorAmbient,ClockTime=L.ClockTime} end
@@ -976,7 +1149,7 @@ U.InputBegan:Connect(function(inp,gpe)
             else
             if id=="fly" then ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end
             elseif id=="noclip" then ST.noclip=not ST.noclip
-            elseif id=="freecam" then ST.freeCam=not ST.freeCam if ST.freeCam then setFrozen(true) CAM.CameraType=Enum.CameraType.Scriptable U.MouseBehavior=Enum.MouseBehavior.Default else setFrozen(false) CAM.CameraType=Enum.CameraType.Custom U.MouseBehavior=Enum.MouseBehavior.Default if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end end
+            elseif id=="freecam" then setFreeCam(not ST.freeCam)
             elseif id=="clicktp" then ST.clickTP=not ST.clickTP if ST.clickTP then if not ST.cursorTPPreview then local p=Instance.new("Part") p.Name="AxCTPPreview" p.Size=Vector3.new(3,0.2,3) p.Anchored=true p.CanCollide=false p.Material=Enum.Material.Neon p.Color=Color3.fromRGB(255,0,0) p.Transparency=0.5 p.Parent=W ST.cursorTPPreview=p end else if ST.cursorTPPreview then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end end
             elseif id=="esp" then ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for uid,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[uid]=nil end end
             elseif id=="night" then ST.night=not ST.night
@@ -1011,7 +1184,7 @@ U.InputEnded:Connect(function(inp)
                 KBActive[id]=nil
                 if id=="fly" then ST.fly=false if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end
                 elseif id=="noclip" then ST.noclip=false
-                elseif id=="freecam" then ST.freeCam=false setFrozen(false) CAM.CameraType=Enum.CameraType.Custom U.MouseBehavior=Enum.MouseBehavior.Default if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end
+                elseif id=="freecam" then setFreeCam(false)
                 elseif id=="esp" then ST.esp=false
                 elseif id=="night" then ST.night=false
                 elseif id=="bright" then ST.bright=false if ST.savedLighting then pcall(function() L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime end) ST.savedLighting=nil end
@@ -1082,9 +1255,6 @@ R.RenderStepped:Connect(function()
         if ST.spectateOverhead and ST.spectating and ST.spectating.Character and ST.spectating.Character:FindFirstChild("HumanoidRootPart") then local pos=ST.spectating.Character.HumanoidRootPart.Position CAM.CFrame=CFrame.new(pos+Vector3.new(0,25,0),pos) end
     end)
     pcall(function() if ST.cursorTPPreview then if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local m=MS.Hit if m then ST.cursorTPPreview.Position=m.Position+Vector3.new(0,3,0) end end end end)
-    pcall(function()
-        if ST.freeCam then CAM.CameraType=Enum.CameraType.Scriptable local dir=Vector3.new(0,0,0) local sp=1 if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=2 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if U:IsKeyDown(Enum.UserInputType.MouseButton2) then U.MouseBehavior=Enum.MouseBehavior.LockCenter local md=U:GetMouseDelta() if md then ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.002 ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.002,-1.2,1.2) end else U.MouseBehavior=Enum.MouseBehavior.Default end local cf=CFrame.new(CAM.CFrame.Position)*CFrame.Angles(0,ST.freeCamYaw or 0,0)*CFrame.Angles(ST.freeCamPitch or 0,0,0) CAM.CFrame=cf+dir*sp if LP.Character then local fhrp=LP.Character:FindFirstChild("HumanoidRootPart") local fhum=LP.Character:FindFirstChildOfClass("Humanoid") if fhrp and (not fhum or not fhum.Seated) then if not fhrp.Anchored then fhrp.Anchored=true end fhrp.Velocity=Vector3.new(0,0,0) fhrp.RotVelocity=Vector3.new(0,0,0) end end end
-    end)
     pcall(function()
         if ((not ST.aimHoldKey and ST.aimEnabled) or (ST.aimHoldKey and ST.aimKeyHeld)) and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid") then
             local camPos=CAM.CFrame.Position
