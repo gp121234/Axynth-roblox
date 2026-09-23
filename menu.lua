@@ -409,7 +409,7 @@ end)
 local ntf
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
-ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,spheresOn=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,weaponDmgOn=true,weaponDmg=30,weaponDmgMult=1,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0}
+ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,spheresOn=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,weaponDmgOn=true,weaponDmg=30,weaponDmgMult=1,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0,shotTracer=false,dmgPop=true}
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
 local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
@@ -476,13 +476,48 @@ local fcLastT=tick()
 local function fcKey(code)
     return FC_KEYS[code]==true
 end
+local function stopOverhead(notify)
+    local was=ST.spectateOverhead
+    ST.spectateOverhead=false
+    ST._ovhActive=false
+    if not ST.freeCam then
+        table.clear(FC_KEYS)
+        pcall(function()
+            game:GetService("ContextActionService"):UnbindAction("AxOvhSink")
+        end)
+    end
+    pcall(function()
+        local ch=LP.Character
+        local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+        if hum then
+            if ST._ovhWalk~=nil then
+                hum.WalkSpeed=ST._ovhWalk
+                ST._ovhWalk=nil
+            end
+            if hum.PlatformStand then hum.PlatformStand=false end
+        end
+    end)
+    if was and not ST.freeCam then
+        U.MouseBehavior=Enum.MouseBehavior.Default
+        pcall(function()
+            local cam=W.CurrentCamera or CAM
+            CAM=cam
+            if cam then
+                local h=ST.spectating and ST.spectating.Character and ST.spectating.Character:FindFirstChildOfClass("Humanoid")
+                if h then cam.CameraSubject=h end
+                cam.CameraType=Enum.CameraType.Custom
+            end
+        end)
+    end
+    if was and notify then ntf("Spectate","Overhead OFF") end
+end
 local function setFreeCam(on)
     if on then
         if ST.freeCam then return end
+        stopOverhead(false)
         ST.freeCam=true
         table.clear(FC_KEYS)
         pcall(function()
-            ST.spectateOverhead=false
             local ch=LP.Character
             local hum=ch and ch:FindFirstChildOfClass("Humanoid")
             local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
@@ -528,7 +563,7 @@ local function setFreeCam(on)
                 ST._fcInConns=true
                 pcall(function()
                     U.InputBegan:Connect(function(inp)
-                        if not ST.freeCam then return end
+                        if not ST.freeCam and not ST.spectateOverhead then return end
                         if inp.KeyCode~=Enum.KeyCode.Unknown then FC_KEYS[inp.KeyCode]=true end
                     end)
                     U.InputEnded:Connect(function(inp)
@@ -634,11 +669,16 @@ local function applyFreeCam(cam)
     if cam.CameraType~=Enum.CameraType.Scriptable then cam.CameraType=Enum.CameraType.Scriptable end
 end
 local ovhPrevM=nil
+local ovhLastT=tick()
 local function applyOverhead(cam)
-    if not ST.spectateOverhead or not ST.spectating or not ST.spectating.Character then return end
+    if not ST.spectateOverhead then return end
+    if not ST.spectating or not ST.spectating.Character or not ST.spectating.Character:FindFirstChild("HumanoidRootPart") then
+        stopOverhead(false)
+        ntf("Spectate","Target lost - overhead stopped",4)
+        return
+    end
     local hrpT=ST.spectating.Character:FindFirstChild("HumanoidRootPart")
-    if not hrpT then return end
-    if not cam then return end
+    if not hrpT or not cam then return end
     cam.CameraType=Enum.CameraType.Scriptable
     if not ST.ovhInit then
         ST.ovhYaw=0
@@ -646,6 +686,11 @@ local function applyOverhead(cam)
         ST.ovhDist=22
         ST.ovhInit=true
     end
+    local now=tick()
+    local dt=now-(ovhLastT or now)
+    if dt<=0 then dt=0.016 end
+    if dt>0.1 then dt=0.1 end
+    ovhLastT=now
     local rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2)
     local dx,dy=0,0
     local mp=U:GetMouseLocation()
@@ -659,17 +704,19 @@ local function applyOverhead(cam)
     elseif U.MouseBehavior~=Enum.MouseBehavior.Default then
         U.MouseBehavior=Enum.MouseBehavior.Default
     end
-    ovhPrevM=mp
+    if rmb then ovhPrevM=mp else ovhPrevM=nil end
     if dx~=0 or dy~=0 then
         ST.ovhYaw=(ST.ovhYaw or 0)-dx*0.004
         ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+dy*0.004,0.15,1.5)
     end
-    if U:IsKeyDown(Enum.KeyCode.A) then ST.ovhYaw=(ST.ovhYaw or 0)+0.04 end
-    if U:IsKeyDown(Enum.KeyCode.D) then ST.ovhYaw=(ST.ovhYaw or 0)-0.04 end
-    if U:IsKeyDown(Enum.KeyCode.W) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+0.03,0.15,1.5) end
-    if U:IsKeyDown(Enum.KeyCode.S) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)-0.03,0.15,1.5) end
-    if U:IsKeyDown(Enum.KeyCode.Space) then ST.ovhDist=math.max(8,(ST.ovhDist or 22)+0.5) end
-    if U:IsKeyDown(Enum.KeyCode.LeftControl) then ST.ovhDist=math.min(80,(ST.ovhDist or 22)-0.5) end
+    local rotS=1.8*dt
+    if fcKey(Enum.KeyCode.A) or U:IsKeyDown(Enum.KeyCode.A) then ST.ovhYaw=(ST.ovhYaw or 0)+rotS end
+    if fcKey(Enum.KeyCode.D) or U:IsKeyDown(Enum.KeyCode.D) then ST.ovhYaw=(ST.ovhYaw or 0)-rotS end
+    if fcKey(Enum.KeyCode.W) or U:IsKeyDown(Enum.KeyCode.W) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+rotS*0.75,0.15,1.5) end
+    if fcKey(Enum.KeyCode.S) or U:IsKeyDown(Enum.KeyCode.S) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)-rotS*0.75,0.15,1.5) end
+    local dS=28*dt
+    if fcKey(Enum.KeyCode.Space) or U:IsKeyDown(Enum.KeyCode.Space) then ST.ovhDist=math.max(8,(ST.ovhDist or 22)+dS) end
+    if fcKey(Enum.KeyCode.LeftControl) or U:IsKeyDown(Enum.KeyCode.LeftControl) then ST.ovhDist=math.min(80,(ST.ovhDist or 22)-dS) end
     local yaw=ST.ovhYaw or 0
     local pitch=ST.ovhPitch or 1.1
     local dist=ST.ovhDist or 22
@@ -1297,7 +1344,7 @@ btn(tP,"Goto Player",function() if ST.selectedPlayer and ST.selectedPlayer.Chara
 sep(tP)
 lbl(tP,">> SPECTATE + ESP")
 btn(tP,"Spectate",function() if ST.selectedPlayer and ST.selectedPlayer.Character then local h=ST.selectedPlayer.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=ST.selectedPlayer end end end,"spec")
-btn(tP,"Stop Spectate",function() ST.spectateOverhead=false if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end CAM.CameraType=Enum.CameraType.Custom ST.spectating=nil end ntf("Spectate","Stopped") end,"stopspec")
+btn(tP,"Stop Spectate",function() stopOverhead(false) ST.spectating=nil ntf("Spectate","Stopped") end,"stopspec")
 btn(tP,"Spectate: Next Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local nextI=idx+1 if nextI>#plrs then nextI=1 end local np=plrs[nextI] if np~=LP and np.Character then local h=np.Character:FindFirstChildOfClass("Humanoid") if h then if not ST.spectateOverhead then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom end ST.spectating=np ST.ovhInit=false ntf("Spectate","Following: "..np.DisplayName) end end end,"specnext")
 btn(tP,"Spectate: Prev Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local prevI=idx-1 if prevI<1 then prevI=#plrs end local pp2=plrs[prevI] if pp2~=LP and pp2.Character then local h=pp2.Character:FindFirstChildOfClass("Humanoid") if h then if not ST.spectateOverhead then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom end ST.spectating=pp2 ST.ovhInit=false ntf("Spectate","Following: "..pp2.DisplayName) end end end,"specprev")
 btn(tP,"Spectate: Overhead",function()
@@ -1310,24 +1357,45 @@ btn(tP,"Spectate: Overhead",function()
     if not ST.spectating or not ST.spectating.Character or not ST.spectating.Character:FindFirstChild("HumanoidRootPart") then
         ntf("Spectate","No target - select a player first",4) return
     end
-    ST.spectateOverhead=not ST.spectateOverhead
     if ST.spectateOverhead then
+        stopOverhead(true)
+    else
         setFreeCam(false)
+        ST.spectateOverhead=true
+        ST._ovhActive=true
         ST.ovhYaw=0
         ST.ovhPitch=1.1
         ST.ovhDist=22
         ST.ovhInit=true
+        ovhLastT=tick()
+        ovhPrevM=nil
+        table.clear(FC_KEYS)
+        pcall(function()
+            local CAS=game:GetService("ContextActionService")
+            CAS:UnbindAction("AxOvhSink")
+            CAS:BindActionAtPriority("AxOvhSink",function(_,st)
+                if st==Enum.UserInputState.Begin then
+                    local kc=_
+                    if typeof(kc)=="EnumItem" then FC_KEYS[kc]=true end
+                elseif st==Enum.UserInputState.End or st==Enum.UserInputState.Cancel then
+                    local kc=_
+                    if typeof(kc)=="EnumItem" then FC_KEYS[kc]=nil end
+                end
+                return Enum.ContextActionResult.Sink
+            end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift)
+        end)
+        pcall(function()
+            local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if ST._ovhWalk==nil then ST._ovhWalk=hum.WalkSpeed end
+                hum.WalkSpeed=0
+            end
+        end)
         pcall(function()
             local cam=W.CurrentCamera or CAM
             if cam then CAM=cam applyOverhead(cam) end
         end)
         ntf("Spectate","Overhead ON on "..ST.spectating.DisplayName.." - RMB look, WASD, Space/Ctrl dist")
-    else
-        CAM.CameraType=Enum.CameraType.Custom
-        local h=ST.spectating.Character:FindFirstChildOfClass("Humanoid")
-        if h then CAM.CameraSubject=h end
-        U.MouseBehavior=Enum.MouseBehavior.Default
-        ntf("Spectate","Overhead OFF")
     end
 end,"specover")
 local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Enabled=CFG.ESPFillEnabled hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
@@ -1491,6 +1559,8 @@ local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function(
 table.insert(allToggles,tGML)
 local tSPH3=tog(tEx,"Spheres on Click",function() return ST.spheresOn end,function() ST.spheresOn=not ST.spheresOn ntf("Spheres",ST.spheresOn and "ON - LMB throws neon spheres" or "OFF") end,"spheres")
 table.insert(allToggles,tSPH3)
+local tTRC=tog(tEx,"Shot Tracer (laser)",function() return ST.shotTracer end,function() ST.shotTracer=not ST.shotTracer ntf("Tracer",ST.shotTracer and "ON - LMB draws tracer beam" or "OFF - no lasers on click") end,"tracer")
+table.insert(allToggles,tTRC)
 local function equipAnyTool()
     pcall(function()
         if not LP.Character then return end
@@ -1530,8 +1600,29 @@ local function doGreenSteal()
     }
     local argSets={
         {t},{t.Name},{"steal",t},{"steal",t.Name},
-        {t,"steal"},{t.UserId},{t.Name,true},{"rob",t.Name}
+        {t,"steal"},{t.UserId},{t.Name,true},{"rob",t.Name},
+        {t.Character},{t.Character and t.Character.Name},
+        {"pickpocket",t},{"pickpocket",t.Name},
+        {LP,t},{t,LP},{"steal",t.Character},
+        {"ThiefSystem","steal",t},{t,"ThiefSystem"}
     }
+    pcall(function()
+        local inv=findRemote("Inventory.Inventory")
+        if inv then
+            forceFire(inv,"steal",t)
+            forceFire(inv,"steal",t.Name)
+            forceFire(inv,"pickpocket",t)
+            forceFire(inv,t,"steal")
+            forceFire(inv,"rob",t.Name)
+        end
+    end)
+    pcall(function()
+        local arm=findRemote("Armory.RemoteEvent")
+        if arm then
+            forceFire(arm,"steal",t)
+            forceFire(arm,t)
+        end
+    end)
     for _,path in ipairs(paths) do
         pcall(function()
             local r=findRemote(path)
@@ -1548,19 +1639,24 @@ local function doGreenSteal()
         end)
     end
     pcall(function()
-        for _,d in pairs(RS:GetDescendants()) do
-            if d:IsA("RemoteEvent") then
-                local nm=d.Name:lower()
-                if nm:find("steal") or nm:find("thief") or nm:find("pickpocket") or (nm:find("rob") and not nm:find("group")) then
-                    pcall(function() d:FireServer(t) end)
-                    pcall(function() d:FireServer(t.Name) end)
-                    pcall(function() d:FireServer("steal",t.Name) end)
-                    fired=fired+1
+        for _,parent in ipairs({RS,W}) do
+            for _,d in pairs(parent:GetDescendants()) do
+                if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) then
+                    local nm=d.Name:lower()
+                    if nm:find("steal") or nm:find("thief") or nm:find("pickpocket") or nm:find("inventory") or (nm:find("rob") and not nm:find("group")) then
+                        pcall(function()
+                            if d:IsA("RemoteFunction") then forceInvoke(d,t) else forceFire(d,t) end
+                        end)
+                        pcall(function()
+                            if d:IsA("RemoteFunction") then forceInvoke(d,t.Name,"steal") else forceFire(d,t.Name,"steal") end
+                        end)
+                        fired=fired+1
+                    end
                 end
             end
         end
     end)
-    ntf("Steal",fired>0 and ("Tried "..fired.." path(s) on "..t.DisplayName.." - no weapon needed") or "No steal remotes found",4)
+    ntf("Steal",fired>0 and ("Tried "..fired.." path(s) on "..t.DisplayName.." - needs server accept") or "No steal remotes found",4)
 end
 btn(tEx,"Steal in Greenzone (no gun)",function() doGreenSteal() end,"stealgreen")
 local tGS=tog(tEx,"Auto Steal Loop",function() return ST.autoSteal end,function() ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON - nearest every 0.6s") else ntf("Steal","Loop OFF") end end,"autosteal")
@@ -1578,14 +1674,169 @@ local tMB=tog(tEx,"Magic Bullet",function() return ST.magicBullet end,function()
 table.insert(allToggles,tMB)
 local tWD=tog(tEx,"Weapon Dmg (MP)",function() return ST.weaponDmgOn end,function() ST.weaponDmgOn=not ST.weaponDmgOn ntf("WeaponDmg",ST.weaponDmgOn and "ON - hits damage other players" or "OFF") end,"weapdmg")
 table.insert(allToggles,tWD)
-btn(tEx,"Dmg: 20",function() ST.weaponDmg=20 ntf("WeaponDmg","Amount: 20") end,"wdmg20")
-btn(tEx,"Dmg: 40",function() ST.weaponDmg=40 ntf("WeaponDmg","Amount: 40") end,"wdmg40")
-btn(tEx,"Dmg: 60",function() ST.weaponDmg=60 ntf("WeaponDmg","Amount: 60") end,"wdmg60")
-btn(tEx,"Dmg: 100",function() ST.weaponDmg=100 ntf("WeaponDmg","Amount: 100") end,"wdmg100")
+local dmgBox=Instance.new("TextBox")
+dmgBox.Size=UDim2.new(1,-12,0,30)
+dmgBox.Position=UDim2.new(0,6,0,0)
+dmgBox.BackgroundColor3=TH.b
+dmgBox.BorderSizePixel=0
+dmgBox.PlaceholderText="Custom damage (1-999999)"
+dmgBox.PlaceholderColor3=Color3.fromRGB(100,100,120)
+dmgBox.Text=tostring(ST.weaponDmg or 30)
+dmgBox.TextColor3=TH.t
+dmgBox.TextSize=13
+dmgBox.Font=Enum.Font.GothamBold
+dmgBox.ClearTextOnFocus=false
+dmgBox.Parent=tEx
+mkCorner(dmgBox,6)
+mkStroke(dmgBox,TH.a,1)
+local dmgLbl=Instance.new("TextLabel")
+dmgLbl.Size=UDim2.new(1,-12,0,18)
+dmgLbl.Position=UDim2.new(0,6,0,0)
+dmgLbl.BackgroundTransparency=1
+dmgLbl.Text="DAMAGE: "..tostring(ST.weaponDmg or 30).."  |  input box = custom"
+dmgLbl.TextColor3=TH.a
+dmgLbl.TextSize=11
+dmgLbl.Font=Enum.Font.GothamBold
+dmgLbl.TextXAlignment=Enum.TextXAlignment.Left
+dmgLbl.Parent=tEx
+local function applyDmgBox()
+    local n=tonumber(dmgBox.Text)
+    if not n then dmgBox.Text=tostring(ST.weaponDmg or 30) return end
+    ST.weaponDmg=math.clamp(math.floor(n),1,999999)
+    dmgBox.Text=tostring(ST.weaponDmg)
+    dmgLbl.Text="DAMAGE: "..tostring(ST.weaponDmg).."  |  input box = custom"
+    ntf("WeaponDmg","Amount: "..ST.weaponDmg)
+end
+dmgBox.FocusLost:Connect(function(enter)
+    if enter then applyDmgBox() end
+end)
+btn(tEx,"Apply typed damage",function() applyDmgBox() end,"wdmgset")
+btn(tEx,"Dmg: 20",function() ST.weaponDmg=20 dmgBox.Text="20" dmgLbl.Text="DAMAGE: 20  |  input box = custom" ntf("WeaponDmg","Amount: 20") end,"wdmg20")
+btn(tEx,"Dmg: 40",function() ST.weaponDmg=40 dmgBox.Text="40" dmgLbl.Text="DAMAGE: 40  |  input box = custom" ntf("WeaponDmg","Amount: 40") end,"wdmg40")
+btn(tEx,"Dmg: 60",function() ST.weaponDmg=60 dmgBox.Text="60" dmgLbl.Text="DAMAGE: 60  |  input box = custom" ntf("WeaponDmg","Amount: 60") end,"wdmg60")
+btn(tEx,"Dmg: 100",function() ST.weaponDmg=100 dmgBox.Text="100" dmgLbl.Text="DAMAGE: 100  |  input box = custom" ntf("WeaponDmg","Amount: 100") end,"wdmg100")
 btn(tEx,"Mult x1",function() ST.weaponDmgMult=1 ntf("WeaponDmg","Multiplier: x1") end,"wmult1")
 btn(tEx,"Mult x2",function() ST.weaponDmgMult=2 ntf("WeaponDmg","Multiplier: x2") end,"wmult2")
 btn(tEx,"Mult x5",function() ST.weaponDmgMult=5 ntf("WeaponDmg","Multiplier: x5") end,"wmult5")
 btn(tEx,"Mult x10",function() ST.weaponDmgMult=10 ntf("WeaponDmg","Multiplier: x10") end,"wmult10")
+sep(tEx)
+lbl(tEx,">> SPAWN / GIVE ITEMS")
+local function getGameToolList()
+    if ST._gameTools then return ST._gameTools end
+    local list={}
+    local function scan(parent,deep)
+        pcall(function()
+            local items=deep and parent:GetDescendants() or parent:GetChildren()
+            for _,d in ipairs(items) do
+                if d:IsA("Tool") then table.insert(list,d) end
+            end
+        end)
+    end
+    pcall(function() scan(game:GetService("StarterPack"),true) end)
+    pcall(function() scan(game:GetService("StarterGear"),true) end)
+    pcall(function() scan(RS,true) end)
+    pcall(function() scan(W,false) end)
+    pcall(function()
+        local ss=game:GetService("ServerStorage")
+        if ss then scan(ss,true) end
+    end)
+    ST._gameTools=list
+    return list
+end
+local function fireGiveRemotes(itemName)
+    local paths={
+        "Inventory.Inventory","Armory.RemoteEvent","SupermarketEvent.BuyItem",
+        "GiveTool","GiveItem","SpawnItem","addItem","AddItem","GiveWeapon",
+        "Shop.Buy","Shop.Give","Loot.Give","Item.Give","DropItem"
+    }
+    for _,path in ipairs(paths) do
+        pcall(function()
+            local r=findRemote(path)
+            if r then
+                if r:IsA("RemoteFunction") then
+                    forceInvoke(r,itemName)
+                    forceInvoke(r,"give",itemName)
+                    forceInvoke(r,LP,itemName)
+                else
+                    forceFire(r,itemName)
+                    forceFire(r,"give",itemName)
+                    forceFire(r,LP,itemName)
+                    forceFire(r,LP,itemName,1)
+                end
+            end
+        end)
+    end
+    pcall(function()
+        for _,d in pairs(RS:GetDescendants()) do
+            if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                local nm=string.lower(d.Name)
+                if (nm:find("give") or nm:find("spawnitem") or nm:find("additem") or nm:find("buyitem") or nm:find("equip")) and not nm:find("antiban") then
+                    pcall(function()
+                        if d:IsA("RemoteFunction") then forceInvoke(d,itemName) else forceFire(d,itemName) end
+                    end)
+                end
+            end
+        end
+    end)
+end
+local function giveGameItem(query)
+    if not query or query=="" then ntf("Give","Enter item name",4) return end
+    local q=string.lower(query)
+    local bp=LP:FindFirstChild("Backpack")
+    if not bp then ntf("Give","No backpack",4) return end
+    local given=0
+    local names={}
+    for _,tool in ipairs(getGameToolList()) do
+        local tn=string.lower(tool.Name)
+        if tn:find(q) or q:find(tn) then
+            pcall(function()
+                local cl=tool:Clone()
+                cl.Parent=bp
+                given=given+1
+                table.insert(names,tool.Name)
+            end)
+        end
+        if given>=6 then break end
+    end
+    fireGiveRemotes(query)
+    if given>0 then
+        pcall(function()
+            local last=bp:FindFirstChildOfClass("Tool")
+            if last then LP.Character:EquipTool(last) end
+        end)
+        ntf("Give","Cloned "..given.." tool(s): "..table.concat(names,", "),5)
+    else
+        ntf("Give","No matching Tool found - fired give remotes for '"..query.."'",5)
+    end
+end
+local itemBox=Instance.new("TextBox")
+itemBox.Size=UDim2.new(1,-12,0,28)
+itemBox.Position=UDim2.new(0,6,0,0)
+itemBox.BackgroundColor3=TH.b
+itemBox.BorderSizePixel=0
+itemBox.PlaceholderText="Item name (e.g. FN FAL, milk, vest...)"
+itemBox.PlaceholderColor3=Color3.fromRGB(100,100,120)
+itemBox.Text=""
+itemBox.TextColor3=TH.t
+itemBox.TextSize=12
+itemBox.Font=Enum.Font.Gotham
+itemBox.ClearTextOnFocus=false
+itemBox.Parent=tEx
+mkCorner(itemBox,6)
+mkStroke(itemBox,Color3.fromRGB(60,60,90),1)
+itemBox.FocusLost:Connect(function(enter)
+    if enter then giveGameItem(itemBox.Text) end
+end)
+btn(tEx,"Give typed item",function() giveGameItem(itemBox.Text) end,"giveitem")
+btn(tEx,"Give: FN FAL / rifle",function() giveGameItem("FN FAL") end,"givefal")
+btn(tEx,"Give: any gun/weapon",function() giveGameItem("gun") end,"givegun")
+btn(tEx,"Give: food",function() giveGameItem("food") end,"givefood")
+btn(tEx,"Give: water",function() giveGameItem("water") end,"givewater")
+btn(tEx,"Give: vest / armor",function() giveGameItem("vest") end,"givevest")
+btn(tEx,"Give: milk",function() giveGameItem("milk") end,"givemilk")
+btn(tEx,"Give: plant / weed",function() giveGameItem("plant") end,"giveplant")
+btn(tEx,"Give: miner item",function() giveGameItem("miner") end,"giveminer")
+btn(tEx,"Refresh item list",function() ST._gameTools=nil getGameToolList() ntf("Give","Rescanned - "..#getGameToolList().." tools found",4) end,"refitems")
 sep(tEx)
 lbl(tEx,">> MULTIPLAYER KILL (no server.lua)")
 btn(tEx,"Kill Selected/Nearest (MP)",function()
@@ -1595,21 +1846,28 @@ btn(tEx,"Kill All in Range 40 (MP)",function()
     if not cd() then return end
     local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if not my then return end
+    local hadWeapon=ensureWeaponEquipped()
     local nkill=0
+    local deaths=0
     for _,pp in pairs(P:GetPlayers()) do
         if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") then
             local d=(pp.Character.HumanoidRootPart.Position-my.Position).Magnitude
             if d<=40 then
-                for i=1,2 do mpKillPlayer(pp, pp.Character.HumanoidRootPart.Position) end
+                local pos=pp.Character.HumanoidRootPart.Position
+                for i=1,3 do mpKillPlayer(pp,pos) end
                 pcall(function()
                     if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
                     if AR then AR:FireServer("kill", pp.Name) end
+                end)
+                pcall(function()
+                    local h=pp.Character:FindFirstChildOfClass("Humanoid")
+                    if h and h.Health<=0 then deaths=deaths+1 end
                 end)
                 nkill=nkill+1
             end
         end
     end
-    ntf("Kill","Tried MP kill on "..nkill.." player(s) in 40 studs")
+    ntf("Kill","Sent MP kill x"..nkill.." in 40 studs ("..(hadWeapon and "weapon on" or "no weapon")..") - if still alive game blocks fake hits",5)
 end,"killall40")
 sep(tEx)
 lbl(tEx,">> REMOTE SCANNER")
@@ -1776,7 +2034,7 @@ btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=rea
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
-btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false syncServerGod() ST.spheresOn=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.weaponDmgOn=false ST.weaponDmgMult=1 ST.vehicleSpeedOn=false ST.spectateOverhead=false ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
+btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false syncServerGod() ST.spheresOn=false ST.shotTracer=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.weaponDmgOn=false ST.weaponDmgMult=1 ST.vehicleSpeedOn=false stopOverhead(false) ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -1809,6 +2067,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     elseif id=="infjump" then ST.infJump=true ST.godmodeLoop=true syncServerGod()
                     elseif id=="godloop" then ST.godmodeLoop=true syncServerGod()
                     elseif id=="spheres" then ST.spheresOn=true
+                    elseif id=="tracer" then ST.shotTracer=true
                     elseif id=="autosteal" then ST.autoSteal=true
                     elseif id=="speedhard" then ST.speedHard=true ST.speedPreset=math.max(ST.speedPreset,50)
                     elseif id=="infstam" then ST.infStamina=true
@@ -1839,6 +2098,7 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="infjump" then ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true syncServerGod() ntf("InfJump","ON - Space + Godmode forced") end
             elseif id=="godloop" then ST.godmodeLoop=not ST.godmodeLoop syncServerGod()
             elseif id=="spheres" then ST.spheresOn=not ST.spheresOn if ST.spheresOn then ntf("Spheres","ON") else ntf("Spheres","OFF") end
+            elseif id=="tracer" then ST.shotTracer=not ST.shotTracer if ST.shotTracer then ntf("Tracer","ON") else ntf("Tracer","OFF") end
             elseif id=="autosteal" then ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON") else ntf("Steal","Loop OFF") end
             elseif id=="speedhard" then ST.speedHard=not ST.speedHard ST.speedPreset=ST.speedHard and math.max(ST.speedPreset,50) or 0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=ST.speedHard and 50 or 16 end end end)
             elseif id=="infstam" then ST.infStamina=not ST.infStamina
@@ -1885,6 +2145,7 @@ U.InputEnded:Connect(function(inp)
                 elseif id=="infjump" then ST.infJump=false
                 elseif id=="godloop" then ST.godmodeLoop=false syncServerGod()
                 elseif id=="spheres" then ST.spheresOn=false
+                elseif id=="tracer" then ST.shotTracer=false
                 elseif id=="autosteal" then ST.autoSteal=false
                 elseif id=="speedhard" then ST.speedHard=false ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end)
                 elseif id=="infstam" then ST.infStamina=false
@@ -1904,6 +2165,41 @@ U.InputEnded:Connect(function(inp)
     if ST.aimHoldKey and KB.aimbot and (inp.KeyCode==KB.aimbot or inp.UserInputType==KB.aimbot) and KBMode.aimbot~="toggle" then ST.aimKeyHeld=false end
 end)
 local _lastTracer=0
+local function popDmgNum(victim, amount)
+    if not ST.dmgPop then return end
+    if not victim or not victim.Character then return end
+    pcall(function()
+        local head=victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
+        if not head then return end
+        local bg=Instance.new("BillboardGui")
+        bg.Name="AxDmgNum"
+        bg.Size=UDim2.new(0,90,0,36)
+        bg.StudsOffset=Vector3.new(math.random(-12,12)/10,2.8,0)
+        bg.AlwaysOnTop=true
+        bg.LightInfluence=0
+        bg.Parent=head
+        local tl=Instance.new("TextLabel")
+        tl.Size=UDim2.new(1,0,1,0)
+        tl.BackgroundTransparency=1
+        tl.Text="-"..tostring(amount)
+        tl.TextColor3=Color3.fromRGB(255,90,70)
+        tl.TextStrokeTransparency=0.25
+        tl.TextStrokeColor3=Color3.new(0,0,0)
+        tl.TextScaled=true
+        tl.Font=Enum.Font.GothamBlack
+        tl.Parent=bg
+        game:GetService("Debris"):AddItem(bg,0.65)
+        spawn(function()
+            for i=1,7 do
+                if not bg or not bg.Parent then break end
+                bg.StudsOffset=bg.StudsOffset+Vector3.new(0,0.22,0)
+                tl.TextTransparency=i/8
+                tl.TextStrokeTransparency=math.min(1,0.25+i/8)
+                wait(0.05)
+            end
+        end)
+    end)
+end
 local function dealWeaponDamage(victim, hitPos)
     if not ST.weaponDmgOn then return end
     if not victim or victim==LP or not victim.Character then return end
@@ -1912,6 +2208,7 @@ local function dealWeaponDamage(victim, hitPos)
     ST._wdT=now
     local mult=math.clamp(ST.weaponDmgMult or 1,1,10)
     local amt=ST.weaponDmg or 30
+    popDmgNum(victim, math.floor(amt*mult))
     pcall(function()
         local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
         local origin=my and my.Position or hitPos
@@ -2077,13 +2374,13 @@ local function sphereKillAt(pos)
 end
 local function throwSpheres()
     pcall(function()
-        if tick()-(ST._sphT or 0)<0.45 then return end
+        if tick()-(ST._sphT or 0)<0.65 then return end
         ST._sphT=tick()
         local alive=0
         for _,o in pairs(W:GetChildren()) do
             if o.Name=="AxSphere" then
                 alive=alive+1
-                if alive>24 then pcall(function() o:Destroy() end) end
+                if alive>8 then pcall(function() o:Destroy() end) end
             end
         end
         local cam=W.CurrentCamera or CAM
@@ -2114,34 +2411,25 @@ local function throwSpheres()
         end)
         local right=cam.CFrame.RightVector
         local up=cam.CFrame.UpVector
-        for i=1,10 do
+        for i=1,4 do
             local ball=Instance.new("Part")
             ball.Name="AxSphere"
             ball.Shape=Enum.PartType.Ball
-            ball.Size=Vector3.new(1.4,1.4,1.4)
+            ball.Size=Vector3.new(1.2,1.2,1.2)
             ball.Material=Enum.Material.Neon
             ball.Color=Color3.fromRGB(255, math.random(60,160), math.random(20,100))
             ball.Anchored=false
             ball.CanCollide=false
-            ball.CanQuery=true
+            ball.CanQuery=false
             ball.CanTouch=true
             ball.Massless=true
-            ball.CFrame=CFrame.new(origin+look*2+right*((i-5.5)*0.35)+up*0.15)
+            ball.CFrame=CFrame.new(origin+look*2+right*((i-2.5)*0.4)+up*0.15)
             ball.Parent=W
             local bv=Instance.new("BodyVelocity")
-            bv.Velocity=dir*math.random(90,130)+right*((i-5.5)*8)+up*math.random(2,8)
+            bv.Velocity=dir*math.random(90,130)+right*((i-2.5)*8)+up*math.random(2,8)
             bv.MaxForce=Vector3.new(1e5,1e5,1e5)
             bv.P=1e4
             bv.Parent=ball
-            local bg=Instance.new("BodyGyro")
-            bg.MaxTorque=Vector3.new(1e5,1e5,1e5)
-            bg.P=1e4
-            bg.Parent=ball
-            local light=Instance.new("PointLight")
-            light.Color=ball.Color
-            light.Range=14
-            light.Brightness=2
-            light.Parent=ball
             local dead=false
             ball.Touched:Connect(function(hit)
                 if dead then return end
@@ -2157,7 +2445,7 @@ local function throwSpheres()
                 pcall(function() ball:Destroy() end)
                 sphereKillAt(ppos)
             end)
-            task.delay(1.8,function()
+            task.delay(1.4,function()
                 pcall(function()
                     if ball and ball.Parent then
                         sphereKillAt(ball.Position)
@@ -2166,12 +2454,12 @@ local function throwSpheres()
                 end)
             end)
         end
-        ntf("Spheres","Fired x10 - weapon FX via game (visible to all)")
+        ntf("Spheres","Fired x4 - lighter FX (FPS safe)")
     end)
 end
 MS.Button1Down:Connect(function()
     if not ST.menuOpen then
-        drawShotTracer()
+        if ST.shotTracer then drawShotTracer() end
         if ST.spheresOn then throwSpheres() end
     end
     if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,2,0)) end end
@@ -2327,7 +2615,7 @@ R.RenderStepped:Connect(function()
         end
     end)
     pcall(function()
-        if ST.freeCam then return end
+        if ST.freeCam or ST.spectateOverhead then return end
         local wantSp=ST.speedPreset or 0
         if ST.speedHard and wantSp<50 then wantSp=50 end
         if wantSp>80 then wantSp=80 end

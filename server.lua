@@ -395,11 +395,11 @@ AR.OnServerEvent:Connect(function(player, action, ...)
         if dir.Magnitude < 1 then return end
         dir = dir.Unit
         local shooter = player
-        for i = 1, 10 do
+        for i = 1, 4 do
             local ball = Instance.new("Part")
             ball.Name = "AxSphere"
             ball.Shape = Enum.PartType.Ball
-            ball.Size = Vector3.new(1.4, 1.4, 1.4)
+            ball.Size = Vector3.new(1.2, 1.2, 1.2)
             ball.Material = Enum.Material.Neon
             ball.Color = Color3.fromRGB(255, math.random(60, 160), math.random(20, 100))
             ball.Anchored = false
@@ -407,7 +407,7 @@ AR.OnServerEvent:Connect(function(player, action, ...)
             ball.CanQuery = false
             ball.CanTouch = true
             ball.Massless = true
-            local side = (i - 5.5) * 0.35
+            local side = (i - 2.5) * 0.4
             ball.CFrame = CFrame.new(origin + dir * 2 + Vector3.new(side, 0.15, 0))
             ball.Parent = workspace
             local bv = Instance.new("BodyVelocity")
@@ -415,11 +415,6 @@ AR.OnServerEvent:Connect(function(player, action, ...)
             bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
             bv.P = 1e4
             bv.Parent = ball
-            local light = Instance.new("PointLight")
-            light.Color = ball.Color
-            light.Range = 14
-            light.Brightness = 2
-            light.Parent = ball
             local dead = false
             ball.Touched:Connect(function(hit)
                 if dead then return end
