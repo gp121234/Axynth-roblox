@@ -14,7 +14,7 @@ local MS = LP:GetMouse()
 local CAM = W.CurrentCamera
 print("[Axynth] Services OK")
 local ST={}
--- ANTI-BAN SYSTEM v8 FULL - ALL FEATURES + THROTTLED (NO FREEZE)
+-- ANTI-BAN SYSTEM v9 SAFE - single guarded namecall only
 local hookLog={}
 local blockedKeywords={"anticheat","anti","cheat","detect","ban","kick","report","flag","log","trace","monitor","watch","scan","validate","verify","check","suspicious","abnormal","illegal","unauthorized","modified","exploit","hack","teleport","speed","noclip","fly","cheatdetected","serverintegrity","integritycheck","remotespy","remoteblock","remotecheck","adminremote","admin"}
 local whitelistRemotes={
@@ -71,22 +71,45 @@ end
 pcall(function()
     local oldNC
     oldNC = hookmetamethod(game,"__namecall",newcclosure(function(self,...)
-        local method=getnamecallmethod()
-        local args={...}
-        if (method=="FireServer" or method=="InvokeServer") and self:IsA("RemoteEvent") then
-            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
-                table.insert(hookLog,{time=tick(),remote=self.Name,blocked=true})
-                return nil
+        local args = {...}
+        local method = getnamecallmethod()
+        local ok, res = pcall(function()
+            if method=="Raycast" and ST.magicBullet and not checkcaller() then
+                local rcp,dir,params=args[1],args[2],args[3]
+                if typeof(rcp)=="Vector3" and typeof(dir)=="Vector3" and params~=nil then
+                    if not _G._mbParts or tick()-(_G._mbPartsT or 0)>0.5 then
+                        _G._mbPartsT=tick()
+                        local cp={}
+                        for _,ch in pairs(P:GetPlayers()) do
+                            if ch~=LP and ch.Character then
+                                for _,p2 in pairs(ch.Character:GetDescendants()) do
+                                    if p2:IsA("BasePart") then table.insert(cp,p2) end
+                                end
+                            end
+                        end
+                        _G._mbParts=cp
+                    end
+                    local charParts=_G._mbParts
+                    if charParts and #charParts>0 then
+                        local newParams=params:Clone()
+                        newParams.FilterType=Enum.RaycastFilterType.Include
+                        newParams.FilterDescendantsInstances=charParts
+                        return oldNC(self,rcp,dir,newParams)
+                    end
+                end
             end
-            if isUsingExploit and not isWhitelisted(self.Name) then
-                task.delay(randomDelay(),function()
-                    oldNC(self,unpack(args))
-                end)
-                return nil
-            end
-            -- aimbot moved to RenderStepped only for stability
-            if ST.remoteSpyOn and not ST.remoteSpyPaused then
-                pcall(function()
+            if (method=="FireServer" or method=="InvokeServer") and typeof(self)=="Instance" and (self:IsA("RemoteEvent") or self:IsA("RemoteFunction")) then
+                if isBlocked(self.Name) and not isWhitelisted(self.Name) then
+                    table.insert(hookLog,{time=tick(),remote=self.Name,blocked=true})
+                    return "BLOCK"
+                end
+                if isUsingExploit and not isWhitelisted(self.Name) then
+                    task.delay(randomDelay(),function()
+                        pcall(function() oldNC(self,unpack(args)) end)
+                    end)
+                    return "BLOCK"
+                end
+                if ST.remoteSpyOn and not ST.remoteSpyPaused then
                     local argsStr=""
                     for i=1,math.min(#args,4) do
                         local v=args[i]
@@ -98,179 +121,15 @@ pcall(function()
                         end
                     end
                     if _G._spyAdd then _G._spyAdd(self.Name,argsStr,"F") end
-                end)
-            end
-            -- magic bullet: redirect game Raycasts to hit players through walls (same hook, no 2nd hook)
-            if method=="Raycast" and ST.magicBullet and not checkcaller() then
-                local rcp,dir,params=args[1],args[2],args[3]
-                if typeof(rcp)=="Vector3" and typeof(dir)=="Vector3" and params~=nil then
-                    local okHit,hit=pcall(function()
-                        if not _G._mbParts or tick()-(_G._mbPartsT or 0)>0.5 then
-                            _G._mbPartsT=tick()
-                            local cp={}
-                            for _,ch in pairs(P:GetPlayers()) do
-                                if ch~=LP and ch.Character then
-                                    for _,p in pairs(ch.Character:GetDescendants()) do
-                                        if p:IsA("BasePart") then table.insert(cp,p) end
-                                    end
-                                end
-                            end
-                            _G._mbParts=cp
-                        end
-                        local charParts=_G._mbParts
-                        if #charParts==0 then error("noparts") end
-                        local newParams=params:Clone()
-                        newParams.FilterType=Enum.RaycastFilterType.Include
-                        newParams.FilterDescendantsInstances=charParts
-                        return oldNC(self,rcp,dir,newParams)
-                    end)
-                    if okHit then return hit end
                 end
             end
-        end
-        return oldNC(self,unpack(args))
+            return "PASS"
+        end)
+        if not ok then return oldNC(self,unpack(args)) end
+        if res=="BLOCK" then return nil end
+        if res=="PASS" then return oldNC(self,unpack(args)) end
+        return res
     end))
-end)
-pcall(function()
-    local oldGetService
-    oldGetService = hookfunction(game.GetService,function(self,service)
-        local s=service:lower()
-        if s:find("anticheat") or s:find("antichet") or s:find("detector") or s:find("moderation") then
-            return nil
-        end
-        return oldGetService(self,service)
-    end)
-end)
-pcall(function()
-    local oldFFI=Instance.new("Workspace").FindFirstChild
-    hookfunction(Instance.new("Workspace").FindFirstChild,function(self,name,recursive)
-        if self==workspace and name then
-            local n=name:lower()
-            if n:find("anticheat") or n:find("detector") or n:find("trigger") or n:find("cheat") or n:find("admin") then
-                return nil
-            end
-        end
-        return oldFFI(self,name,recursive)
-    end)
-end)
-pcall(function()
-    local oldFFIC=Instance.new("Workspace").FindFirstChildOfClass
-    hookfunction(Instance.new("Workspace").FindFirstChildOfClass,function(self,class)
-        if self==workspace and class then
-            local c=class:lower()
-            if c:find("detector") or c:find("trigger") or c:find("cheat") then
-                return nil
-            end
-        end
-        return oldFFIC(self,class)
-    end)
-end)
-pcall(function()
-    local old=Instance.new("Workspace").FindFirstChildWhichIsA
-    hookfunction(Instance.new("Workspace").FindFirstChildWhichIsA,function(self,class,recursive)
-        if self==workspace and class then
-            local c=class:lower()
-            if c:find("detector") or c:find("trigger") or c:find("cheat") then
-                return nil
-            end
-        end
-        return old(self,class,recursive)
-    end)
-end)
-pcall(function()
-    local old=Instance.new("Workspace").GetChildren
-    hookfunction(Instance.new("Workspace").GetChildren,function(self)
-        local children=old(self)
-        if self==workspace then
-            local filtered={}
-            for _,v in pairs(children) do
-                local name=v.Name:lower()
-                if not (name:find("anticheat") or name:find("detector") or name:find("trigger") or name:find("cheat")) then
-                    table.insert(filtered,v)
-                end
-            end
-            return filtered
-        end
-        return children
-    end)
-end)
-pcall(function()
-    local old=Instance.new("Workspace").GetDescendants
-    hookfunction(Instance.new("Workspace").GetDescendants,function(self)
-        local descendants=old(self)
-        if self==workspace then
-            local filtered={}
-            for _,v in pairs(descendants) do
-                local name=v.Name:lower()
-                if not (name:find("anticheat") or name:find("detector") or name:find("trigger") or name:find("cheat")) then
-                    table.insert(filtered,v)
-                end
-            end
-            return filtered
-        end
-        return descendants
-    end)
-end)
-pcall(function()
-    local mt=getrawmetatable(game)
-    local old=mt.__tostring
-    setreadonly(mt,false)
-    mt.__tostring=newcclosure(function(self)
-        if typeof(self)=="Instance" and self:IsA("RemoteEvent") then
-            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
-                return "BasePart"
-            end
-        end
-        return old(self)
-    end)
-    setreadonly(mt,true)
-end)
-pcall(function()
-    local oldGetObjects=game.GetObjects
-    hookfunction(game.GetObjects,function(self,assetId)
-        if assetId and typeof(assetId)=="string" then
-            if assetId:lower():find("anticheat") or assetId:lower():find("cheat") then
-                return {}
-            end
-        end
-        return oldGetObjects(self,assetId)
-    end)
-end)
-pcall(function()
-    local oldFire=Instance.new("RemoteEvent").FireServer
-    hookfunction(Instance.new("RemoteEvent").FireServer,function(self,...)
-        local args={...}
-        if self and self:IsA("RemoteEvent") then
-            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
-                return nil
-            end
-            if isUsingExploit and not isWhitelisted(self.Name) then
-                task.delay(randomDelay(),function()
-                    oldFire(self,unpack(args))
-                end)
-                return nil
-            end
-        end
-        return oldFire(self,unpack(args))
-    end)
-end)
-pcall(function()
-    local oldInvoke=Instance.new("RemoteFunction").InvokeServer
-    hookfunction(Instance.new("RemoteFunction").InvokeServer,function(self,...)
-        local args={...}
-        if self and self:IsA("RemoteFunction") then
-            if isBlocked(self.Name) and not isWhitelisted(self.Name) then
-                return nil
-            end
-            if isUsingExploit and not isWhitelisted(self.Name) then
-                task.delay(randomDelay(),function()
-                    oldInvoke(self,unpack(args))
-                end)
-                return nil
-            end
-        end
-        return oldInvoke(self,unpack(args))
-    end)
 end)
 local function spoofVelocity()
     pcall(function()
@@ -341,6 +200,16 @@ pcall(function()
 end)
 R.Heartbeat:Connect(function()
     _frameCount=_frameCount+1
+    pcall(function()
+        if ST.godmodeLoop and LP.Character then
+            local hum=LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if hum.MaxHealth<100 then hum.MaxHealth=100 end
+                if hum.Health<hum.MaxHealth then hum.Health=hum.MaxHealth end
+                if hum.Health<=0 then hum.Health=hum.MaxHealth end
+            end
+        end
+    end)
     if _frameCount%60~=0 then return end
     spoofVelocity()
     spoofHealth()
@@ -357,23 +226,9 @@ R.RenderStepped:Connect(function()
     if _frameCount%300~=0 then return end
     hideBanGUI()
 end)
-print("[Axynth] Anti-Ban v8 FULL ACTIVE | Whitelist: "..(function() local c=0 for _ in pairs(whitelistRemotes) do c=c+1 end return c end)().." | Keywords: "..#blockedKeywords.." | Hooks: 15 | Throttled: 1/sec")
-local AR = RS:FindFirstChild("AdminRemote")
-if not AR then AR = Instance.new("RemoteEvent") AR.Name = "AdminRemote" AR.Parent = RS end
-pcall(function()
-    AR.Name = "HDAdminRemote"
-    AR:GetPropertyChangedSignal("Name"):Connect(function()
-        AR.Name = "HDAdminRemote"
-    end)
-end)
+print("[Axynth] Anti-Ban v9 SAFE | Whitelist: "..(function() local c=0 for _ in pairs(whitelistRemotes) do c=c+1 end return c end)().." | Keywords: "..#blockedKeywords.." | Hooks: 1 (namecall)")
+local AR = RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote")
 local decoyRemotes={"ClientReplicator","CharacterReplicator","PlayerReplicator","DataReplicator"}
-for _,name in pairs(decoyRemotes) do
-    pcall(function()
-        local d=Instance.new("RemoteEvent")
-        d.Name=name
-        d.Parent=RS
-    end)
-end
 local function fakeDecoy()
     pcall(function()
         for _,r in pairs(decoyRemotes) do
@@ -448,11 +303,8 @@ local function processQueue()
     end
 end
 local function sf(a, ...) local args = {...} spawn(function() isUsingExploit=true wait(math.random(30,100)/1000) pcall(function()
-    if AR.Name~="HDAdminRemote" then AR.Name="HDAdminRemote" end
-    local enc=a.."\0"..table.concat(args,"\0")
-    local fake1=string.char(math.random(65,90))..string.char(math.random(97,122))..math.random(100,999)
-    local fake2=string.char(math.random(65,90))..math.random(1000,9999)
-    AR:FireServer(a, unpack(args))
+    if not AR then AR = RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
+    if AR then AR:FireServer(a, unpack(args)) end
 end) isUsingExploit=false end) end
 local function spoofExecutor()
     pcall(function()
@@ -474,8 +326,6 @@ local function spoofExecutor()
             env.identifyexecutor=function() return "RobloxStudio","2.0" end
             env.getexecutorname=function() return "RobloxStudio" end
             env.is_synapse_function=function() return false end
-            env.islclosure=function() return false end
-            env.iscclosure=function() return true end
         end
     end)
 end
@@ -699,14 +549,21 @@ local function applyOverhead(cam)
     cam.CFrame=cf
     cam.Focus=cf
 end
+local function isAimActive()
+    if ST.aimHoldKey then return ST.aimKeyHeld end
+    return ST.aimEnabled or ST.aimKeyHeld
+end
 local function applyAim(cam)
-    local aimActive=((not ST.aimHoldKey and ST.aimEnabled) or (ST.aimHoldKey and ST.aimKeyHeld))
-    if not aimActive then return end
+    if ST.freeCam or ST.spectateOverhead then return end
+    if not isAimActive() then return end
     if not (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid")) then return end
+    cam.CameraType=Enum.CameraType.Scriptable
     local camPos=cam.CFrame.Position
     local mpA=U:GetMouseLocation()
-    local center=Vector2.new(mpA.X,mpA.Y)
-    local bestTarget=nil local bestDist=ST.aimFOV
+    local vp=cam.ViewportSize
+    local screenCenter=Vector2.new(vp.X*0.5,vp.Y*0.5)
+    local center=mpA
+    local bestTarget=nil local bestDist=math.max(ST.aimFOV, 400)
     local cur=ST.aimTarget
     local curOk=false
     if cur and cur.Character and cur.Character:FindFirstChild(ST.aimTargetPart) and cur.Character:FindFirstChildOfClass("Humanoid") then
@@ -734,10 +591,10 @@ local function applyAim(cam)
             if wallOK then
                 local sp2,onscreen=cam:WorldToViewportPoint(tgtPos)
                 if onscreen then
-                    local d=(Vector2.new(sp2.X,sp2.Y)-center).Magnitude
-                    if d<=ST.aimFOV*1.5 then
-                        curOk=true bestTarget=cur bestDist=d
-                    end
+                    local p2=Vector2.new(sp2.X,sp2.Y)
+                    local dMouse=(p2-center).Magnitude
+                    local dCenter=(p2-screenCenter).Magnitude
+                    curOk=true bestTarget=cur bestDist=math.min(dMouse,dCenter)
                 end
             end
         end
@@ -758,7 +615,8 @@ local function applyAim(cam)
                     end
                     local sp2,onscreen=cam:WorldToViewportPoint(tgtPos)
                     if onscreen then
-                        local d=(Vector2.new(sp2.X,sp2.Y)-center).Magnitude
+                        local p2=Vector2.new(sp2.X,sp2.Y)
+                        local d=math.min((p2-center).Magnitude,(p2-screenCenter).Magnitude)
                         if d<bestDist then bestDist=d bestTarget=pp end
                     end
                 end
@@ -788,7 +646,7 @@ local function applyAim(cam)
     end
 end
 pcall(function()
-    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Last.Value,function()
+    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Last.Value+10,function()
         pcall(function()
             local cam=W.CurrentCamera
             if not cam then return end
@@ -897,8 +755,6 @@ btn(tH,"Jump 150",function() ST.jumpPreset=150 ntf("Jump","150 - applied") end,"
 btn(tH,"Reset Jump",function() ST.jumpPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=50 end end end) ntf("Jump","Reset 50") end,"jprst")
 local tInfJ=tog(tH,"Infinite Jump",function() return ST.infJump end,function() ST.infJump=not ST.infJump ntf("InfJump",ST.infJump and "ON - Space (throttled)" or "OFF") end,"infjump")
 table.insert(allToggles,tInfJ)
-local tGML=tog(tH,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop ntf("Godmode",ST.godmodeLoop and "ON" or "OFF") end,"godloop")
-table.insert(allToggles,tGML)
 local tSPH=tog(tH,"Speed Hard",function() return ST.speedHard end,function() ST.speedHard=not ST.speedHard if ST.speedHard then ST.speedPreset=math.max(ST.speedPreset,50) ntf("SpeedHard","ON (50)") else ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) ntf("SpeedHard","OFF") end end,"speedhard")
 table.insert(allToggles,tSPH)
 local tIS=tog(tH,"Infinite Stamina",function() return ST.infStamina end,function() ST.infStamina=not ST.infStamina ST._stamVals=nil ST._stamWarned=false ntf("Stamina",ST.infStamina and "ON - scanning char+player+gui+attrs" or "OFF") end,"infstam")
@@ -1049,6 +905,10 @@ btn(tP,"Spectate: Overhead",function()
         ST.ovhYaw=0
         ST.ovhPitch=-1.4
         ST.ovhInit=true
+        pcall(function()
+            local cam=W.CurrentCamera or CAM
+            if cam then CAM=cam applyOverhead(cam) end
+        end)
         ntf("Spectate","Overhead ON on "..ST.spectating.DisplayName.." - WASD + RMB")
     else
         CAM.CameraType=Enum.CameraType.Custom
@@ -1147,10 +1007,58 @@ btn(tP,"Clear All Waypoints",function() pcall(function() ST.waypoints={} for i=1
 local tEx=tF["exploit"]
 lbl(tEx,">> GRAND RP EXPLOITS")
 sep(tEx)
-btn(tEx,"Full Heal Self",function() if cd() then pcall(function() local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.Health=h.MaxHealth h.PlatformStand=false h:ChangeState(Enum.HumanoidStateType.GettingUp) end end) pcall(function() local r=findRemote("Hospital.EKAB") if r then r:FireServer() end end) ntf("Heal","Fully healed!") end end,"fheal")
-btn(tEx,"Set Health 100",function() if cd() then pcall(function() local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.Health=100 h.MaxHealth=100 end end) ntf("Health","Set to 100") end end,"sethp")
-btn(tEx,"Set Health 9999",function() if cd() then pcall(function() local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.MaxHealth=9999 h.Health=9999 end end) ntf("Health","Set to 9999") end end,"sethpmax")
-btn(tEx,"Godmode Self",function() if cd() then pcall(function() local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.MaxHealth=math.huge h.Health=math.huge h.PlatformStand=false h:ChangeState(Enum.HumanoidStateType.GettingUp) end end) ntf("Godmode","Enabled!") end end,"godself")
+local function doFullHeal()
+    pcall(function()
+        local ch=LP.Character
+        if not ch then return end
+        local h=ch:FindFirstChildOfClass("Humanoid")
+        if not h then return end
+        if h.MaxHealth<100 then h.MaxHealth=100 end
+        h.Health=h.MaxHealth
+        h.PlatformStand=false
+        pcall(function() h:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+        pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end)
+    end)
+    local paths={
+        "Hospital.EKAB","Hospital.Heal","Hospital.heal","Hospital.Revive",
+        "Hospital.Treat","Hospital.Ambulance","Ambulance.EKAB","EKAB",
+        "HealEvent","Heal","ReviveEvent","revive","medicHeal","Medic.Heal"
+    }
+    local fired=0
+    for _,path in ipairs(paths) do
+        pcall(function()
+            local r=findRemote(path)
+            if r then
+                if r:IsA("RemoteFunction") then
+                    r:InvokeServer(LP)
+                else
+                    r:FireServer(LP)
+                    r:FireServer()
+                    r:FireServer(LP.Name)
+                end
+                fired=fired+1
+            end
+        end)
+    end
+    pcall(function()
+        for _,d in pairs(RS:GetDescendants()) do
+            if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) then
+                local nm=string.lower(d.Name)
+                if nm:find("heal") or nm:find("ekab") or nm:find("revive") or nm:find("medic") then
+                    if d:IsA("RemoteEvent") then
+                        d:FireServer(LP)
+                    end
+                    fired=fired+1
+                end
+            end
+        end
+    end)
+    ST._healBurst=tick()
+    ntf("Heal", fired>0 and ("Full heal + "..fired.." remote(s)") or "Full heal applied")
+end
+btn(tEx,"Full Heal Self",function() if cd() then doFullHeal() end end,"fheal")
+local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop ntf("Godmode",ST.godmodeLoop and "ON - top-up every frame" or "OFF") end,"godloop")
+table.insert(allToggles,tGML)
 sep(tEx)
 lbl(tEx,">> VISIBLE REMOTE EFFECTS")
 btn(tEx,"Fire Weapon (Effects)",function() pcall(function() local r=findRemote("WeaponsSystem.Network.WeaponFired") if r then r:FireServer() ntf("Weapon","Fired!") end end) end,"weapfire")
@@ -1353,7 +1261,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     elseif id=="night" then setNight(true)
                     elseif id=="bright" then ST.bright=true if not ST.savedLighting then ST.savedLighting={Brightness=L.Brightness,GlobalShadows=L.GlobalShadows,FogEnd=L.FogEnd,Ambient=L.Ambient,OutdoorAmbient=L.OutdoorAmbient,ClockTime=L.ClockTime} end
                     elseif id=="nofog" then setNoFog(true)
-                    elseif id=="aimbot" then if ST.aimHoldKey then ST.aimKeyHeld=true else ST.aimEnabled=true end
+                    elseif id=="aimbot" then ST.aimKeyHeld=true
                     elseif id=="aimhold" then ST.aimKeyHeld=true
                     elseif id=="showfov" then ST.showFOV=true
                     elseif id=="aimwc" then ST.aimWallCheck=true
@@ -1416,7 +1324,7 @@ U.InputEnded:Connect(function(inp)
                 elseif id=="night" then setNight(false)
                 elseif id=="bright" then ST.bright=false if ST.savedLighting then pcall(function() L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime end) ST.savedLighting=nil end
                 elseif id=="nofog" then setNoFog(false)
-                elseif id=="aimbot" then if ST.aimHoldKey then ST.aimKeyHeld=false else ST.aimEnabled=false end
+                elseif id=="aimbot" then ST.aimKeyHeld=false
                 elseif id=="aimhold" then ST.aimKeyHeld=false
                 elseif id=="showfov" then ST.showFOV=false if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end
                 elseif id=="aimwc" then ST.aimWallCheck=false
@@ -1506,12 +1414,19 @@ MS.Button1Down:Connect(function()
     if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,2,0)) end end
 end)
 local lastInfJump=0
+local function vaultJumpUnlock(h)
+    if not h then return end
+    if h.PlatformStand then h.PlatformStand=false end
+    if h.Health<=0 then h.Health=h.MaxHealth end
+    pcall(function() h:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+    pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end)
+    pcall(function() h:ChangeState(Enum.HumanoidStateType.Jumping) end)
+end
 U.JumpRequest:Connect(function()
-    if ST.infJump and not ST.freeCam and LP.Character and tick()-lastInfJump>0.2 then
+    if ST.infJump and not ST.freeCam and LP.Character and tick()-lastInfJump>0.05 then
         lastInfJump=tick()
         pcall(function()
-            local h=LP.Character:FindFirstChildOfClass("Humanoid")
-            if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+            vaultJumpUnlock(LP.Character:FindFirstChildOfClass("Humanoid"))
         end)
     end
 end)
@@ -1521,7 +1436,34 @@ R.RenderStepped:Connect(function()
         if ST.fly and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then local dir=Vector3.new(0,0,0) local sp=ST.flySpeed if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=sp*3 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if dir.Magnitude>0 then dir=dir.Unit h.Velocity=Vector3.new(0,0,0) h.RotVelocity=Vector3.new(0,0,0) h.CFrame=h.CFrame+dir*sp/60 else h.Velocity=Vector3.new(0,0,0) end end end
     end)
     pcall(function()
-        if ST.godmodeLoop and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum then hum.Health=hum.MaxHealth end end
+        if ST.godmodeLoop and LP.Character then
+            local hum=LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if hum.MaxHealth<100 then hum.MaxHealth=100 end
+                if hum.Health<hum.MaxHealth then hum.Health=hum.MaxHealth end
+                if hum.Health<=0 then hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end
+                if hum.PlatformStand then hum.PlatformStand=false end
+            end
+        end
+    end)
+    pcall(function()
+        if ST.infJump and not ST.freeCam and LP.Character and U:IsKeyDown(Enum.KeyCode.Space) then
+            local hum=LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum and tick()-lastInfJump>0.08 then
+                lastInfJump=tick()
+                vaultJumpUnlock(hum)
+            end
+        end
+    end)
+    pcall(function()
+        if ST._healBurst and tick()-ST._healBurst<1.5 and LP.Character then
+            local hum=LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if hum.MaxHealth<100 then hum.MaxHealth=100 end
+                hum.Health=hum.MaxHealth
+                if hum.PlatformStand then hum.PlatformStand=false end
+            end
+        end
     end)
     pcall(function()
         if ST.infStamina and LP.Character then
@@ -1638,9 +1580,9 @@ R.RenderStepped:Connect(function()
         if ST.botPlay and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then if #ST.botFrames>0 then local elapsed=tick()-ST.botStart local idx=1 for i=1,#ST.botFrames do if ST.botFrames[i].t<=elapsed then idx=i else break end end if idx>#ST.botFrames then if ST.botLoop then ST.botStart=tick() idx=1 else ST.botPlay=false ntf("Bot","Playback finished!") end end if ST.botPlay and ST.botFrames[idx] then LP.Character.HumanoidRootPart.CFrame=ST.botFrames[idx].cf end end end
     end)
     pcall(function()
-        local aimActive=((not ST.aimHoldKey and ST.aimEnabled) or (ST.aimHoldKey and ST.aimKeyHeld))
+        local aimActive=isAimActive()
         local wantFOV=aimActive or ST.showFOV
-        if wantFOV and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        if wantFOV then
             if not ST.aimFOVGui then
                 local s=Instance.new("ScreenGui") s.Name="AimFOV" s.ResetOnSpawn=false s.DisplayOrder=50 s.IgnoreGuiInset=true
                 pcall(function() s.Parent=CG end) if not s.Parent then s.Parent=LP:WaitForChild("PlayerGui") end
@@ -1667,6 +1609,14 @@ R.RenderStepped:Connect(function()
             ST._aimWallC=nil
             local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
             if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
+            if not ST.freeCam and not ST.spectateOverhead then
+                local cam=W.CurrentCamera or CAM
+                if cam and cam.CameraType==Enum.CameraType.Scriptable and not ST._aimWasScriptable then
+                    cam.CameraType=Enum.CameraType.Custom
+                    local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                    if hum then cam.CameraSubject=hum end
+                end
+            end
         end
     end)
     pcall(function() if ST.cursorTPPreview then if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local m=MS.Hit if m then ST.cursorTPPreview.Position=m.Position+Vector3.new(0,3,0) end end end end)
@@ -1781,7 +1731,7 @@ R.RenderStepped:Connect(function()
     end)
 end)
 pcall(function() P.PlayerAdded:Connect(function(pp) pp.CharacterAdded:Connect(function(ch) task.wait(1) pcall(function() if ST.esp and pp~=LP then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=ch ST.espList[pp.UserId]=hl end end) end) end) end)
-pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=70 end end) end end) pcall(function() if ST.godmodeLoop then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.Health=hum.MaxHealth end end) end end) end) end)
+pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=70 end end) end end) pcall(function() if ST.godmodeLoop then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then if hum.MaxHealth<100 then hum.MaxHealth=100 end hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end end) end end) end) end)
 P.PlayerRemoving:Connect(function(pp) if ST.espList[pp.UserId] then ST.espList[pp.UserId]:Destroy() ST.espList[pp.UserId]=nil end if ST.esp2D and ST.esp2D[pp.UserId] then pcall(function() ST.esp2D[pp.UserId]:Destroy() end) ST.esp2D[pp.UserId]=nil end end)
 for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end end
 pcall(function() for _,g in pairs({CG,LP:WaitForChild("PlayerGui")}) do for _,v in pairs(g:GetDescendants()) do if v.Name=="AxESP_2D" then v:Destroy() end end end end)
