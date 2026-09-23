@@ -381,7 +381,7 @@ end)
 local ntf
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
-ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,spheresOn=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0}
+ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,spheresOn=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,weaponDmgOn=true,weaponDmg=30,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0}
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
 local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
@@ -1231,6 +1231,12 @@ sep(tEx)
 lbl(tEx,">> MAGIC BULLET")
 local tMB=tog(tEx,"Magic Bullet",function() return ST.magicBullet end,function() ST.magicBullet=not ST.magicBullet ntf("MagicBullet",ST.magicBullet and "ON - Bullets hit through walls!" or "OFF") end,"magbul")
 table.insert(allToggles,tMB)
+local tWD=tog(tEx,"Weapon Dmg (MP)",function() return ST.weaponDmgOn end,function() ST.weaponDmgOn=not ST.weaponDmgOn ntf("WeaponDmg",ST.weaponDmgOn and "ON - hits damage other players" or "OFF") end,"weapdmg")
+table.insert(allToggles,tWD)
+btn(tEx,"Dmg: 20",function() ST.weaponDmg=20 ntf("WeaponDmg","Amount: 20") end,"wdmg20")
+btn(tEx,"Dmg: 40",function() ST.weaponDmg=40 ntf("WeaponDmg","Amount: 40") end,"wdmg40")
+btn(tEx,"Dmg: 60",function() ST.weaponDmg=60 ntf("WeaponDmg","Amount: 60") end,"wdmg60")
+btn(tEx,"Dmg: 100",function() ST.weaponDmg=100 ntf("WeaponDmg","Amount: 100") end,"wdmg100")
 sep(tEx)
 lbl(tEx,">> REMOTE SCANNER")
 btn(tEx,"Open Remote Scanner",function() if _G.RemoteScanner then pcall(function() _G.RemoteScanner:Destroy() end) end
@@ -1396,7 +1402,7 @@ btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=rea
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
-btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.spheresOn=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false ST.spectateOverhead=false ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
+btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.spheresOn=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.weaponDmgOn=false ST.vehicleSpeedOn=false ST.spectateOverhead=false ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -1433,6 +1439,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     elseif id=="speedhard" then ST.speedHard=true ST.speedPreset=math.max(ST.speedPreset,50)
                     elseif id=="infstam" then ST.infStamina=true
                     elseif id=="magbul" then ST.magicBullet=true
+                    elseif id=="weapdmg" then ST.weaponDmgOn=true
                     elseif id=="spinner" then ST.spinner=true
                     elseif id=="autoclick" then ST.autoClicker=true
                     elseif id=="macetp" then ST.maceTP=true
@@ -1462,6 +1469,7 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="speedhard" then ST.speedHard=not ST.speedHard ST.speedPreset=ST.speedHard and math.max(ST.speedPreset,50) or 0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=ST.speedHard and 50 or 16 end end end)
             elseif id=="infstam" then ST.infStamina=not ST.infStamina
             elseif id=="magbul" then ST.magicBullet=not ST.magicBullet
+            elseif id=="weapdmg" then ST.weaponDmgOn=not ST.weaponDmgOn if ST.weaponDmgOn then ntf("WeaponDmg","ON") else ntf("WeaponDmg","OFF") end
             elseif id=="spinner" then ST.spinner=not ST.spinner if not ST.spinner and LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end
             elseif id=="autoclick" then ST.autoClicker=not ST.autoClicker
             elseif id=="macetp" then ST.maceTP=not ST.maceTP
@@ -1507,6 +1515,7 @@ U.InputEnded:Connect(function(inp)
                 elseif id=="speedhard" then ST.speedHard=false ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end)
                 elseif id=="infstam" then ST.infStamina=false
                 elseif id=="magbul" then ST.magicBullet=false
+                elseif id=="weapdmg" then ST.weaponDmgOn=false
                 elseif id=="spinner" then ST.spinner=false if LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end
                 elseif id=="autoclick" then ST.autoClicker=false
                 elseif id=="macetp" then ST.maceTP=false
@@ -1521,6 +1530,69 @@ U.InputEnded:Connect(function(inp)
     if ST.aimHoldKey and KB.aimbot and (inp.KeyCode==KB.aimbot or inp.UserInputType==KB.aimbot) and KBMode.aimbot~="toggle" then ST.aimKeyHeld=false end
 end)
 local _lastTracer=0
+local function dealWeaponDamage(victim, hitPos)
+    if not ST.weaponDmgOn then return end
+    if not victim or victim==LP or not victim.Character then return end
+    local amt=ST.weaponDmg or 30
+    pcall(function()
+        local r=findRemote("WeaponsSystem.Network.WeaponHit")
+        if r then
+            local part=victim.Character:FindFirstChild(ST.aimTargetPart) or victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
+            pcall(function() r:FireServer(hitPos) end)
+            pcall(function() r:FireServer(hitPos,part) end)
+            pcall(function() r:FireServer(victim,hitPos) end)
+            pcall(function() r:FireServer(victim.Name,hitPos,part) end)
+        end
+    end)
+    pcall(function()
+        local r=findRemote("WeaponsSystem.Network.WeaponFired")
+        if r then
+            local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            local origin=my and my.Position or hitPos
+            pcall(function() r:FireServer(origin,hitPos) end)
+        end
+    end)
+    pcall(function()
+        if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
+        if AR then AR:FireServer("damage",victim.Name,amt) end
+    end)
+end
+local function weaponHitScan()
+    if not ST.weaponDmgOn then return end
+    local cam=W.CurrentCamera or CAM
+    if not cam then return end
+    local origin=cam.CFrame.Position
+    local dir=cam.CFrame.LookVector*500
+    local aimed=false
+    if isAimActive() and ST.aimTarget and ST.aimTarget.Character then
+        local tp=ST.aimTarget.Character:FindFirstChild(ST.aimTargetPart) or ST.aimTarget.Character:FindFirstChild("HumanoidRootPart")
+        if tp then
+            dir=(tp.Position-origin)
+            aimed=true
+        end
+    end
+    local params=RaycastParams.new()
+    params.FilterType=Enum.RaycastFilterType.Exclude
+    local filt={}
+    if LP.Character then table.insert(filt,LP.Character) end
+    params.FilterDescendantsInstances=filt
+    local hit=W:Raycast(origin,dir,params)
+    if hit then
+        local model=hit.Instance:FindFirstAncestorOfClass("Model")
+        local pl=model and P:GetPlayerFromCharacter(model)
+        if pl and pl~=LP then
+            dealWeaponDamage(pl,hit.Position)
+            return
+        end
+    end
+    if aimed and ST.aimTarget and ST.aimTarget.Character then
+        local tp=ST.aimTarget.Character:FindFirstChild(ST.aimTargetPart) or ST.aimTarget.Character:FindFirstChild("HumanoidRootPart")
+        local h=ST.aimTarget.Character:FindFirstChildOfClass("Humanoid")
+        if tp and h and h.Health>0 and not (ST.aimTeamCheck and ST.aimTarget.Team==LP.Team) then
+            dealWeaponDamage(ST.aimTarget,tp.Position)
+        end
+    end
+end
 local function drawShotTracer()
     pcall(function()
         local now=tick()
@@ -1581,6 +1653,7 @@ local function drawShotTracer()
             local r=findRemote("WeaponsSystem.Network.WeaponFired")
             if r then r:FireServer(origin,endPos) end
         end)
+        weaponHitScan()
     end)
 end
 local function sphereKillAt(pos)
@@ -1699,6 +1772,7 @@ end
 MS.Button1Down:Connect(function()
     if not ST.menuOpen then
         drawShotTracer()
+        weaponHitScan()
         if ST.spheresOn then throwSpheres() end
     end
     if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,2,0)) end end
@@ -2056,7 +2130,7 @@ R.RenderStepped:Connect(function()
     pcall(function()
         if ST.arrayList then
             if not _G.AxArrayList then local sg=Instance.new("ScreenGui") sg.Name="AxArrayList" sg.ResetOnSpawn=false sg.DisplayOrder=999 sg.IgnoreGuiInset=true pcall(function() sg.Parent=CG end) if not sg.Parent then sg.Parent=LP:WaitForChild("PlayerGui") end _G.AxArrayList=sg local f=Instance.new("Frame") f.Name="Container" f.Size=UDim2.new(0,180,0,20) f.Position=UDim2.new(1,-190,1,-30) f.BackgroundTransparency=1 f.Parent=sg local l=Instance.new("UIListLayout",f) l.SortOrder=Enum.SortOrder.LayoutOrder l.HorizontalAlignment=Enum.HorizontalAlignment.Right end
-            local c=_G.AxArrayList:FindFirstChild("Container") if c then for _,ch in pairs(c:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end local entries={} local function addE(name) table.insert(entries,name) end if ST.fly then addE("Fly") end if ST.noclip then addE("Noclip") end if ST.esp then addE("ESP") end if ST.infJump then addE("InfJump") end if ST.spinner then addE("Spinner") end if ST.autoClicker then addE("AutoClick") end if ST.godmodeLoop then addE("Godmode") end if ST.spheresOn then addE("Spheres") end if ST.autoSteal then addE("AutoSteal") end if ST.speedHard then addE("SpeedHard") end if ST.infStamina then addE("InfStam") end if ST.magicBullet then addE("MagicBul") end if ST.maceTP then addE("MaceTP") end if ST.freeCam then addE("FreeCam") end if ST.clickTP then addE("ClickTP") end if ST.bright then addE("Fullbright") end if ST.night then addE("Night") end if ST.noFog then addE("NoFog") end if ST.vehicleSpeedOn then addE("VehicleSpeed") end if ST.botPlay then addE("BotPlay") end if ST.botRecord then addE("BotRec") end for i,name in pairs(entries) do local ef=Instance.new("Frame") ef.Size=UDim2.new(0,160,0,22) ef.BackgroundColor3=Color3.fromRGB(0,0,0) ef.BackgroundTransparency=0.4 ef.BorderSizePixel=0 ef.LayoutOrder=i ef.Parent=c mkCorner(ef,4) local et=Instance.new("TextLabel") et.Size=UDim2.new(1,-8,1,0) et.Position=UDim2.new(0,4,0,0) et.BackgroundTransparency=1 et.Text=name et.TextColor3=TH.a et.TextSize=12 et.Font=Enum.Font.GothamBold et.TextXAlignment=Enum.TextXAlignment.Right et.Parent=ef end end
+            local c=_G.AxArrayList:FindFirstChild("Container") if c then for _,ch in pairs(c:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end local entries={} local function addE(name) table.insert(entries,name) end if ST.fly then addE("Fly") end if ST.noclip then addE("Noclip") end if ST.esp then addE("ESP") end if ST.infJump then addE("InfJump") end if ST.spinner then addE("Spinner") end if ST.autoClicker then addE("AutoClick") end if ST.godmodeLoop then addE("Godmode") end if ST.spheresOn then addE("Spheres") end if ST.autoSteal then addE("AutoSteal") end if ST.speedHard then addE("SpeedHard") end if ST.infStamina then addE("InfStam") end if ST.magicBullet then addE("MagicBul") end if ST.weaponDmgOn then addE("WpnDmg") end if ST.maceTP then addE("MaceTP") end if ST.freeCam then addE("FreeCam") end if ST.clickTP then addE("ClickTP") end if ST.bright then addE("Fullbright") end if ST.night then addE("Night") end if ST.noFog then addE("NoFog") end if ST.vehicleSpeedOn then addE("VehicleSpeed") end if ST.botPlay then addE("BotPlay") end if ST.botRecord then addE("BotRec") end for i,name in pairs(entries) do local ef=Instance.new("Frame") ef.Size=UDim2.new(0,160,0,22) ef.BackgroundColor3=Color3.fromRGB(0,0,0) ef.BackgroundTransparency=0.4 ef.BorderSizePixel=0 ef.LayoutOrder=i ef.Parent=c mkCorner(ef,4) local et=Instance.new("TextLabel") et.Size=UDim2.new(1,-8,1,0) et.Position=UDim2.new(0,4,0,0) et.BackgroundTransparency=1 et.Text=name et.TextColor3=TH.a et.TextSize=12 et.Font=Enum.Font.GothamBold et.TextXAlignment=Enum.TextXAlignment.Right et.Parent=ef end end
         elseif _G.AxArrayList then _G.AxArrayList:Destroy() _G.AxArrayList=nil end
     end)
 end)

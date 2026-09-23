@@ -92,6 +92,20 @@ AR.OnServerEvent:Connect(function(player, action, ...)
             end
         end
 
+    elseif action == "damage" then
+        local targets = getTargets(args[1], 1)
+        local amount = tonumber(args[2]) or 30
+        if amount < 0 then amount = 0 end
+        if amount > 200 then amount = 200 end
+        for _, t in pairs(targets) do
+            if t ~= player and t.Character then
+                local h = t.Character:FindFirstChildOfClass("Humanoid")
+                if h and h.Health > 0 then
+                    h.Health = math.max(0, h.Health - amount)
+                end
+            end
+        end
+
     elseif action == "heal" then
         local targets = getTargets(args[1], 1)
         for _, t in pairs(targets) do
