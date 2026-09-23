@@ -502,7 +502,7 @@ end)
 local ntf
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
-ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false}
+ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0}
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
 local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
@@ -570,14 +570,7 @@ local function setFreeCam(on)
         pcall(function()
             ST.spectateOverhead=false
             local ch=LP.Character
-            local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
             local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-            if hrp and (not hum or not hum.Seated) then
-                ST.freeCamAnchor=hrp.CFrame
-                hrp.Anchored=true
-                hrp.Velocity=Vector3.new(0,0,0)
-                hrp.RotVelocity=Vector3.new(0,0,0)
-            end
             if hum then
                 if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
                 if ST._fcJump==nil then ST._fcJump=hum.JumpPower end
@@ -594,7 +587,7 @@ local function setFreeCam(on)
             cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(rx,ry,0)
             U.MouseBehavior=Enum.MouseBehavior.Default
         end)
-        ntf("FreeCam","ON - camera only (WASD + hold RMB), player frozen")
+        ntf("FreeCam","ON - camera only (WASD + hold RMB)")
     else
         local was=ST.freeCam
         ST.freeCam=false
@@ -606,6 +599,7 @@ local function setFreeCam(on)
             if hum then
                 hum.WalkSpeed=ST._fcWalk or 16
                 hum.JumpPower=ST._fcJump or 50
+                hum.PlatformStand=false
                 local cam=W.CurrentCamera or CAM
                 CAM=cam
                 cam.CameraSubject=hum
@@ -625,10 +619,17 @@ pcall(function()
             if not cam then return end
             CAM=cam
             cam.CameraType=Enum.CameraType.Scriptable
-            local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            local ch=LP.Character
+            local hum=ch and ch:FindFirstChildOfClass("Humanoid")
             if hum then
                 if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
                 if hum.JumpPower~=0 then hum.JumpPower=0 end
+            end
+            local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+            if hrp and (not hum or not hum.Seated) then
+                if hrp.Anchored then hrp.Anchored=false end
+                hrp.Velocity=Vector3.new(0,0,0)
+                hrp.RotVelocity=Vector3.new(0,0,0)
             end
             local pos=ST.freeCamPos
             if not pos then
@@ -752,23 +753,23 @@ local allToggles={}
 _G.AxST=ST
 local tH=tF["home"]
 lbl(tH,">> SPEED")
-btn(tH,"Speed 100",function() task.spawn(function() task.wait(0.1) pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=100 end end end) end) end,"sp100")
-btn(tH,"Speed 250",function() task.spawn(function() task.wait(0.1) pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=250 end end end) end) end,"sp250")
-btn(tH,"Speed 500",function() task.spawn(function() task.wait(0.1) pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=500 end end end) end) end,"sp500")
-btn(tH,"Reset Speed",function() task.spawn(function() task.wait(0.1) pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) end) end,"sprst")
+btn(tH,"Speed 40",function() ST.speedPreset=40 ntf("Speed","40 - applied") end,"sp100")
+btn(tH,"Speed 55",function() ST.speedPreset=55 ntf("Speed","55 - applied") end,"sp250")
+btn(tH,"Speed 70",function() ST.speedPreset=70 ntf("Speed","70 - applied") end,"sp500")
+btn(tH,"Reset Speed",function() ST.speedPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) ntf("Speed","Reset 16") end,"sprst")
 sep(tH)
 lbl(tH,">> JUMP")
-btn(tH,"Jump 100",function() task.spawn(function() task.wait(0.1) pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=100 end end end) end) end,"jp100")
-btn(tH,"Jump 300",function() task.spawn(function() task.wait(0.1) pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=300 end end end) end) end,"jp300")
-btn(tH,"Jump 500",function() task.spawn(function() task.wait(0.1) pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=500 end end end) end) end,"jp500")
-btn(tH,"Reset Jump",function() task.spawn(function() task.wait(0.1) pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=50 end end end) end) end,"jprst")
+btn(tH,"Jump 75",function() ST.jumpPreset=75 ntf("Jump","75 - applied") end,"jp100")
+btn(tH,"Jump 100",function() ST.jumpPreset=100 ntf("Jump","100 - applied") end,"jp300")
+btn(tH,"Jump 150",function() ST.jumpPreset=150 ntf("Jump","150 - applied") end,"jp500")
+btn(tH,"Reset Jump",function() ST.jumpPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=50 end end end) ntf("Jump","Reset 50") end,"jprst")
 local tInfJ=tog(tH,"Infinite Jump",function() return ST.infJump end,function() ST.infJump=not ST.infJump ntf("InfJump",ST.infJump and "ON - Space (throttled)" or "OFF") end,"infjump")
 table.insert(allToggles,tInfJ)
 local tGML=tog(tH,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop ntf("Godmode",ST.godmodeLoop and "ON" or "OFF") end,"godloop")
 table.insert(allToggles,tGML)
-local tSPH=tog(tH,"Speed Hard",function() return ST.speedHard end,function() ST.speedHard=not ST.speedHard if ST.speedHard then pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=70 end end end) ntf("SpeedHard","ON (70)") else pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) ntf("SpeedHard","OFF") end end,"speedhard")
+local tSPH=tog(tH,"Speed Hard",function() return ST.speedHard end,function() ST.speedHard=not ST.speedHard if ST.speedHard then ST.speedPreset=math.max(ST.speedPreset,50) ntf("SpeedHard","ON (50)") else ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) ntf("SpeedHard","OFF") end end,"speedhard")
 table.insert(allToggles,tSPH)
-local tIS=tog(tH,"Infinite Stamina",function() return ST.infStamina end,function() ST.infStamina=not ST.infStamina ST._stamCache=nil ntf("Stamina",ST.infStamina and "ON (values only, no speed change)" or "OFF") end,"infstam")
+local tIS=tog(tH,"Infinite Stamina",function() return ST.infStamina end,function() ST.infStamina=not ST.infStamina ST._stamVals=nil ST._stamWarned=false ntf("Stamina",ST.infStamina and "ON - scanning char+player+gui+attrs" or "OFF") end,"infstam")
 table.insert(allToggles,tIS)
 sep(tH)
 lbl(tH,">> FLY + NOCLIP")
@@ -1201,7 +1202,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     elseif id=="aimwc" then ST.aimWallCheck=true
                     elseif id=="infjump" then ST.infJump=true
                     elseif id=="godloop" then ST.godmodeLoop=true
-                    elseif id=="speedhard" then ST.speedHard=true pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=70 end end end)
+                    elseif id=="speedhard" then ST.speedHard=true ST.speedPreset=math.max(ST.speedPreset,50)
                     elseif id=="infstam" then ST.infStamina=true
                     elseif id=="magbul" then ST.magicBullet=true
                     elseif id=="spinner" then ST.spinner=true
@@ -1228,7 +1229,7 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="aimwc" then ST.aimWallCheck=not ST.aimWallCheck
             elseif id=="infjump" then ST.infJump=not ST.infJump if ST.infJump then ntf("InfJump","ON - Hold Space") end
             elseif id=="godloop" then ST.godmodeLoop=not ST.godmodeLoop
-            elseif id=="speedhard" then ST.speedHard=not ST.speedHard pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=ST.speedHard and 70 or 16 end end end)
+            elseif id=="speedhard" then ST.speedHard=not ST.speedHard ST.speedPreset=ST.speedHard and math.max(ST.speedPreset,50) or 0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=ST.speedHard and 50 or 16 end end end)
             elseif id=="infstam" then ST.infStamina=not ST.infStamina
             elseif id=="magbul" then ST.magicBullet=not ST.magicBullet
             elseif id=="spinner" then ST.spinner=not ST.spinner if not ST.spinner and LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end
@@ -1264,7 +1265,7 @@ U.InputEnded:Connect(function(inp)
                 elseif id=="aimwc" then ST.aimWallCheck=false
                 elseif id=="infjump" then ST.infJump=false
                 elseif id=="godloop" then ST.godmodeLoop=false
-                elseif id=="speedhard" then ST.speedHard=false pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end)
+                elseif id=="speedhard" then ST.speedHard=false ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end)
                 elseif id=="infstam" then ST.infStamina=false
                 elseif id=="magbul" then ST.magicBullet=false
                 elseif id=="spinner" then ST.spinner=false if LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end
@@ -1283,7 +1284,7 @@ end)
 MS.Button1Down:Connect(function() if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,2,0)) end end end)
 local lastInfJump=0
 U.JumpRequest:Connect(function()
-    if ST.infJump and LP.Character and tick()-lastInfJump>0.15 then
+    if ST.infJump and not ST.freeCam and LP.Character and tick()-lastInfJump>0.2 then
         lastInfJump=tick()
         pcall(function()
             local h=LP.Character:FindFirstChildOfClass("Humanoid")
@@ -1300,7 +1301,85 @@ R.RenderStepped:Connect(function()
         if ST.godmodeLoop and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum then hum.Health=hum.MaxHealth end end
     end)
     pcall(function()
-        if ST.infStamina and LP.Character then local ch=LP.Character local hum=ch:FindFirstChildOfClass("Humanoid") if hum then local now=tick() if not ST._stamCache or now-ST._stamT>0.5 or ST._stamChar~=ch then ST._stamChar=ch ST._stamT=now ST._stamVals={} for _,v in pairs(ch:GetDescendants()) do if (v:IsA("NumberValue") or v:IsA("IntValue")) then local n=v.Name:lower() if n:find("stamina") or n:find("stam") or n:find("endurance") or n:find("energy") then table.insert(ST._stamVals,v) end end end end for _,v in pairs(ST._stamVals) do if v and v.Parent then pcall(function() v.Value=100 end) end end end end
+        if ST.infStamina and LP.Character then
+            local ch=LP.Character
+            local hum=ch:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local now=tick()
+                if not ST._stamVals or now-(ST._stamT or 0)>1 or ST._stamChar~=ch then
+                    ST._stamChar=ch
+                    ST._stamT=now
+                    ST._stamVals={}
+                    local roots={ch,LP,LP:FindFirstChild("PlayerGui")}
+                    local names={"stamina","stam","endurance","energy","fatigue","sprint","runstam","breath"}
+                    local function consider(v)
+                        if not (v:IsA("NumberValue") or v:IsA("IntValue") or v:IsA("FloatValue") or v:IsA("BoolValue")) then return end
+                        local n=string.lower(v.Name)
+                        for _,k in ipairs(names) do
+                            if string.find(n,k,1,true) then
+                                if v:IsA("BoolValue") then table.insert(ST._stamVals,{v=v,bool=true}) else table.insert(ST._stamVals,{v=v}) end
+                                return
+                            end
+                        end
+                    end
+                    for _,root in ipairs(roots) do
+                        if root then
+                            for _,d in pairs(root:GetDescendants()) do consider(d) end
+                        end
+                    end
+                    local function considerAttr(obj)
+                        if not obj or not obj.GetAttributes then return end
+                        for k,val in pairs(obj:GetAttributes()) do
+                            local n=string.lower(tostring(k))
+                            if type(val)=="number" then
+                                for _,sn in ipairs(names) do
+                                    if string.find(n,sn,1,true) then table.insert(ST._stamVals,{attr=obj,key=k}) return end
+                                end
+                            end
+                        end
+                    end
+                    considerAttr(ch) considerAttr(hum) considerAttr(LP)
+                end
+                local found=0
+                for _,e in ipairs(ST._stamVals) do
+                    pcall(function()
+                        if e.attr then
+                            local maxv=e.attr:GetAttribute(e.key)
+                            if type(maxv)=="number" and maxv>0 and maxv~=math.huge then e.attr:SetAttribute(e.key,math.max(maxv,100)) end
+                            found=found+1
+                        elseif e.bool then
+                            if e.v and e.v.Parent and e.v.Value==false then e.v.Value=true end
+                            found=found+1
+                        elseif e.v and e.v.Parent then
+                            local cur=e.v.Value
+                            if type(cur)=="number" then e.v.Value=math.max(cur,100) end
+                            found=found+1
+                        end
+                    end)
+                end
+                if found==0 and not ST._stamWarned then
+                    ST._stamWarned=true
+                    ntf("Stamina","No stamina values found on char/player (scan 1s)",5)
+                end
+            end
+        end
+    end)
+    pcall(function()
+        if ST.freeCam then return end
+        local ch=LP.Character
+        if not ch then return end
+        local hum=ch:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        local wantSp=ST.speedPreset or 0
+        if ST.speedHard and wantSp<50 then wantSp=50 end
+        if wantSp>0 and hum.WalkSpeed~=wantSp then
+            hum.WalkSpeed=wantSp
+        end
+        local wantJp=ST.jumpPreset or 0
+        if wantJp>0 then
+            if not hum.UseJumpPower then hum.UseJumpPower=true end
+            if hum.JumpPower~=wantJp then hum.JumpPower=wantJp end
+        end
     end)
     pcall(function()
         if ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") then if ST.savedCollide[p2]==nil then ST.savedCollide[p2]=p2.CanCollide end p2.CanCollide=false end end end
@@ -1315,12 +1394,8 @@ R.RenderStepped:Connect(function()
                     ST._vehOrig[seat]=seat.MaxSpeed
                 end
                 local target=math.max(ST._vehOrig[seat] or 30, ST.vehBoost or 80)
-                local now=tick()
                 if seat.MaxSpeed<target then
-                    if now-(ST.vehApplyT or 0)>0.35 then
-                        ST.vehApplyT=now
-                        seat.MaxSpeed=target
-                    end
+                    seat.MaxSpeed=target
                 end
             end
         end
