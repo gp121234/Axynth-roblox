@@ -1414,29 +1414,76 @@ local function drawShotTracer()
         end)
     end)
 end
+local function sphereKillAt(pos)
+    pcall(function()
+        local hitPl=nil
+        for _,pp in pairs(P:GetPlayers()) do
+            if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") then
+                local d=(pp.Character.HumanoidRootPart.Position-pos).Magnitude
+                if d<8 then hitPl=pp break end
+            end
+        end
+        if hitPl then
+            pcall(function()
+                local h=hitPl.Character:FindFirstChildOfClass("Humanoid")
+                if h then h.Health=0 end
+            end)
+            pcall(function()
+                if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
+                if AR then AR:FireServer("kill", hitPl.Name) end
+            end)
+            pcall(function()
+                local e=Instance.new("Explosion")
+                e.Position=pos
+                e.BlastPressure=0
+                e.BlastRadius=6
+                e.Parent=W
+            end)
+            ntf("Spheres","Hit "..hitPl.DisplayName.."!")
+        end
+    end)
+end
 local function throwSpheres()
     pcall(function()
         local cam=W.CurrentCamera or CAM
         if not cam then return end
         local origin=cam.CFrame.Position
         local look=cam.CFrame.LookVector
+        local target=origin+look*120
+        pcall(function()
+            local params=RaycastParams.new()
+            params.FilterType=Enum.RaycastFilterType.Exclude
+            local filt={LP.Character}
+            if LP.Character then table.insert(filt,LP.Character) end
+            params.FilterDescendantsInstances=filt
+            local hit=W:Raycast(origin, look*500, params)
+            if hit then target=hit.Position end
+        end)
+        if MS.Hit then
+            local mh=MS.Hit.Position
+            if (mh-origin).Magnitude<400 then target=mh end
+        end
+        local dir=(target-origin)
+        if dir.Magnitude<1 then dir=look*50 end
+        dir=dir.Unit
         local right=cam.CFrame.RightVector
         local up=cam.CFrame.UpVector
         for i=1,5 do
             local ball=Instance.new("Part")
             ball.Name="AxSphere"
             ball.Shape=Enum.PartType.Ball
-            ball.Size=Vector3.new(1.2,1.2,1.2)
+            ball.Size=Vector3.new(1.4,1.4,1.4)
             ball.Material=Enum.Material.Neon
-            ball.Color=Color3.fromRGB(255, math.random(80,180), math.random(40,120))
+            ball.Color=Color3.fromRGB(255, math.random(60,160), math.random(20,100))
             ball.Anchored=false
             ball.CanCollide=false
-            ball.CanQuery=false
+            ball.CanQuery=true
+            ball.CanTouch=true
             ball.Massless=true
-            ball.CFrame=CFrame.new(origin+look*2+right*((i-3)*0.6)+up*0.2)
+            ball.CFrame=CFrame.new(origin+look*2+right*((i-3)*0.5)+up*0.15)
             ball.Parent=W
             local bv=Instance.new("BodyVelocity")
-            bv.Velocity=look*math.random(55,85)+right*((i-3)*8)+up*math.random(4,12)
+            bv.Velocity=dir*math.random(90,130)+right*((i-3)*10)+up*math.random(2,8)
             bv.MaxForce=Vector3.new(1e5,1e5,1e5)
             bv.P=1e4
             bv.Parent=ball
@@ -1446,16 +1493,34 @@ local function throwSpheres()
             bg.Parent=ball
             local light=Instance.new("PointLight")
             light.Color=ball.Color
-            light.Range=12
+            light.Range=14
             light.Brightness=2
             light.Parent=ball
-            task.delay(2.5,function()
+            local dead=false
+            ball.Touched:Connect(function(hit)
+                if dead then return end
+                if not hit or not hit:IsA("BasePart") then return end
+                local ch=hit:FindFirstAncestorOfClass("Model")
+                if not ch then return end
+                local h=ch:FindFirstChildOfClass("Humanoid")
+                if not h then return end
+                local pl=P:GetPlayerFromCharacter(ch)
+                if not pl or pl==LP then return end
+                dead=true
+                local ppos=ball.Position
+                pcall(function() ball:Destroy() end)
+                sphereKillAt(ppos)
+            end)
+            task.delay(1.8,function()
                 pcall(function()
-                    if ball then ball:Destroy() end
+                    if ball and ball.Parent then
+                        sphereKillAt(ball.Position)
+                        ball:Destroy()
+                    end
                 end)
             end)
         end
-        ntf("Spheres","Thrown x5")
+        ntf("Spheres","Fired at click x5")
     end)
 end
 MS.Button1Down:Connect(function()
