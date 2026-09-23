@@ -502,7 +502,7 @@ end)
 local ntf
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
-ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=120,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil}
+ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,aimWallCheck=true}
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
 local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
@@ -522,6 +522,46 @@ ntf=function(t,x,d) pcall(function() S:SetCore("SendNotification",{Title=t,Text=
 local function getKeyDisplay(key) if not key then return "NONE" end local s=tostring(key) s=s:gsub("Enum.KeyCode%.","") s=s:gsub("Enum.UserInputType%.MouseButton2","RMB") s=s:gsub("Enum.UserInputType%.MouseButton1","LMB") s=s:gsub("Enum.UserInputType%.MouseButton3","MMB") s=s:gsub("Enum.UserInputType%.","") return s end
 local function refreshKBBtns() for id,kb in pairs(kbBtns) do if kb and kb.Parent then kb.Text=getKeyDisplay(KB[id]) kb.TextColor3=(KBMode[id]=="hold") and Color3.fromRGB(255,200,80) or TH.a end end end
 local function cycleKBMode(id) KBMode[id]=(KBMode[id]=="hold") and "toggle" or "hold" refreshKBBtns() ntf("Keybind",(KBMode[id]=="hold") and "Mode: HOLD (while key down)" or "Mode: TOGGLE (press once)") end
+local function setNight(on)
+    if on then
+        if ST.night then return end
+        ST.night=true
+        ST._nightClock=L.ClockTime
+        ST._nightBright=L.Brightness
+        L.ClockTime=0
+        L.Brightness=0
+    else
+        if not ST.night then return end
+        ST.night=false
+        if ST._nightClock then L.ClockTime=ST._nightClock end
+        if ST._nightBright then L.Brightness=ST._nightBright end
+        ST._nightClock=nil
+        ST._nightBright=nil
+    end
+end
+local function setNoFog(on)
+    if on then
+        if ST.noFog then return end
+        ST.noFog=true
+        ST._fogEnd=L.FogEnd
+        ST._fogStart=L.FogStart
+        local atm=L:FindFirstChildOfClass("Atmosphere")
+        ST._atmDen=atm and atm.Density
+        L.FogEnd=999999
+        L.FogStart=0
+        if atm then atm.Density=0 end
+    else
+        if not ST.noFog then return end
+        ST.noFog=false
+        if ST._fogEnd then L.FogEnd=ST._fogEnd end
+        if ST._fogStart then L.FogStart=ST._fogStart end
+        local atm=L:FindFirstChildOfClass("Atmosphere")
+        if atm and ST._atmDen then atm.Density=ST._atmDen end
+        ST._fogEnd=nil
+        ST._fogStart=nil
+        ST._atmDen=nil
+    end
+end
 local function setFrozen(f) pcall(function() if LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hrp and (not hum or not hum.Seated) then hrp.Anchored=f if f then hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end end end end) end
 local function setFreeCam(on)
     if on then
@@ -767,11 +807,11 @@ btn(tH,"TP Forward",function() if LP.Character then local h=LP.Character:FindFir
 
 local tW=tF["world"]
 lbl(tW,">> WORLD")
-local tNight=tog(tW,"Night",function() return ST.night end,function() ST.night=not ST.night if ST.night then ST._savedClock=L.ClockTime L.ClockTime=0 else if ST._savedClock then L.ClockTime=ST._savedClock ST._savedClock=nil else L.ClockTime=14 end end end,"night")
+local tNight=tog(tW,"Night",function() return ST.night end,function() setNight(not ST.night) end,"night")
 table.insert(allToggles,tNight)
 local tBright=tog(tW,"Fullbright",function() return ST.bright end,function() ST.bright=not ST.bright if ST.bright then if not ST.savedLighting then ST.savedLighting={Brightness=L.Brightness,GlobalShadows=L.GlobalShadows,FogEnd=L.FogEnd,Ambient=L.Ambient,OutdoorAmbient=L.OutdoorAmbient,ClockTime=L.ClockTime} end else if ST.savedLighting then pcall(function() L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime end) ST.savedLighting=nil end end end,"bright")
 table.insert(allToggles,tBright)
-local tFog=tog(tW,"No Fog",function() return ST.noFog end,function() ST.noFog=not ST.noFog end,"nofog")
+local tFog=tog(tW,"No Fog",function() return ST.noFog end,function() setNoFog(not ST.noFog) end,"nofog")
 table.insert(allToggles,tFog)
 sep(tW)
 lbl(tW,">> LIGHTING")
@@ -1090,9 +1130,13 @@ aimDropBtn.MouseButton1Click:Connect(function()
         aimDropList.CanvasSize=UDim2.new(0,0,0,y+4)
     else if aimDropList then aimDropList:Destroy() aimDropList=nil end end
 end)
-makeSlider(tEx,"FOV",20,400,function() return ST.aimFOV end,function(v) ST.aimFOV=math.floor(v) if ST.aimFOVGui then local c=ST.aimFOVGui:FindFirstChild("Circle") if c then c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2) end end end)
+makeSlider(tEx,"FOV",20,500,function() return ST.aimFOV end,function(v) ST.aimFOV=math.floor(v) if ST.aimFOVGui then local c=ST.aimFOVGui:FindFirstChild("Circle") if c then c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2) end end end)
 local tAimTC=tog(tEx,"Team Check",function() return ST.aimTeamCheck end,function() ST.aimTeamCheck=not ST.aimTeamCheck ntf("Aimbot","TeamCheck: "..(ST.aimTeamCheck and "ON" or "OFF")) end,"aimtc")
 table.insert(allToggles,tAimTC)
+local tAimWC=tog(tEx,"Wall Check",function() return ST.aimWallCheck end,function() ST.aimWallCheck=not ST.aimWallCheck ntf("Aimbot","WallCheck: "..(ST.aimWallCheck and "ON (skip through walls)" or "OFF")) end,"aimwc")
+table.insert(allToggles,tAimWC)
+local tFovShow=tog(tEx,"Show FOV Always",function() return ST.showFOV end,function() ST.showFOV=not ST.showFOV if not ST.showFOV and ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end ntf("Aimbot","ShowFOV: "..(ST.showFOV and "ON (always visible)" or "OFF")) end,"showfov")
+table.insert(allToggles,tFovShow)
 local tMi=tF["misc"]
 lbl(tMi,">> MISC")
 btn(tMi,"Reset Character",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.Health=0 end end end,"reset")
@@ -1136,7 +1180,7 @@ btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=rea
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
-btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
+btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -1159,11 +1203,13 @@ U.InputBegan:Connect(function(inp,gpe)
                     elseif id=="noclip" then ST.noclip=true
                     elseif id=="freecam" then setFreeCam(true)
                     elseif id=="esp" then ST.esp=true
-                    elseif id=="night" then ST.night=true
+                    elseif id=="night" then setNight(true)
                     elseif id=="bright" then ST.bright=true if not ST.savedLighting then ST.savedLighting={Brightness=L.Brightness,GlobalShadows=L.GlobalShadows,FogEnd=L.FogEnd,Ambient=L.Ambient,OutdoorAmbient=L.OutdoorAmbient,ClockTime=L.ClockTime} end
-                    elseif id=="nofog" then ST.noFog=true
+                    elseif id=="nofog" then setNoFog(true)
                     elseif id=="aimbot" then if ST.aimHoldKey then ST.aimKeyHeld=true else ST.aimEnabled=true end
                     elseif id=="aimhold" then ST.aimKeyHeld=true
+                    elseif id=="showfov" then ST.showFOV=true
+                    elseif id=="aimwc" then ST.aimWallCheck=true
                     elseif id=="infjump" then ST.infJump=true
                     elseif id=="godloop" then ST.godmodeLoop=true
                     elseif id=="speedhard" then ST.speedHard=true pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=70 end end end)
@@ -1184,11 +1230,13 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="freecam" then setFreeCam(not ST.freeCam)
             elseif id=="clicktp" then ST.clickTP=not ST.clickTP if ST.clickTP then if not ST.cursorTPPreview then local p=Instance.new("Part") p.Name="AxCTPPreview" p.Size=Vector3.new(3,0.2,3) p.Anchored=true p.CanCollide=false p.Material=Enum.Material.Neon p.Color=Color3.fromRGB(255,0,0) p.Transparency=0.5 p.Parent=W ST.cursorTPPreview=p end else if ST.cursorTPPreview then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end end
             elseif id=="esp" then ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for uid,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[uid]=nil end end
-            elseif id=="night" then ST.night=not ST.night
+            elseif id=="night" then setNight(not ST.night)
             elseif id=="bright" then ST.bright=not ST.bright if ST.bright and not ST.savedLighting then ST.savedLighting={Brightness=L.Brightness,GlobalShadows=L.GlobalShadows,FogEnd=L.FogEnd,Ambient=L.Ambient,OutdoorAmbient=L.OutdoorAmbient,ClockTime=L.ClockTime} elseif not ST.bright and ST.savedLighting then pcall(function() L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime end) ST.savedLighting=nil end
-            elseif id=="nofog" then ST.noFog=not ST.noFog
+            elseif id=="nofog" then setNoFog(not ST.noFog)
             elseif id=="aimbot" then if ST.aimHoldKey then ST.aimKeyHeld=true else ST.aimEnabled=not ST.aimEnabled if ST.aimEnabled then ntf("Aimbot","ON") else ntf("Aimbot","OFF") end end
             elseif id=="aimhold" then ST.aimKeyHeld=true
+            elseif id=="showfov" then ST.showFOV=not ST.showFOV
+            elseif id=="aimwc" then ST.aimWallCheck=not ST.aimWallCheck
             elseif id=="infjump" then ST.infJump=not ST.infJump if ST.infJump then ntf("InfJump","ON - Hold Space") end
             elseif id=="godloop" then ST.godmodeLoop=not ST.godmodeLoop
             elseif id=="speedhard" then ST.speedHard=not ST.speedHard pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=ST.speedHard and 70 or 16 end end end)
@@ -1218,11 +1266,13 @@ U.InputEnded:Connect(function(inp)
                 elseif id=="noclip" then ST.noclip=false
                 elseif id=="freecam" then setFreeCam(false)
                 elseif id=="esp" then ST.esp=false
-                elseif id=="night" then ST.night=false
+                elseif id=="night" then setNight(false)
                 elseif id=="bright" then ST.bright=false if ST.savedLighting then pcall(function() L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime end) ST.savedLighting=nil end
-                elseif id=="nofog" then ST.noFog=false
+                elseif id=="nofog" then setNoFog(false)
                 elseif id=="aimbot" then if ST.aimHoldKey then ST.aimKeyHeld=false else ST.aimEnabled=false end
                 elseif id=="aimhold" then ST.aimKeyHeld=false
+                elseif id=="showfov" then ST.showFOV=false if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end
+                elseif id=="aimwc" then ST.aimWallCheck=false
                 elseif id=="infjump" then ST.infJump=false
                 elseif id=="godloop" then ST.godmodeLoop=false
                 elseif id=="speedhard" then ST.speedHard=false pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end)
@@ -1275,7 +1325,7 @@ R.RenderStepped:Connect(function()
     pcall(function() if ST.autoClicker then mouse1click() end end)
     pcall(function() if ST.night then L.ClockTime=0 L.Brightness=0 end end)
     pcall(function() if ST.bright then L.Brightness=2 L.GlobalShadows=false L.Ambient=Color3.fromRGB(178,178,178) L.OutdoorAmbient=Color3.fromRGB(178,178,178) end end)
-    pcall(function() if ST.noFog then L.FogEnd=999999 L.FogStart=0 L.Atmosphere.Density=0 end end)
+    pcall(function() if ST.noFog then L.FogEnd=999999 L.FogStart=0 local atm=L:FindFirstChildOfClass("Atmosphere") if atm then atm.Density=0 end end end)
     pcall(function()
         if ST.maceTP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local myRoot=LP.Character.HumanoidRootPart local nearestDist=math.huge local nearestRoot=nil for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and pp.Character:FindFirstChildOfClass("Humanoid") then local hum2=pp.Character:FindFirstChildOfClass("Humanoid") if hum2.Health>0 then local d=(myRoot.Position-pp.Character.HumanoidRootPart.Position).Magnitude if d<nearestDist then nearestDist=d nearestRoot=pp.Character.HumanoidRootPart end end end end if nearestRoot then local off=ST.maceTPOffset or 3 myRoot.CFrame=nearestRoot.CFrame*CFrame.new(0,0,off) end end
     end)
@@ -1287,51 +1337,6 @@ R.RenderStepped:Connect(function()
         if ST.spectateOverhead and ST.spectating and ST.spectating.Character and ST.spectating.Character:FindFirstChild("HumanoidRootPart") then local pos=ST.spectating.Character.HumanoidRootPart.Position CAM.CFrame=CFrame.new(pos+Vector3.new(0,25,0),pos) end
     end)
     pcall(function() if ST.cursorTPPreview then if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local m=MS.Hit if m then ST.cursorTPPreview.Position=m.Position+Vector3.new(0,3,0) end end end end)
-    pcall(function()
-        if ((not ST.aimHoldKey and ST.aimEnabled) or (ST.aimHoldKey and ST.aimKeyHeld)) and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid") then
-            local camPos=CAM.CFrame.Position
-            local bestTarget=nil local bestDist=ST.aimFOV
-            for _,pp in pairs(P:GetPlayers()) do
-                if pp~=LP and pp.Character and pp.Character:FindFirstChild(ST.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
-                    if pp.Character:FindFirstChildOfClass("Humanoid").Health>0 then
-                        if ST.aimTeamCheck and pp.Team==LP.Team then continue end
-                        local tgtPos=pp.Character[ST.aimTargetPart].Position
-                        local sp2,onscreen=CAM:WorldToViewportPoint(tgtPos)
-                        if onscreen then
-                            local vp=Vector2.new(sp2.X,sp2.Y)
-                            local center=Vector2.new(CAM.ViewportSize.X/2,CAM.ViewportSize.Y/2)
-                            local d=(vp-center).Magnitude
-                            if d<bestDist then bestDist=d bestTarget=pp end
-                        end
-                    end
-                end
-            end
-            if bestTarget and bestTarget.Character and bestTarget.Character:FindFirstChild("HumanoidRootPart") then
-                ST.aimTarget=bestTarget
-                local tgtPos=bestTarget.Character[ST.aimTargetPart].Position
-                local lookDir=CFrame.lookAt(camPos,tgtPos)
-                CAM.CFrame=CAM.CFrame:Lerp(lookDir,0.3)
-                local myHRP=LP.Character:FindFirstChild("HumanoidRootPart")
-                local myHum=LP.Character:FindFirstChildOfClass("Humanoid")
-                if myHRP and myHum then
-                    myHum.AutoRotate=false
-                    local flat=Vector3.new(tgtPos.X-myHRP.Position.X,0,tgtPos.Z-myHRP.Position.Z)
-                    if flat.Magnitude>0.1 then
-                        local faceCF=CFrame.lookAt(myHRP.Position,myHRP.Position+flat)
-                        myHRP.CFrame=myHRP.CFrame:Lerp(faceCF,0.35)
-                    end
-                end
-            else
-                ST.aimTarget=nil
-                local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-                if myHum then myHum.AutoRotate=true end
-            end
-        else
-            ST.aimTarget=nil
-            local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-            if myHum then myHum.AutoRotate=true end
-        end
-    end)
     pcall(function()
         if ST.esp and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
             local myPos=LP.Character.HumanoidRootPart.Position
@@ -1368,11 +1373,11 @@ R.RenderStepped:Connect(function()
                     end
                     local bb=pp.Character:FindFirstChild("AxESP_BB")
                     if not bb then
-                        bb=Instance.new("BillboardGui") bb.Name="AxESP_BB" bb.Size=UDim2.new(0,150,0,40) bb.StudsOffset=Vector3.new(0,3,0) bb.AlwaysOnTop=true bb.LightInfluence=0 bb.Parent=pp.Character
-                        local nL=Instance.new("TextLabel") nL.Name="NL" nL.Size=UDim2.new(1,0,0.4,0) nL.Position=UDim2.new(0,0,0,0) nL.BackgroundTransparency=1 nL.TextColor3=CFG.ESPTextColor nL.TextStrokeTransparency=0.5 nL.TextStrokeColor3=Color3.new(0,0,0) nL.TextSize=11 nL.Font=Enum.Font.GothamBold nL.Parent=bb
-                        local hB=Instance.new("Frame") hB.Name="HB" hB.Size=UDim2.new(0.8,0,0.2,0) hB.Position=UDim2.new(0.1,0,0.5,0) hB.BackgroundColor3=Color3.new(0.2,0.2,0.2) hB.BorderSizePixel=0 hB.Parent=bb
+                        bb=Instance.new("BillboardGui") bb.Name="AxESP_BB" bb.Size=UDim2.new(0,150,0,54) bb.StudsOffset=Vector3.new(0,3,0) bb.AlwaysOnTop=true bb.LightInfluence=0 bb.Parent=pp.Character
+                        local nL=Instance.new("TextLabel") nL.Name="NL" nL.Size=UDim2.new(1,0,0.35,0) nL.Position=UDim2.new(0,0,0,0) nL.BackgroundTransparency=1 nL.TextColor3=CFG.ESPTextColor nL.TextStrokeTransparency=0.5 nL.TextStrokeColor3=Color3.new(0,0,0) nL.TextSize=12 nL.Font=Enum.Font.GothamBold nL.Parent=bb
+                        local hB=Instance.new("Frame") hB.Name="HB" hB.Size=UDim2.new(0.8,0,0.12,0) hB.Position=UDim2.new(0.1,0,0.38,0) hB.BackgroundColor3=Color3.new(0.2,0.2,0.2) hB.BorderSizePixel=0 hB.Parent=bb
                         local hF=Instance.new("Frame") hF.Name="HF" hF.Size=UDim2.new(1,0,1,0) hF.BackgroundColor3=TH.g hF.BorderSizePixel=0 hF.Parent=hB
-                        local dL=Instance.new("TextLabel") dL.Name="DL" dL.Size=UDim2.new(1,0,0.3,0) dL.Position=UDim2.new(0,0,0.7,0) dL.BackgroundTransparency=1 dL.TextColor3=CFG.ESPTextColor dL.TextStrokeTransparency=0.5 dL.TextStrokeColor3=Color3.new(0,0,0) dL.TextSize=8 dL.Font=Enum.Font.Gotham dL.Parent=bb
+                        local dL=Instance.new("TextLabel") dL.Name="DL" dL.Size=UDim2.new(1,0,0.35,0) dL.Position=UDim2.new(0,0,0.55,0) dL.BackgroundTransparency=1 dL.TextColor3=CFG.ESPTextColor dL.TextStrokeTransparency=0.5 dL.TextStrokeColor3=Color3.new(0,0,0) dL.TextSize=14 dL.Font=Enum.Font.GothamBold dL.Parent=bb
                     end
                     local nL=bb:FindFirstChild("NL")
                     local hB=bb:FindFirstChild("HB")
@@ -1381,10 +1386,9 @@ R.RenderStepped:Connect(function()
                     if nL then
                         local txt=""
                         if CFG.ESPShowName then txt=txt..pp.DisplayName end
-                        if CFG.ESPShowHealth then txt=txt.." ["..math.floor(hum.Health).."/"..math.floor(hum.MaxHealth).."]" end
                         nL.Text=txt
                         nL.TextColor3=CFG.ESPTextColor
-                        nL.Visible=CFG.ESPShowName or CFG.ESPShowHealth
+                        nL.Visible=CFG.ESPShowName
                     end
                     if hB then
                         hB.Visible=CFG.ESPShowHealth
@@ -1395,8 +1399,10 @@ R.RenderStepped:Connect(function()
                         end
                     end
                     if dL then
-                        dL.Visible=CFG.ESPShowDistance
-                        dL.Text=math.floor(dist).."m"
+                        local distTxt=math.floor(dist).."m"
+                        if CFG.ESPShowHealth then distTxt=distTxt.."  ["..math.floor(hum.Health).."]" end
+                        dL.Visible=CFG.ESPShowDistance or CFG.ESPShowHealth
+                        dL.Text=distTxt
                         dL.TextColor3=CFG.ESPTextColor
                     end
                     local hl=pp.Character:FindFirstChild("AxESP")
@@ -1430,20 +1436,69 @@ R.RenderStepped:Connect(function()
         if ST.esp2D then for uid,fr in pairs(ST.esp2D) do local pp=P:GetPlayerByUserId(uid) if not pp or not pp.Character then if fr then pcall(function() fr:Destroy() end) end ST.esp2D[uid]=nil end end end
     end)
     pcall(function()
-        if ((not ST.aimHoldKey and ST.aimEnabled) or (ST.aimHoldKey and ST.aimKeyHeld)) and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid") then
-            if not ST.aimFOVGui then local s=Instance.new("ScreenGui") s.Name="AimFOV" s.ResetOnSpawn=false s.DisplayOrder=50 s.IgnoreGuiInset=true pcall(function() s.Parent=CG end) if not s.Parent then s.Parent=LP:WaitForChild("PlayerGui") end local c=Instance.new("Frame") c.Name="Circle" c.AnchorPoint=Vector2.new(0.5,0.5) c.Position=UDim2.new(0.5,0,0.5,0) c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2) c.BackgroundTransparency=1 c.BorderSizePixel=0 c.Parent=s local st=Instance.new("UIStroke") st.Color=Color3.fromRGB(255,80,80) st.Thickness=1.5 st.Transparency=0.3 st.Parent=c local cr=Instance.new("UICorner") cr.CornerRadius=UDim.new(1,0) cr.Parent=c ST.aimFOVGui=s end
-            if ST.aimFOVGui then local circ=ST.aimFOVGui:FindFirstChild("Circle") if circ then circ.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2) end end
+        local aimActive=((not ST.aimHoldKey and ST.aimEnabled) or (ST.aimHoldKey and ST.aimKeyHeld))
+        local wantFOV=aimActive or ST.showFOV
+        if wantFOV and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+            if not ST.aimFOVGui then
+                local s=Instance.new("ScreenGui") s.Name="AimFOV" s.ResetOnSpawn=false s.DisplayOrder=50 s.IgnoreGuiInset=true
+                pcall(function() s.Parent=CG end) if not s.Parent then s.Parent=LP:WaitForChild("PlayerGui") end
+                local c=Instance.new("Frame") c.Name="Circle" c.AnchorPoint=Vector2.new(0.5,0.5)
+                c.Position=UDim2.new(0.5,0,0.5,0)
+                c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2)
+                c.BackgroundTransparency=1 c.BorderSizePixel=0 c.Parent=s
+                local st=Instance.new("UIStroke") st.Color=Color3.fromRGB(255,80,80) st.Thickness=1.5 st.Transparency=0.3 st.Parent=c
+                local cr=Instance.new("UICorner") cr.CornerRadius=UDim.new(1,0) cr.Parent=c
+                ST.aimFOVGui=s
+            end
+            local circ=ST.aimFOVGui:FindFirstChild("Circle")
+            if circ then
+                circ.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2)
+                local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local feet=hrp.Position-Vector3.new(0,3,0)
+                    local sp,onscreen=CAM:WorldToViewportPoint(feet)
+                    if onscreen then
+                        circ.Position=UDim2.new(0,sp.X,0,sp.Y)
+                    else
+                        circ.Position=UDim2.new(0.5,0,0.5,0)
+                    end
+                end
+            end
+        elseif ST.aimFOVGui then
+            ST.aimFOVGui:Destroy()
+            ST.aimFOVGui=nil
+        end
+        if aimActive and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid") then
             local camPos=CAM.CFrame.Position
+            local hrpMe=LP.Character.HumanoidRootPart
+            local feetPos=hrpMe.Position-Vector3.new(0,3,0)
+            local spF,onscreenF=CAM:WorldToViewportPoint(feetPos)
+            local center
+            if onscreenF then
+                center=Vector2.new(spF.X,spF.Y)
+            else
+                center=Vector2.new(CAM.ViewportSize.X/2,CAM.ViewportSize.Y/2)
+            end
             local bestTarget=nil local bestDist=ST.aimFOV
             for _,pp in pairs(P:GetPlayers()) do
                 if pp~=LP and pp.Character and pp.Character:FindFirstChild(ST.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
                     if pp.Character:FindFirstChildOfClass("Humanoid").Health>0 then
                         if ST.aimTeamCheck and pp.Team==LP.Team then continue end
-                        local tgtPos=pp.Character[ST.aimTargetPart].Position
-                        local sp,onscreen=CAM:WorldToViewportPoint(tgtPos)
+                        local part=pp.Character[ST.aimTargetPart]
+                        local tgtPos=part.Position
+                        if ST.aimWallCheck then
+                            local params=RaycastParams.new()
+                            params.FilterType=Enum.RaycastFilterType.Exclude
+                            local filt={LP.Character}
+                            for _,v in pairs(pp.Character:GetDescendants()) do table.insert(filt,v) end
+                            params.FilterDescendantsInstances=filt
+                            local dir=tgtPos-camPos
+                            local result=W:Raycast(camPos,dir,params)
+                            if result then continue end
+                        end
+                        local sp2,onscreen=CAM:WorldToViewportPoint(tgtPos)
                         if onscreen then
-                            local vp=Vector2.new(sp.X,sp.Y)
-                            local center=Vector2.new(CAM.ViewportSize.X/2,CAM.ViewportSize.Y/2)
+                            local vp=Vector2.new(sp2.X,sp2.Y)
                             local d=(vp-center).Magnitude
                             if d<bestDist then bestDist=d bestTarget=pp end
                         end
@@ -1454,7 +1509,7 @@ R.RenderStepped:Connect(function()
                 ST.aimTarget=bestTarget
                 local tgtPos=bestTarget.Character[ST.aimTargetPart].Position
                 local lookDir=CFrame.lookAt(camPos,tgtPos)
-                CAM.CFrame=CAM.CFrame:Lerp(lookDir,0.3)
+                CAM.CFrame=CAM.CFrame:Lerp(lookDir,0.65)
                 local myHRP=LP.Character:FindFirstChild("HumanoidRootPart")
                 local myHum=LP.Character:FindFirstChildOfClass("Humanoid")
                 if myHRP and myHum then
@@ -1462,7 +1517,7 @@ R.RenderStepped:Connect(function()
                     local flat=Vector3.new(tgtPos.X-myHRP.Position.X,0,tgtPos.Z-myHRP.Position.Z)
                     if flat.Magnitude>0.1 then
                         local faceCF=CFrame.lookAt(myHRP.Position,myHRP.Position+flat)
-                        myHRP.CFrame=myHRP.CFrame:Lerp(faceCF,0.35)
+                        myHRP.CFrame=myHRP.CFrame:Lerp(faceCF,0.55)
                     end
                 end
             else
@@ -1471,7 +1526,6 @@ R.RenderStepped:Connect(function()
                 if myHum then myHum.AutoRotate=true end
             end
         else
-            if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end
             ST.aimTarget=nil
             local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
             if myHum then myHum.AutoRotate=true end
