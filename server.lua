@@ -121,8 +121,20 @@ AR.OnServerEvent:Connect(function(player, action, ...)
             if t.Character then
                 local h = t.Character:FindFirstChildOfClass("Humanoid")
                 if h then
-                    h.MaxHealth = math.huge
-                    h.Health = math.huge
+                    h.MaxHealth = 10000000
+                    h.Health = 10000000
+                end
+            end
+        end
+
+    elseif action == "ungodmode" then
+        local targets = getTargets(args[1], 1)
+        for _, t in pairs(targets) do
+            if t.Character then
+                local h = t.Character:FindFirstChildOfClass("Humanoid")
+                if h and h.MaxHealth >= 10000000 then
+                    h.MaxHealth = 100
+                    h.Health = 100
                 end
             end
         end

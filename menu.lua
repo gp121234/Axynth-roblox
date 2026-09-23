@@ -227,6 +227,20 @@ pcall(function()
         end
     end)
 end)
+local AR = RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote")
+local function syncServerGod()
+    pcall(function()
+        if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
+        if not AR then return end
+        if ST.godmodeLoop and not ST._srvGod then
+            ST._srvGod=true
+            AR:FireServer("godmode",LP.Name)
+        elseif not ST.godmodeLoop and ST._srvGod then
+            ST._srvGod=false
+            AR:FireServer("ungodmode",LP.Name)
+        end
+    end)
+end
 R.Heartbeat:Connect(function()
     _frameCount=_frameCount+1
     pcall(function()
@@ -237,6 +251,9 @@ R.Heartbeat:Connect(function()
                 if hum.Health<hum.MaxHealth then hum.Health=hum.MaxHealth end
                 if hum.Health<=0 then hum.Health=hum.MaxHealth end
             end
+            if _frameCount%90==0 then syncServerGod() end
+        elseif not ST.godmodeLoop and ST._srvGod then
+            syncServerGod()
         end
     end)
     if _frameCount%60~=0 then return end
@@ -256,7 +273,6 @@ R.RenderStepped:Connect(function()
     hideBanGUI()
 end)
 print("[Axynth] Anti-Ban v9 SAFE | Whitelist: "..(function() local c=0 for _ in pairs(whitelistRemotes) do c=c+1 end return c end)().." | Keywords: "..#blockedKeywords.." | Hooks: 1 (namecall)")
-local AR = RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote")
 local decoyRemotes={"ClientReplicator","CharacterReplicator","PlayerReplicator","DataReplicator"}
 local function fakeDecoy()
     pcall(function()
@@ -822,7 +838,7 @@ btn(tH,"Jump 75",function() ST.jumpPreset=75 pcall(function() local h=LP.Charact
 btn(tH,"Jump 100",function() ST.jumpPreset=100 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam and not h.Seated and h.Health>0 then if h.UseJumpPower then h.JumpPower=100 else h.JumpHeight=math.max(5,math.floor(100*0.14+0.5)) end end end) ntf("Jump","100 - applied") end,"jp300")
 btn(tH,"Jump 150",function() ST.jumpPreset=150 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam and not h.Seated and h.Health>0 then if h.UseJumpPower then h.JumpPower=150 else h.JumpHeight=math.max(5,math.floor(150*0.14+0.5)) end end end) ntf("Jump","150 - applied") end,"jp500")
 btn(tH,"Reset Jump",function() ST.jumpPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then if h.UseJumpPower then h.JumpPower=50 else h.JumpHeight=7 end end end end) ntf("Jump","Reset") end,"jprst")
-local tInfJ=tog(tH,"Infinite Jump",function() return ST.infJump end,function() ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true ntf("InfJump","ON - Space + Godmode forced") else ntf("InfJump","OFF") end end,"infjump")
+local tInfJ=tog(tH,"Infinite Jump",function() return ST.infJump end,function() ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true syncServerGod() ntf("InfJump","ON - Space + Godmode forced") else ntf("InfJump","OFF") end end,"infjump")
 table.insert(allToggles,tInfJ)
 local tSPH=tog(tH,"Speed Hard",function() return ST.speedHard end,function() ST.speedHard=not ST.speedHard if ST.speedHard then ST.speedPreset=math.max(ST.speedPreset,50) ntf("SpeedHard","ON (50)") else ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) ntf("SpeedHard","OFF") end end,"speedhard")
 table.insert(allToggles,tSPH)
@@ -830,7 +846,7 @@ local tIS=tog(tH,"Infinite Stamina",function() return ST.infStamina end,function
 table.insert(allToggles,tIS)
 sep(tH)
 lbl(tH,">> FLY + NOCLIP")
-local tFly=tog(tH,"Fly",function() return ST.fly end,function() ST.fly=not ST.fly if ST.fly then ST.godmodeLoop=true end if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end end ntf("Fly",ST.fly and "ON - WASD+Space/Ctrl + Godmode" or "OFF") end,"fly")
+local tFly=tog(tH,"Fly",function() return ST.fly end,function() ST.fly=not ST.fly if ST.fly then ST.godmodeLoop=true syncServerGod() end if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end end ntf("Fly",ST.fly and "ON - WASD+Space/Ctrl + Godmode" or "OFF") end,"fly")
 table.insert(allToggles,tFly)
 local tNoclip=tog(tH,"Noclip",function() return ST.noclip end,function() ST.noclip=not ST.noclip if not ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") and ST.savedCollide[p2]~=nil then p2.CanCollide=ST.savedCollide[p2] end end ST.savedCollide={} end end,"noclip")
 table.insert(allToggles,tNoclip)
@@ -1142,7 +1158,7 @@ local function bindGodHC()
         end
     end)
 end
-local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop if ST.godmodeLoop then bindGodHC() ntf("Godmode","ON - blocks weapon spheres too") else if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end ntf("Godmode","OFF") end end,"godloop")
+local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop if ST.godmodeLoop then bindGodHC() syncServerGod() ntf("Godmode","ON - blocks weapon spheres + server ammo") else if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end syncServerGod() ntf("Godmode","OFF") end end,"godloop")
 table.insert(allToggles,tGML)
 local tSPH3=tog(tEx,"Spheres on Click",function() return ST.spheresOn end,function() ST.spheresOn=not ST.spheresOn ntf("Spheres",ST.spheresOn and "ON - LMB throws neon spheres" or "OFF") end,"spheres")
 table.insert(allToggles,tSPH3)
@@ -1402,7 +1418,7 @@ btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=rea
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
-btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.spheresOn=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.weaponDmgOn=false ST.vehicleSpeedOn=false ST.spectateOverhead=false ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
+btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false syncServerGod() ST.spheresOn=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.weaponDmgOn=false ST.vehicleSpeedOn=false ST.spectateOverhead=false ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -1421,7 +1437,7 @@ U.InputBegan:Connect(function(inp,gpe)
             if KBMode[id]=="hold" then
                 if not KBActive[id] then
                     KBActive[id]=true
-                    if id=="fly" then ST.fly=true ST.godmodeLoop=true
+                    if id=="fly" then ST.fly=true ST.godmodeLoop=true syncServerGod()
                     elseif id=="noclip" then ST.noclip=true
                     elseif id=="freecam" then setFreeCam(true)
                     elseif id=="esp" then ST.esp=true
@@ -1432,8 +1448,8 @@ U.InputBegan:Connect(function(inp,gpe)
                     elseif id=="aimhold" then ST.aimKeyHeld=true
                     elseif id=="showfov" then ST.showFOV=true
                     elseif id=="aimwc" then ST.aimWallCheck=true
-                    elseif id=="infjump" then ST.infJump=true ST.godmodeLoop=true
-                    elseif id=="godloop" then ST.godmodeLoop=true
+                    elseif id=="infjump" then ST.infJump=true ST.godmodeLoop=true syncServerGod()
+                    elseif id=="godloop" then ST.godmodeLoop=true syncServerGod()
                     elseif id=="spheres" then ST.spheresOn=true
                     elseif id=="autosteal" then ST.autoSteal=true
                     elseif id=="speedhard" then ST.speedHard=true ST.speedPreset=math.max(ST.speedPreset,50)
@@ -1450,7 +1466,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
                 end
             else
-            if id=="fly" then ST.fly=not ST.fly if ST.fly then ST.godmodeLoop=true end if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end
+            if id=="fly" then ST.fly=not ST.fly if ST.fly then ST.godmodeLoop=true syncServerGod() end if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end
             elseif id=="noclip" then ST.noclip=not ST.noclip
             elseif id=="freecam" then setFreeCam(not ST.freeCam)
             elseif id=="clicktp" then ST.clickTP=not ST.clickTP if ST.clickTP then if not ST.cursorTPPreview then local p=Instance.new("Part") p.Name="AxCTPPreview" p.Size=Vector3.new(3,0.2,3) p.Anchored=true p.CanCollide=false p.Material=Enum.Material.Neon p.Color=Color3.fromRGB(255,0,0) p.Transparency=0.5 p.Parent=W ST.cursorTPPreview=p end else if ST.cursorTPPreview then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end end
@@ -1462,8 +1478,8 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="aimhold" then if KBMode.aimhold=="toggle" then ST.aimKeyHeld=not ST.aimKeyHeld else ST.aimKeyHeld=true end
             elseif id=="showfov" then ST.showFOV=not ST.showFOV
             elseif id=="aimwc" then ST.aimWallCheck=not ST.aimWallCheck
-            elseif id=="infjump" then ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true ntf("InfJump","ON - Space + Godmode forced") end
-            elseif id=="godloop" then ST.godmodeLoop=not ST.godmodeLoop
+            elseif id=="infjump" then ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true syncServerGod() ntf("InfJump","ON - Space + Godmode forced") end
+            elseif id=="godloop" then ST.godmodeLoop=not ST.godmodeLoop syncServerGod()
             elseif id=="spheres" then ST.spheresOn=not ST.spheresOn if ST.spheresOn then ntf("Spheres","ON") else ntf("Spheres","OFF") end
             elseif id=="autosteal" then ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON") else ntf("Steal","Loop OFF") end
             elseif id=="speedhard" then ST.speedHard=not ST.speedHard ST.speedPreset=ST.speedHard and math.max(ST.speedPreset,50) or 0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=ST.speedHard and 50 or 16 end end end)
@@ -1509,7 +1525,7 @@ U.InputEnded:Connect(function(inp)
                 elseif id=="showfov" then ST.showFOV=false if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end
                 elseif id=="aimwc" then ST.aimWallCheck=false
                 elseif id=="infjump" then ST.infJump=false
-                elseif id=="godloop" then ST.godmodeLoop=false
+                elseif id=="godloop" then ST.godmodeLoop=false syncServerGod()
                 elseif id=="spheres" then ST.spheresOn=false
                 elseif id=="autosteal" then ST.autoSteal=false
                 elseif id=="speedhard" then ST.speedHard=false ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end)
@@ -2135,7 +2151,7 @@ R.RenderStepped:Connect(function()
     end)
 end)
 pcall(function() P.PlayerAdded:Connect(function(pp) pp.CharacterAdded:Connect(function(ch) task.wait(1) pcall(function() if ST.esp and pp~=LP then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=ch ST.espList[pp.UserId]=hl end end) end) end) end)
-pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=math.max(ST.speedPreset or 0,50) end end) end end) pcall(function() if ST.godmodeLoop then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then if hum.MaxHealth<100 then hum.MaxHealth=100 end hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end end) end end) end) end)
+pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=math.max(ST.speedPreset or 0,50) end end) end end) pcall(function() if ST.godmodeLoop then ST._srvGod=false task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then if hum.MaxHealth<100 then hum.MaxHealth=100 end hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) syncServerGod() end end) end end) end) end)
 P.PlayerRemoving:Connect(function(pp) if ST.espList[pp.UserId] then ST.espList[pp.UserId]:Destroy() ST.espList[pp.UserId]=nil end if ST.esp2D and ST.esp2D[pp.UserId] then pcall(function() ST.esp2D[pp.UserId]:Destroy() end) ST.esp2D[pp.UserId]=nil end end)
 for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end end
 pcall(function() for _,g in pairs({CG,LP:WaitForChild("PlayerGui")}) do for _,v in pairs(g:GetDescendants()) do if v.Name=="AxESP_2D" then v:Destroy() end end end end)
