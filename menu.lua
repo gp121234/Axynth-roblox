@@ -1583,55 +1583,93 @@ R.RenderStepped:Connect(function()
             local mpA=U:GetMouseLocation()
             local center=Vector2.new(mpA.X,mpA.Y)
             local bestTarget=nil local bestDist=ST.aimFOV
-            for _,pp in pairs(P:GetPlayers()) do
-                if pp~=LP and pp.Character and pp.Character:FindFirstChild(ST.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
-                    if pp.Character:FindFirstChildOfClass("Humanoid").Health>0 then
-                        if ST.aimTeamCheck and pp.Team==LP.Team then continue end
-                        local part=pp.Character[ST.aimTargetPart]
-                        local tgtPos=part.Position
-                        if ST.aimWallCheck then
+            local cur=ST.aimTarget
+            local curOk=false
+            if cur and cur.Character and cur.Character:FindFirstChild(ST.aimTargetPart) and cur.Character:FindFirstChildOfClass("Humanoid") then
+                local h=cur.Character:FindFirstChildOfClass("Humanoid")
+                if h.Health>0 and not (ST.aimTeamCheck and cur.Team==LP.Team) then
+                    local part=cur.Character[ST.aimTargetPart]
+                    local tgtPos=part.Position
+                    local wallOK=true
+                    if ST.aimWallCheck then
+                        local cacheKey=cur.UserId
+                        local now=tick()
+                        local c=ST._aimWallC and ST._aimWallC[cacheKey]
+                        if c and now-c.t<0.12 then
+                            wallOK=c.ok
+                        else
                             local params=RaycastParams.new()
                             params.FilterType=Enum.RaycastFilterType.Exclude
                             local filt={LP.Character}
-                            for _,v in pairs(pp.Character:GetDescendants()) do table.insert(filt,v) end
+                            for _,v in pairs(cur.Character:GetDescendants()) do table.insert(filt,v) end
                             params.FilterDescendantsInstances=filt
-                            local dir=tgtPos-camPos
-                            local result=W:Raycast(camPos,dir,params)
-                            if result then continue end
+                            wallOK=(W:Raycast(camPos,tgtPos-camPos,params)==nil)
+                            ST._aimWallC=ST._aimWallC or {}
+                            ST._aimWallC[cacheKey]={t=now,ok=wallOK}
                         end
+                    end
+                    if wallOK then
                         local sp2,onscreen=CAM:WorldToViewportPoint(tgtPos)
                         if onscreen then
-                            local vp=Vector2.new(sp2.X,sp2.Y)
-                            local d=(vp-center).Magnitude
-                            if d<bestDist then bestDist=d bestTarget=pp end
+                            local d=(Vector2.new(sp2.X,sp2.Y)-center).Magnitude
+                            if d<=ST.aimFOV*1.35 then
+                                curOk=true
+                                bestTarget=cur
+                                bestDist=d
+                            end
                         end
                     end
                 end
             end
-            if bestTarget and bestTarget.Character and bestTarget.Character:FindFirstChild("HumanoidRootPart") then
+            if not curOk then
+                for _,pp in pairs(P:GetPlayers()) do
+                    if pp~=LP and pp~=cur and pp.Character and pp.Character:FindFirstChild(ST.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
+                        if pp.Character:FindFirstChildOfClass("Humanoid").Health>0 then
+                            if ST.aimTeamCheck and pp.Team==LP.Team then continue end
+                            local part=pp.Character[ST.aimTargetPart]
+                            local tgtPos=part.Position
+                            if ST.aimWallCheck then
+                                local params=RaycastParams.new()
+                                params.FilterType=Enum.RaycastFilterType.Exclude
+                                local filt={LP.Character}
+                                for _,v in pairs(pp.Character:GetDescendants()) do table.insert(filt,v) end
+                                params.FilterDescendantsInstances=filt
+                                if W:Raycast(camPos,tgtPos-camPos,params) then continue end
+                            end
+                            local sp2,onscreen=CAM:WorldToViewportPoint(tgtPos)
+                            if onscreen then
+                                local d=(Vector2.new(sp2.X,sp2.Y)-center).Magnitude
+                                if d<bestDist then bestDist=d bestTarget=pp end
+                            end
+                        end
+                    end
+                end
+            end
+            if bestTarget and bestTarget.Character and bestTarget.Character:FindFirstChild(ST.aimTargetPart) then
                 ST.aimTarget=bestTarget
                 local tgtPos=bestTarget.Character[ST.aimTargetPart].Position
                 local lookDir=CFrame.lookAt(camPos,tgtPos)
-                CAM.CFrame=CAM.CFrame:Lerp(lookDir,0.65)
+                CAM.CFrame=CAM.CFrame:Lerp(lookDir,0.35)
                 local myHRP=LP.Character:FindFirstChild("HumanoidRootPart")
                 local myHum=LP.Character:FindFirstChildOfClass("Humanoid")
                 if myHRP and myHum then
-                    myHum.AutoRotate=false
+                    if myHum.AutoRotate then myHum.AutoRotate=false end
                     local flat=Vector3.new(tgtPos.X-myHRP.Position.X,0,tgtPos.Z-myHRP.Position.Z)
-                    if flat.Magnitude>0.1 then
+                    if flat.Magnitude>0.5 then
                         local faceCF=CFrame.lookAt(myHRP.Position,myHRP.Position+flat)
-                        myHRP.CFrame=myHRP.CFrame:Lerp(faceCF,0.55)
+                        myHRP.CFrame=myHRP.CFrame:Lerp(faceCF,0.2)
                     end
                 end
             else
                 ST.aimTarget=nil
                 local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-                if myHum then myHum.AutoRotate=true end
+                if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
             end
         else
             ST.aimTarget=nil
+            ST._aimWallC=nil
             local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-            if myHum then myHum.AutoRotate=true end
+            if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
         end
     end)
     pcall(function()
