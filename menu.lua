@@ -797,20 +797,105 @@ local function getFXRemotes()
     ST._fxRemotes=list
     return list
 end
-local function mpKillPlayer(victim, hitPos)
-    if not victim or victim==LP or not victim.Character then return end
+local function ensureWeaponEquipped()
+    local ok=false
     pcall(function()
         if not LP.Character then return end
+        local hum=LP.Character:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
         local bp=LP:FindFirstChild("Backpack")
+        local already=LP.Character:FindFirstChildOfClass("Tool")
+        if already then pcall(function() LP.Character:EquipTool(already) end) ok=true return end
         if bp then
             for _,tool in pairs(bp:GetChildren()) do
                 if tool:IsA("Tool") then
-                    pcall(function() LP.Character:EquipTool(tool) end)
-                    break
+                    pcall(function() LP.Character:EquipTool(tool) end) ok=true return
                 end
             end
         end
+        local sources={
+            game:GetService("StarterPack"),
+            game:GetService("StarterGear"),
+            W,
+            RS
+        }
+        local found=nil
+        for _,src in ipairs(sources) do
+            pcall(function()
+                if found then return end
+                for _,obj in pairs(src:GetDescendants()) do
+                    if found then break end
+                    if obj:IsA("Tool") then
+                        local low=string.lower(obj.Name)
+                        if string.find(low,"gun",1,true) or string.find(low,"weapon",1,true) or string.find(low,"pistol",1,true) or string.find(low,"rifle",1,true) or string.find(low,"smg",1,true) or string.find(low,"ak",1,true) or string.find(low,"m4",1,true) or string.find(low,"sword",1,true) then
+                            found=obj
+                        end
+                    end
+                end
+                if not found then
+                    for _,obj in pairs(src:GetDescendants()) do
+                        if obj:IsA("Tool") then found=obj break end
+                    end
+                end
+            end)
+            if found then break end
+        end
+        if not found then
+            pcall(function()
+                for _,pl in pairs(P:GetPlayers()) do
+                    if pl~=LP and pl.Character then
+                        for _,obj in pairs(pl.Character:GetChildren()) do
+                            if obj:IsA("Tool") then found=obj break end
+                        end
+                    end
+                    if found then break end
+                    if pl~=LP then
+                        local pb=pl:FindFirstChild("Backpack")
+                        if pb then
+                            for _,obj in pairs(pb:GetChildren()) do
+                                if obj:IsA("Tool") then found=obj break end
+                            end
+                        end
+                    end
+                    if found then break end
+                end
+            end)
+        end
+        if found then
+            pcall(function()
+                local clone=found:Clone()
+                if bp then clone.Parent=bp end
+                pcall(function() LP.Character:EquipTool(clone) end)
+                ok=true
+            end)
+            if not ok then
+                pcall(function()
+                    found.Parent=LP.Character
+                    pcall(function() LP.Character:EquipTool(found) end)
+                    ok=true
+                end)
+            end
+        end
+        if not ok then
+            pcall(function()
+                local t=Instance.new("Tool")
+                t.Name="AxFakeGun"
+                local handle=Instance.new("Part")
+                handle.Name="Handle"
+                handle.Size=Vector3.new(0.4,1,0.4)
+                handle.CanCollide=false
+                handle.Parent=t
+                if bp then t.Parent=bp end
+                pcall(function() LP.Character:EquipTool(t) end)
+                ok=true
+            end)
+        end
     end)
+    return ok
+end
+local function mpKillPlayer(victim, hitPos)
+    if not victim or victim==LP or not victim.Character then return end
+    ensureWeaponEquipped()
     pcall(function()
         local part=victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
         local hrp=victim.Character:FindFirstChild("HumanoidRootPart")
@@ -923,6 +1008,7 @@ local function killNearestOrSelected()
     if not target then ntf("Kill","No target within 80 studs (select a player)") return end
     local hrp=target.Character and target.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
+    local hadWeapon=ensureWeaponEquipped()
     local pos=hrp.Position
     for i=1,3 do mpKillPlayer(target,pos) end
     pcall(function()
@@ -933,7 +1019,7 @@ local function killNearestOrSelected()
         local h=target.Character:FindFirstChildOfClass("Humanoid")
         if h and h.Health>0 then h.Health=math.max(0,h.Health-100000) end
     end)
-    ntf("Kill","Sent MP kill to "..target.DisplayName.." (game weapons)")
+    ntf("Kill","Sent MP kill to "..target.DisplayName.." ("..(hadWeapon and "weapon equipped" or "no weapon - remotes only")..")")
 end
 local function fireGameVolley(origin, target)
     pcall(function()
