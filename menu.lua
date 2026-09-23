@@ -211,10 +211,12 @@ pcall(function()
                     if not ST._godHC then
                         ST._godHC=hum.HealthChanged:Connect(function(h)
                             if not ST.godmodeLoop then return end
+                            local now=tick()
+                            if now-(ST._godHcT or 0)<0.1 then return end
+                            ST._godHcT=now
                             pcall(function()
                                 if hum.MaxHealth<100 then hum.MaxHealth=100 end
-                                if h<hum.MaxHealth then hum.Health=hum.MaxHealth end
-                                if h<=0 then hum.Health=hum.MaxHealth end
+                                if h<=0 or h<hum.MaxHealth then hum.Health=hum.MaxHealth end
                             end)
                         end)
                     end
@@ -255,10 +257,13 @@ R.Heartbeat:Connect(function()
             local hum=LP.Character:FindFirstChildOfClass("Humanoid")
             if hum then
                 if hum.MaxHealth<100 then hum.MaxHealth=100 end
-                if hum.Health<hum.MaxHealth then hum.Health=hum.MaxHealth end
-                if hum.Health<=0 then hum.Health=hum.MaxHealth end
+                if hum.Health<=0 then
+                    hum.Health=hum.MaxHealth
+                elseif hum.Health<hum.MaxHealth and _frameCount%8==0 then
+                    hum.Health=hum.MaxHealth
+                end
             end
-            if _frameCount%90==0 then syncServerGod() end
+            if _frameCount%180==0 then syncServerGod() end
         elseif not ST.godmodeLoop and ST._srvGod then
             syncServerGod()
         end
@@ -1436,10 +1441,12 @@ local function bindGodHC()
         if hum and ST.godmodeLoop then
             ST._godHC=hum.HealthChanged:Connect(function(h)
                 if not ST.godmodeLoop then return end
+                local now=tick()
+                if now-(ST._godHcT or 0)<0.1 then return end
+                ST._godHcT=now
                 pcall(function()
                     if hum.MaxHealth<100 then hum.MaxHealth=100 end
-                    if h<hum.MaxHealth then hum.Health=hum.MaxHealth end
-                    if h<=0 then hum.Health=hum.MaxHealth end
+                    if h<=0 or h<hum.MaxHealth then hum.Health=hum.MaxHealth end
                 end)
             end)
         end
@@ -2157,28 +2164,34 @@ R.RenderStepped:Connect(function()
         if ST.fly and not ST.freeCam and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then local dir=Vector3.new(0,0,0) local sp=ST.flySpeed if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=sp*3 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if dir.Magnitude>0 then dir=dir.Unit h.Velocity=Vector3.new(0,0,0) h.RotVelocity=Vector3.new(0,0,0) h.CFrame=h.CFrame+dir*sp/60 else h.Velocity=Vector3.new(0,0,0) end end end
     end)
     pcall(function()
-        if ST.infJump then ST.godmodeLoop=true end
-    end)
-    pcall(function()
-        if ST.godmodeLoop and LP.Character then
-            local hum=LP.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                if hum.MaxHealth<100 then hum.MaxHealth=100 end
-                if hum.Health<hum.MaxHealth then hum.Health=hum.MaxHealth end
-                if hum.Health<=0 then hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end
-                if hum.PlatformStand then hum.PlatformStand=false end
+        if not ST.godmodeLoop or not LP.Character then return end
+        local now=tick()
+        local hum=LP.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            if hum.MaxHealth<100 then hum.MaxHealth=100 end
+            if hum.Health<=0 then
+                hum.Health=hum.MaxHealth
+                pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+            elseif hum.Health<hum.MaxHealth and now-(ST._godHpT or 0)>0.15 then
+                ST._godHpT=now
+                hum.Health=hum.MaxHealth
             end
-            local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local myPos=hrp.Position
-                for _,obj in pairs(W:GetDescendants()) do
-                    if obj:IsA("BasePart") and obj~=hrp then
-                        local nm=obj.Name:lower()
-                        if nm=="axsphere" or nm:find("bullet") or nm:find("projectile") or nm:find("slug") or nm:find("shell") then
-                            if (obj.Position-myPos).Magnitude<10 then
-                                pcall(function() obj:Destroy() end)
-                            end
-                        end
+            if hum.PlatformStand and now-(ST._godPsT or 0)>0.2 then
+                ST._godPsT=now
+                hum.PlatformStand=false
+            end
+        end
+        if now-(ST._godScanT or 0)<0.25 then return end
+        ST._godScanT=now
+        local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local myPos=hrp.Position
+        for _,obj in pairs(W:GetChildren()) do
+            if obj:IsA("BasePart") and obj~=hrp then
+                local nm=obj.Name
+                if nm=="AxSphere" or nm:lower():find("bullet",1,true) or nm:lower():find("projectile",1,true) then
+                    if (obj.Position-myPos).Magnitude<10 then
+                        pcall(function() obj:Destroy() end)
                     end
                 end
             end
@@ -2487,7 +2500,7 @@ R.RenderStepped:Connect(function()
     pcall(function()
         if ST.arrayList then
             if not _G.AxArrayList then local sg=Instance.new("ScreenGui") sg.Name="AxArrayList" sg.ResetOnSpawn=false sg.DisplayOrder=999 sg.IgnoreGuiInset=true pcall(function() sg.Parent=CG end) if not sg.Parent then sg.Parent=LP:WaitForChild("PlayerGui") end _G.AxArrayList=sg local f=Instance.new("Frame") f.Name="Container" f.Size=UDim2.new(0,180,0,20) f.Position=UDim2.new(1,-190,1,-30) f.BackgroundTransparency=1 f.Parent=sg local l=Instance.new("UIListLayout",f) l.SortOrder=Enum.SortOrder.LayoutOrder l.HorizontalAlignment=Enum.HorizontalAlignment.Right end
-            local c=_G.AxArrayList:FindFirstChild("Container") if c then for _,ch in pairs(c:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end local entries={} local function addE(name) table.insert(entries,name) end if ST.fly then addE("Fly") end if ST.noclip then addE("Noclip") end if ST.esp then addE("ESP") end if ST.infJump then addE("InfJump") end if ST.spinner then addE("Spinner") end if ST.autoClicker then addE("AutoClick") end if ST.godmodeLoop then addE("Godmode") end if ST.spheresOn then addE("Spheres") end if ST.autoSteal then addE("AutoSteal") end if ST.speedHard then addE("SpeedHard") end if ST.infStamina then addE("InfStam") end if ST.magicBullet then addE("MagicBul") end if ST.weaponDmgOn then addE("WpnDmg") end if ST.maceTP then addE("MaceTP") end if ST.freeCam then addE("FreeCam") end if ST.clickTP then addE("ClickTP") end if ST.bright then addE("Fullbright") end if ST.night then addE("Night") end if ST.noFog then addE("NoFog") end if ST.vehicleSpeedOn then addE("VehicleSpeed") end if ST.botPlay then addE("BotPlay") end if ST.botRecord then addE("BotRec") end for i,name in pairs(entries) do local ef=Instance.new("Frame") ef.Size=UDim2.new(0,160,0,22) ef.BackgroundColor3=Color3.fromRGB(0,0,0) ef.BackgroundTransparency=0.4 ef.BorderSizePixel=0 ef.LayoutOrder=i ef.Parent=c mkCorner(ef,4) local et=Instance.new("TextLabel") et.Size=UDim2.new(1,-8,1,0) et.Position=UDim2.new(0,4,0,0) et.BackgroundTransparency=1 et.Text=name et.TextColor3=TH.a et.TextSize=12 et.Font=Enum.Font.GothamBold et.TextXAlignment=Enum.TextXAlignment.Right et.Parent=ef end end
+            local c=_G.AxArrayList:FindFirstChild("Container") if c then local entries={} local function addE(name) table.insert(entries,name) end if ST.fly then addE("Fly") end if ST.noclip then addE("Noclip") end if ST.esp then addE("ESP") end if ST.infJump then addE("InfJump") end if ST.spinner then addE("Spinner") end if ST.autoClicker then addE("AutoClick") end if ST.godmodeLoop then addE("Godmode") end if ST.spheresOn then addE("Spheres") end if ST.autoSteal then addE("AutoSteal") end if ST.speedHard then addE("SpeedHard") end if ST.infStamina then addE("InfStam") end if ST.magicBullet then addE("MagicBul") end if ST.weaponDmgOn then addE("WpnDmg") end if ST.maceTP then addE("MaceTP") end if ST.freeCam then addE("FreeCam") end if ST.clickTP then addE("ClickTP") end if ST.bright then addE("Fullbright") end if ST.night then addE("Night") end if ST.noFog then addE("NoFog") end if ST.vehicleSpeedOn then addE("VehicleSpeed") end if ST.botPlay then addE("BotPlay") end if ST.botRecord then addE("BotRec") end local sig=table.concat(entries,"|") if ST._alSig~=sig then ST._alSig=sig for _,ch in pairs(c:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end for i,name in pairs(entries) do local ef=Instance.new("Frame") ef.Size=UDim2.new(0,160,0,22) ef.BackgroundColor3=Color3.fromRGB(0,0,0) ef.BackgroundTransparency=0.4 ef.BorderSizePixel=0 ef.LayoutOrder=i ef.Parent=c mkCorner(ef,4) local et=Instance.new("TextLabel") et.Size=UDim2.new(1,-8,1,0) et.Position=UDim2.new(0,4,0,0) et.BackgroundTransparency=1 et.Text=name et.TextColor3=TH.a et.TextSize=12 et.Font=Enum.Font.GothamBold et.TextXAlignment=Enum.TextXAlignment.Right et.Parent=ef end end end
         elseif _G.AxArrayList then _G.AxArrayList:Destroy() _G.AxArrayList=nil end
     end)
 end)
