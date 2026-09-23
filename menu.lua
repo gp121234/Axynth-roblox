@@ -488,7 +488,18 @@ local function sep(p) local f=Instance.new("Frame") f.Size=UDim2.new(1,-12,0,1) 
 local function lbl(p,t) local l=Instance.new("TextLabel") l.Size=UDim2.new(1,-12,0,22) l.Position=UDim2.new(0,6,0,0) l.BackgroundTransparency=1 l.Text=t l.TextColor3=TH.a l.TextSize=11 l.Font=Enum.Font.GothamBold l.TextXAlignment=Enum.TextXAlignment.Left l.Parent=p return l end
 local function ntf(t,x,d) pcall(function() S:SetCore("SendNotification",{Title=t,Text=x,Duration=d or 3}) end) end
 local function getKeyDisplay(key) if not key then return "NONE" end local s=tostring(key) s=s:gsub("Enum.KeyCode.","") s=s:gsub("Enum.UserInputType.","") return s end
-local function findRemote(name) return RS:FindFirstChild(name) end
+local function findRemote(name)
+    local cur=RS
+    local okPath=true
+    for part in string.gmatch(name,"[^%.]+") do
+        if cur then cur=cur:FindFirstChild(part) end
+        if not cur then okPath=false break end
+    end
+    if okPath and cur then return cur end
+    local last=name:match("[^%.]+$")
+    if last then local found=RS:FindFirstChild(last,true) if found then return found end end
+    return nil
+end
 local function btn(p,t,fn,id)
     local b=Instance.new("TextButton") b.Size=UDim2.new(1,-12,0,30) b.Position=UDim2.new(0,6,0,0) b.BackgroundColor3=TH.b b.BorderSizePixel=0 b.Text="  "..t b.TextColor3=TH.t b.TextSize=12 b.Font=Enum.Font.GothamMedium b.TextXAlignment=Enum.TextXAlignment.Left b.Parent=p
     mkCorner(b,6) mkStroke(b,Color3.fromRGB(60,60,90),1)
@@ -563,8 +574,6 @@ sep(tH)
 lbl(tH,">> FLY + NOCLIP")
 local tFly=tog(tH,"Fly",function() return ST.fly end,function() ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end end,"fly")
 table.insert(allToggles,tFly)
-local tFlyBP=tog(tH,"Fly Bypass",function() return ST.flyBypass end,function() ST.flyBypass=not ST.flyBypass ntf("FlyBypass",ST.flyBypass and "ON" or "OFF") end,"flybyp")
-table.insert(allToggles,tFlyBP)
 local tNoclip=tog(tH,"Noclip",function() return ST.noclip end,function() ST.noclip=not ST.noclip if not ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") and ST.savedCollide[p2]~=nil then p2.CanCollide=ST.savedCollide[p2] end end ST.savedCollide={} end end,"noclip")
 table.insert(allToggles,tNoclip)
 local tFC=tog(tH,"Free Cam",function() return ST.freeCam end,function() ST.freeCam=not ST.freeCam if ST.freeCam then ST.freeCamPos=CAM.CFrame ST.freeCamYaw=0 ST.freeCamPitch=0 CAM.CameraType=Enum.CameraType.Scriptable U.MouseBehavior=Enum.MouseBehavior.LockCenter ntf("FreeCam","ON - WASD + Mouse") else CAM.CameraType=Enum.CameraType.Custom U.MouseBehavior=Enum.MouseBehavior.Default if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end ntf("FreeCam","OFF") end end,"freecam")
@@ -679,6 +688,7 @@ sep(tP)
 lbl(tP,">> WAYPOINT TP (5 MAX)")
 ST.waypoints=ST.waypoints or {}
 ST.wpParts=ST.wpParts or {}
+local wpColors={[1]=Color3.fromRGB(255,50,50),[2]=Color3.fromRGB(50,255,50),[3]=Color3.fromRGB(50,150,255),[4]=Color3.fromRGB(255,200,0),[5]=Color3.fromRGB(200,50,255)}
 local function createWPVisual(id,pos)
     pcall(function()
         if ST.wpParts[id] then ST.wpParts[id]:Destroy() end
@@ -693,7 +703,6 @@ local function clearWPVisual(id)
     if ST.wpParts[id] then pcall(function() ST.wpParts[id]:Destroy() end) ST.wpParts[id]=nil end
 end
 ST.wpSelected=ST.wpSelected or 1
-local wpColors={[1]=Color3.fromRGB(255,50,50),[2]=Color3.fromRGB(50,255,50),[3]=Color3.fromRGB(50,150,255),[4]=Color3.fromRGB(255,200,0),[5]=Color3.fromRGB(200,50,255)}
 local wpFrame=Instance.new("Frame") wpFrame.Size=UDim2.new(1,-10,0,60) wpFrame.BackgroundColor3=TH.p wpFrame.BorderSizePixel=0 wpFrame.Parent=tP mkCorner(wpFrame,6)
 local wpSelLbl=Instance.new("TextLabel") wpSelLbl.Size=UDim2.new(0.5,0,0.5,0) wpSelLbl.Position=UDim2.new(0,8,0,0) wpSelLbl.BackgroundTransparency=1 wpSelLbl.Text="Selected: WP1" wpSelLbl.TextColor3=wpColors[1] wpSelLbl.TextSize=12 wpSelLbl.Font=Enum.Font.GothamBold wpSelLbl.TextXAlignment=Enum.TextXAlignment.Left wpSelLbl.Parent=wpFrame
 local function updateWPLbl()
@@ -727,7 +736,42 @@ btn(tEx,"Siren Off",function() pcall(function() local r=findRemote("ToggleSirenE
 btn(tEx,"Weapon Hit (Fake)",function() pcall(function() local r=findRemote("WeaponsSystem.Network.Hit") if r then local ch=LP.Character if ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then r:FireServer(hrp.Position) ntf("Weapon","Hit sent!") end end end end) end,"weaphit")
 sep(tEx)
 lbl(tEx,">> MAGIC BULLET")
-local tMB=tog(tEx,"Magic Bullet",function() return ST.magicBullet end,function() ST.magicBullet=not ST.magicBullet if ST.magicBullet then if not _G._mbHooked then _G._mbHooked=true local oldRay oldRay=hookmetamethod(game,"__namecall",function(self,...) if not checkcaller() and getnamecallmethod()=="Raycast" and ST.magicBullet then local args={...} local rcp=args[1] local dir=args[2] local params=args[3] if params then local newParams=params:Clone() newParams.FilterType=Enum.RaycastFilterType.Include local charParts={} for _,ch in pairs(P:GetPlayers()) do if ch~=LP and ch.Character then for _,p in pairs(ch.Character:GetDescendants()) do if p:IsA("BasePart") then table.insert(charParts,p) end end end end if #charParts>0 then newParams.FilterDescendantsInstances=charParts local r=oldRay(self,rcp,dir,newParams) if r then return r end end end end return oldRay(self,unpack(args)) end) ntf("MagicBullet","ON - Bullets hit through walls!") end else ntf("MagicBullet","OFF") end end,"magbul")
+local function installMB()
+    if _G._mbHooked then return true end
+    local installed=false
+    pcall(function()
+        local oldRay
+        oldRay=hookmetamethod(game,"__namecall",newcclosure(function(self,...)
+            if not checkcaller() and getnamecallmethod()=="Raycast" and ST.magicBullet then
+                local args={...}
+                local rcp=args[1]
+                local dir=args[2]
+                local params=args[3]
+                if params then
+                    local newParams=params:Clone()
+                    newParams.FilterType=Enum.RaycastFilterType.Include
+                    local charParts={}
+                    for _,ch in pairs(P:GetPlayers()) do
+                        if ch~=LP and ch.Character then
+                            for _,p in pairs(ch.Character:GetDescendants()) do
+                                if p:IsA("BasePart") then table.insert(charParts,p) end
+                            end
+                        end
+                    end
+                    if #charParts>0 then
+                        newParams.FilterDescendantsInstances=charParts
+                        local r=oldRay(self,rcp,dir,newParams)
+                        if r then return r end
+                    end
+                end
+            end
+            return oldRay(self,unpack(args))
+        end))
+        if oldRay~=nil then installed=true _G._mbHooked=true end
+    end)
+    return installed
+end
+local tMB=tog(tEx,"Magic Bullet",function() return ST.magicBullet end,function() ST.magicBullet=not ST.magicBullet if ST.magicBullet then if installMB() then ntf("MagicBullet","ON - Bullets hit through walls!") else ST.magicBullet=false ntf("MagicBullet","Hook failed!") end else ntf("MagicBullet","OFF") end end,"magbul")
 table.insert(allToggles,tMB)
 sep(tEx)
 lbl(tEx,">> REMOTE SCANNER")
@@ -837,7 +881,7 @@ lbl(tSe,"All features = click OR hotkey.")
 sep(tSe)
 lbl(tSe,">> CONFIG SAVE / LOAD")
 btn(tSe,"Save Config",function() pcall(function() local cfg={kb={},esp={color={CFG.ESPColor.R,CFG.ESPColor.G,CFG.ESPColor.B},fillAlpha=CFG.ESPFillAlpha,outline=CFG.ESPOutlineEnabled,fill=CFG.ESPFillEnabled,name=CFG.ESPShowName,health=CFG.ESPShowHealth,distance=CFG.ESPShowDistance}} for id,key in pairs(KB) do cfg.kb[id]=tostring(key) end writefile("AxynthConfig.json",game:GetService("HttpService"):JSONEncode(cfg)) ntf("Config","Saved to AxynthConfig.json!") end) end,"savecfg")
-btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=readfile("AxynthConfig.json") if raw then local cfg=game:GetService("HttpService"):JSONDecode(raw) if cfg.kb then for id,str in pairs(cfg.kb) do KB[id]=str end end if cfg.esp then local c=cfg.esp if c.color then CFG.ESPColor=Color3.new(c.color[1],c.color[2],c.color[3]) end if c.fillAlpha then CFG.ESPFillAlpha=c.fillAlpha end if c.outline~=nil then CFG.ESPOutlineEnabled=c.outline end if c.fill~=nil then CFG.ESPFillEnabled=c.fill end if c.name~=nil then CFG.ESPShowName=c.name end if c.health~=nil then CFG.ESPShowHealth=c.health end if c.distance~=nil then CFG.ESPShowDistance=c.distance end end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end ntf("Config","Loaded from AxynthConfig.json!") end end end) end,"loadcfg")
+btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=readfile("AxynthConfig.json") if raw then local cfg=game:GetService("HttpService"):JSONDecode(raw) if cfg.kb then for id,str in pairs(cfg.kb) do local kcn=str:match("Enum%.KeyCode%.(.+)") if kcn and Enum.KeyCode[kcn] then KB[id]=Enum.KeyCode[kcn] else local utn=str:match("Enum%.UserInputType%.(.+)") if utn and Enum.UserInputType[utn] then KB[id]=Enum.UserInputType[utn] end end end end if cfg.esp then local c=cfg.esp if c.color then CFG.ESPColor=Color3.new(c.color[1],c.color[2],c.color[3]) end if c.fillAlpha then CFG.ESPFillAlpha=c.fillAlpha end if c.outline~=nil then CFG.ESPOutlineEnabled=c.outline end if c.fill~=nil then CFG.ESPFillEnabled=c.fill end if c.name~=nil then CFG.ESPShowName=c.name end if c.health~=nil then CFG.ESPShowHealth=c.health end if c.distance~=nil then CFG.ESPShowDistance=c.distance end end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end ntf("Config","Loaded from AxynthConfig.json!") end end end) end,"loadcfg")
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
@@ -862,12 +906,11 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="aimbot" then ST.aimEnabled=not ST.aimEnabled if ST.aimEnabled then ntf("Aimbot","ON") else ntf("Aimbot","OFF") end
             elseif id=="infjump" then ST.infJump=not ST.infJump if ST.infJump then ntf("InfJump","ON - Hold Space") end
             elseif id=="godloop" then ST.godmodeLoop=not ST.godmodeLoop
-            elseif id=="speedhard" then ST.speedHard=not ST.speedHard
+            elseif id=="speedhard" then ST.speedHard=not ST.speedHard pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=ST.speedHard and 70 or 16 end end end)
             elseif id=="infstam" then ST.infStamina=not ST.infStamina
-            elseif id=="magbul" then ST.magicBullet=not ST.magicBullet
+            elseif id=="magbul" then ST.magicBullet=not ST.magicBullet if ST.magicBullet then installMB() end
             elseif id=="spinner" then ST.spinner=not ST.spinner if not ST.spinner and LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end end
             elseif id=="autoclick" then ST.autoClicker=not ST.autoClicker
-            elseif id=="flybyp" then ST.flyBypass=not ST.flyBypass
             elseif id=="macetp" then ST.maceTP=not ST.maceTP
             elseif id=="vehspeed" then ST.vehicleSpeedOn=not ST.vehicleSpeedOn
             elseif id=="arraylist" then ST.arrayList=not ST.arrayList
@@ -898,6 +941,9 @@ R.RenderStepped:Connect(function()
     end)
     pcall(function()
         if ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") then if ST.savedCollide[p2]==nil then ST.savedCollide[p2]=p2.CanCollide end p2.CanCollide=false end end end
+    end)
+    pcall(function()
+        if ST.vehicleSpeedOn and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum and hum.Seated and hum.SeatPart and hum.SeatPart:IsA("VehicleSeat") then hum.SeatPart.MaxSpeed=250 end end
     end)
     pcall(function()
         if ST.spinner and LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then local sv=hrp:FindFirstChild("AxSpin") if not sv then sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) end end
