@@ -185,6 +185,25 @@ pcall(function()
         task.wait(1)
         spoofLeaderstats()
         hideBanGUI()
+        if ST.freeCam then
+            pcall(function()
+                local hrp=char:FindFirstChild("HumanoidRootPart")
+                local hum=char:FindFirstChildOfClass("Humanoid")
+                if hrp then hrp.Anchored=true hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end
+                if hum then hum.WalkSpeed=0 hum.JumpPower=0 hum.AutoRotate=false end
+                local cam=W.CurrentCamera or CAM
+                if cam then cam.CameraType=Enum.CameraType.Scriptable end
+            end)
+        end
+        if ST.godmodeLoop then
+            pcall(function()
+                local hum=char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    if hum.MaxHealth<100 then hum.MaxHealth=100 end
+                    hum.Health=hum.MaxHealth
+                end
+            end)
+        end
     end)
 end)
 pcall(function()
@@ -421,9 +440,20 @@ local function setFreeCam(on)
             ST.spectateOverhead=false
             local ch=LP.Character
             local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+            local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
             if hum then
                 if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
                 if ST._fcJump==nil then ST._fcJump=hum.JumpPower end
+                if not ST._fcAS then ST._fcAS=hum.AutoRotate end
+                hum.WalkSpeed=0
+                hum.JumpPower=0
+                hum.AutoRotate=false
+            end
+            if hrp then
+                ST.freeCamAnchor=true
+                hrp.Anchored=true
+                hrp.Velocity=Vector3.new(0,0,0)
+                hrp.RotVelocity=Vector3.new(0,0,0)
             end
             local cam=W.CurrentCamera or CAM
             CAM=cam
@@ -450,8 +480,11 @@ local function setFreeCam(on)
             local hum=ch and ch:FindFirstChildOfClass("Humanoid")
             if hrp then hrp.Anchored=false hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end
             if hum then
-                hum.WalkSpeed=ST._fcWalk or 16
-                hum.JumpPower=ST._fcJump or 50
+                hum.WalkSpeed=ST._fcWalk or (ST.speedHard and math.max(ST.speedPreset or 0,50) or (ST.speedPreset or 0))
+                if hum.WalkSpeed<=0 then hum.WalkSpeed=16 end
+                if ST.jumpPreset and ST.jumpPreset>0 then hum.JumpPower=ST.jumpPreset else hum.JumpPower=ST._fcJump or 50 end
+                if hum.JumpPower<=0 then hum.JumpPower=50 end
+                hum.AutoRotate=ST._fcAS~=false
                 hum.PlatformStand=false
                 local cam=W.CurrentCamera or CAM
                 CAM=cam
@@ -460,41 +493,59 @@ local function setFreeCam(on)
             end
             U.MouseBehavior=Enum.MouseBehavior.Default
         end)
-        ST._fcWalk=nil ST._fcJump=nil ST.freeCamAnchor=nil ST.freeCamPos=nil
+        ST._fcWalk=nil ST._fcJump=nil ST._fcAS=nil ST.freeCamAnchor=nil ST.freeCamPos=nil
         if was then ntf("FreeCam","OFF") end
     end
 end
+local fcPrevM=nil
 local function applyFreeCam(cam)
     if not ST.freeCam then return end
     if not cam then return end
     cam.CameraType=Enum.CameraType.Scriptable
     local ch=LP.Character
     local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+    local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
     if hum then
         if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
         if hum.JumpPower~=0 then hum.JumpPower=0 end
+        if hum.AutoRotate then hum.AutoRotate=false end
+        if hum.PlatformStand then hum.PlatformStand=false end
+    end
+    if hrp then
+        if not hrp.Anchored then hrp.Anchored=true end
+        if hrp.Velocity.Magnitude>0.01 then hrp.Velocity=Vector3.new(0,0,0) end
+        if hrp.RotVelocity.Magnitude>0.01 then hrp.RotVelocity=Vector3.new(0,0,0) end
+        if hrp.CFrame then hrp.CFrame=hrp.CFrame end
     end
     local pos=ST.freeCamPos
     if not pos then
         pos=cam.CFrame.Position
         ST.freeCamPos=pos
     end
-    if U:IsKeyDown(Enum.UserInputType.MouseButton2) then
+    local rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2)
+    local dx,dy=0,0
+    local mp=U:GetMouseLocation()
+    if rmb then
         U.MouseBehavior=Enum.MouseBehavior.LockCenter
         local md=U:GetMouseDelta()
-        if md then
-            ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.0035
-            ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.0035,-1.45,1.45)
+        if md then dx,dy=md.X,md.Y end
+        if dx==0 and dy==0 and fcPrevM then
+            dx=mp.X-fcPrevM.X dy=mp.Y-fcPrevM.Y
         end
     elseif U.MouseBehavior~=Enum.MouseBehavior.Default then
         U.MouseBehavior=Enum.MouseBehavior.Default
+    end
+    fcPrevM=mp
+    if dx~=0 or dy~=0 then
+        ST.freeCamYaw=(ST.freeCamYaw or 0)-dx*0.0035
+        ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-dy*0.0035,-1.45,1.45)
     end
     local yaw=ST.freeCamYaw or 0
     local pitch=ST.freeCamPitch or 0
     local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
     local dir=Vector3.new(0,0,0)
-    local sp=2
-    if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=5 end
+    local sp=1.2
+    if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=4 end
     if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+rot.LookVector end
     if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-rot.LookVector end
     if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-rot.RightVector end
@@ -508,7 +559,9 @@ local function applyFreeCam(cam)
     local cf=CFrame.new(pos)*rot
     cam.CFrame=cf
     cam.Focus=cf
+    if cam.CameraType~=Enum.CameraType.Scriptable then cam.CameraType=Enum.CameraType.Scriptable end
 end
+local ovhPrevM=nil
 local function applyOverhead(cam)
     if not ST.spectateOverhead or not ST.spectating or not ST.spectating.Character then return end
     local hrpT=ST.spectating.Character:FindFirstChild("HumanoidRootPart")
@@ -516,38 +569,45 @@ local function applyOverhead(cam)
     if not cam then return end
     cam.CameraType=Enum.CameraType.Scriptable
     if not ST.ovhInit then
-        ST.ovhOff=Vector3.new(0,25,0)
         ST.ovhYaw=0
-        ST.ovhPitch=-1.4
+        ST.ovhPitch=1.1
+        ST.ovhDist=22
         ST.ovhInit=true
     end
-    if U:IsKeyDown(Enum.UserInputType.MouseButton2) then
+    local rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2)
+    local dx,dy=0,0
+    local mp=U:GetMouseLocation()
+    if rmb then
         U.MouseBehavior=Enum.MouseBehavior.LockCenter
         local md=U:GetMouseDelta()
-        if md then
-            ST.ovhYaw=(ST.ovhYaw or 0)-md.X*0.0035
-            ST.ovhPitch=math.clamp((ST.ovhPitch or 0)-md.Y*0.0035,-1.45,1.45)
+        if md then dx,dy=md.X,md.Y end
+        if dx==0 and dy==0 and ovhPrevM then
+            dx=mp.X-ovhPrevM.X dy=mp.Y-ovhPrevM.Y
         end
     elseif U.MouseBehavior~=Enum.MouseBehavior.Default then
         U.MouseBehavior=Enum.MouseBehavior.Default
     end
+    ovhPrevM=mp
+    if dx~=0 or dy~=0 then
+        ST.ovhYaw=(ST.ovhYaw or 0)-dx*0.004
+        ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+dy*0.004,0.15,1.5)
+    end
+    if U:IsKeyDown(Enum.KeyCode.A) then ST.ovhYaw=(ST.ovhYaw or 0)+0.04 end
+    if U:IsKeyDown(Enum.KeyCode.D) then ST.ovhYaw=(ST.ovhYaw or 0)-0.04 end
+    if U:IsKeyDown(Enum.KeyCode.W) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+0.03,0.15,1.5) end
+    if U:IsKeyDown(Enum.KeyCode.S) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)-0.03,0.15,1.5) end
+    if U:IsKeyDown(Enum.KeyCode.Space) then ST.ovhDist=math.max(8,(ST.ovhDist or 22)+0.5) end
+    if U:IsKeyDown(Enum.KeyCode.LeftControl) then ST.ovhDist=math.min(80,(ST.ovhDist or 22)-0.5) end
     local yaw=ST.ovhYaw or 0
-    local pitch=ST.ovhPitch or 0
-    local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
-    local off=ST.ovhOff or Vector3.new(0,25,0)
-    local sp=2
-    if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=5 end
-    if U:IsKeyDown(Enum.KeyCode.W) then off=off+rot.LookVector*sp end
-    if U:IsKeyDown(Enum.KeyCode.S) then off=off-rot.LookVector*sp end
-    if U:IsKeyDown(Enum.KeyCode.A) then off=off-rot.RightVector*sp end
-    if U:IsKeyDown(Enum.KeyCode.D) then off=off+rot.RightVector*sp end
-    if U:IsKeyDown(Enum.KeyCode.Space) then off=off+Vector3.new(0,1,0)*sp end
-    if U:IsKeyDown(Enum.KeyCode.LeftControl) then off=off-Vector3.new(0,1,0)*sp end
-    ST.ovhOff=off
-    local pos=hrpT.Position+off
-    local cf=CFrame.new(pos)*rot
+    local pitch=ST.ovhPitch or 1.1
+    local dist=ST.ovhDist or 22
+    local cx=hrpT.Position.X+dist*math.cos(pitch)*math.sin(yaw)
+    local cy=hrpT.Position.Y+dist*math.sin(pitch)
+    local cz=hrpT.Position.Z+dist*math.cos(pitch)*math.cos(yaw)
+    local target=hrpT.Position+Vector3.new(0,2,0)
+    local cf=CFrame.lookAt(Vector3.new(cx,cy,cz),target)
     cam.CFrame=cf
-    cam.Focus=cf
+    cam.Focus=CFrame.new(target)
 end
 local function isAimActive()
     if ST.aimHoldKey then return ST.aimKeyHeld end
@@ -743,15 +803,15 @@ local allToggles={}
 _G.AxST=ST
 local tH=tF["home"]
 lbl(tH,">> SPEED")
-btn(tH,"Speed 40",function() ST.speedPreset=40 ntf("Speed","40 - applied") end,"sp100")
-btn(tH,"Speed 55",function() ST.speedPreset=55 ntf("Speed","55 - applied") end,"sp250")
-btn(tH,"Speed 70",function() ST.speedPreset=70 ntf("Speed","70 - applied") end,"sp500")
+btn(tH,"Speed 40",function() ST.speedPreset=40 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.WalkSpeed=40 end end) ntf("Speed","40 - applied") end,"sp100")
+btn(tH,"Speed 55",function() ST.speedPreset=55 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.WalkSpeed=55 end end) ntf("Speed","55 - applied") end,"sp250")
+btn(tH,"Speed 70",function() ST.speedPreset=70 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.WalkSpeed=70 end end) ntf("Speed","70 - applied") end,"sp500")
 btn(tH,"Reset Speed",function() ST.speedPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) ntf("Speed","Reset 16") end,"sprst")
 sep(tH)
 lbl(tH,">> JUMP")
-btn(tH,"Jump 75",function() ST.jumpPreset=75 ntf("Jump","75 - applied") end,"jp100")
-btn(tH,"Jump 100",function() ST.jumpPreset=100 ntf("Jump","100 - applied") end,"jp300")
-btn(tH,"Jump 150",function() ST.jumpPreset=150 ntf("Jump","150 - applied") end,"jp500")
+btn(tH,"Jump 75",function() ST.jumpPreset=75 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.UseJumpPower=true h.JumpPower=75 end end) ntf("Jump","75 - applied") end,"jp100")
+btn(tH,"Jump 100",function() ST.jumpPreset=100 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.UseJumpPower=true h.JumpPower=100 end end) ntf("Jump","100 - applied") end,"jp300")
+btn(tH,"Jump 150",function() ST.jumpPreset=150 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.UseJumpPower=true h.JumpPower=150 end end) ntf("Jump","150 - applied") end,"jp500")
 btn(tH,"Reset Jump",function() ST.jumpPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=50 end end end) ntf("Jump","Reset 50") end,"jprst")
 local tInfJ=tog(tH,"Infinite Jump",function() return ST.infJump end,function() ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true ntf("InfJump","ON - Space + Godmode forced") else ntf("InfJump","OFF") end end,"infjump")
 table.insert(allToggles,tInfJ)
@@ -761,7 +821,7 @@ local tIS=tog(tH,"Infinite Stamina",function() return ST.infStamina end,function
 table.insert(allToggles,tIS)
 sep(tH)
 lbl(tH,">> FLY + NOCLIP")
-local tFly=tog(tH,"Fly",function() return ST.fly end,function() ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end end ntf("Fly",ST.fly and "ON - WASD+Space/Ctrl" or "OFF") end,"fly")
+local tFly=tog(tH,"Fly",function() return ST.fly end,function() ST.fly=not ST.fly if ST.fly then ST.godmodeLoop=true end if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end end ntf("Fly",ST.fly and "ON - WASD+Space/Ctrl + Godmode" or "OFF") end,"fly")
 table.insert(allToggles,tFly)
 local tNoclip=tog(tH,"Noclip",function() return ST.noclip end,function() ST.noclip=not ST.noclip if not ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") and ST.savedCollide[p2]~=nil then p2.CanCollide=ST.savedCollide[p2] end end ST.savedCollide={} end end,"noclip")
 table.insert(allToggles,tNoclip)
@@ -901,15 +961,15 @@ btn(tP,"Spectate: Overhead",function()
     ST.spectateOverhead=not ST.spectateOverhead
     if ST.spectateOverhead then
         setFreeCam(false)
-        ST.ovhOff=Vector3.new(0,25,0)
         ST.ovhYaw=0
-        ST.ovhPitch=-1.4
+        ST.ovhPitch=1.1
+        ST.ovhDist=22
         ST.ovhInit=true
         pcall(function()
             local cam=W.CurrentCamera or CAM
             if cam then CAM=cam applyOverhead(cam) end
         end)
-        ntf("Spectate","Overhead ON on "..ST.spectating.DisplayName.." - WASD + RMB")
+        ntf("Spectate","Overhead ON on "..ST.spectating.DisplayName.." - RMB look, WASD, Space/Ctrl dist")
     else
         CAM.CameraType=Enum.CameraType.Custom
         local h=ST.spectating.Character:FindFirstChildOfClass("Humanoid")
@@ -1256,7 +1316,7 @@ U.InputBegan:Connect(function(inp,gpe)
             if KBMode[id]=="hold" then
                 if not KBActive[id] then
                     KBActive[id]=true
-                    if id=="fly" then ST.fly=true
+                    if id=="fly" then ST.fly=true ST.godmodeLoop=true
                     elseif id=="noclip" then ST.noclip=true
                     elseif id=="freecam" then setFreeCam(true)
                     elseif id=="esp" then ST.esp=true
@@ -1283,7 +1343,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
                 end
             else
-            if id=="fly" then ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end
+            if id=="fly" then ST.fly=not ST.fly if ST.fly then ST.godmodeLoop=true end if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end
             elseif id=="noclip" then ST.noclip=not ST.noclip
             elseif id=="freecam" then setFreeCam(not ST.freeCam)
             elseif id=="clicktp" then ST.clickTP=not ST.clickTP if ST.clickTP then if not ST.cursorTPPreview then local p=Instance.new("Part") p.Name="AxCTPPreview" p.Size=Vector3.new(3,0.2,3) p.Anchored=true p.CanCollide=false p.Material=Enum.Material.Neon p.Color=Color3.fromRGB(255,0,0) p.Transparency=0.5 p.Parent=W ST.cursorTPPreview=p end else if ST.cursorTPPreview then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end end
@@ -1550,7 +1610,7 @@ end)
 print("[Axynth] Events OK")
 R.RenderStepped:Connect(function()
     pcall(function()
-        if ST.fly and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then local dir=Vector3.new(0,0,0) local sp=ST.flySpeed if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=sp*3 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if dir.Magnitude>0 then dir=dir.Unit h.Velocity=Vector3.new(0,0,0) h.RotVelocity=Vector3.new(0,0,0) h.CFrame=h.CFrame+dir*sp/60 else h.Velocity=Vector3.new(0,0,0) end end end
+        if ST.fly and not ST.freeCam and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then local dir=Vector3.new(0,0,0) local sp=ST.flySpeed if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=sp*3 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if dir.Magnitude>0 then dir=dir.Unit h.Velocity=Vector3.new(0,0,0) h.RotVelocity=Vector3.new(0,0,0) h.CFrame=h.CFrame+dir*sp/60 else h.Velocity=Vector3.new(0,0,0) end end end
     end)
     pcall(function()
         if ST.infJump then ST.godmodeLoop=true end
@@ -1586,81 +1646,90 @@ R.RenderStepped:Connect(function()
         end
     end)
     pcall(function()
-        if ST.infStamina and LP.Character then
-            local ch=LP.Character
-            local hum=ch:FindFirstChildOfClass("Humanoid")
-            if hum then
-                local now=tick()
-                if not ST._stamVals or now-(ST._stamT or 0)>1 or ST._stamChar~=ch then
-                    ST._stamChar=ch
-                    ST._stamT=now
-                    ST._stamVals={}
-                    local roots={ch,LP,LP:FindFirstChild("PlayerGui")}
-                    local names={"stamina","stam","endurance","energy","fatigue","sprint","runstam","breath"}
-                    local function consider(v)
-                        if not (v:IsA("NumberValue") or v:IsA("IntValue") or v:IsA("FloatValue") or v:IsA("BoolValue")) then return end
-                        local n=string.lower(v.Name)
-                        for _,k in ipairs(names) do
-                            if string.find(n,k,1,true) then
-                                if v:IsA("BoolValue") then table.insert(ST._stamVals,{v=v,bool=true}) else table.insert(ST._stamVals,{v=v}) end
-                                return
-                            end
-                        end
+        if not ST.infStamina or not LP.Character then return end
+        local now=tick()
+        if now-(ST._stamApplyT or 0)<0.2 then return end
+        ST._stamApplyT=now
+        local ch=LP.Character
+        local hum=ch:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        if not ST._stamVals or now-(ST._stamT or 0)>5 or ST._stamChar~=ch then
+            ST._stamChar=ch
+            ST._stamT=now
+            ST._stamVals={}
+            local names={"stamina","stam","endurance","energy","fatigue","sprint","runstam","breath"}
+            local function consider(v)
+                if not (v:IsA("NumberValue") or v:IsA("IntValue") or v:IsA("FloatValue") or v:IsA("BoolValue")) then return end
+                local n=string.lower(v.Name)
+                for _,k in ipairs(names) do
+                    if string.find(n,k,1,true) then
+                        table.insert(ST._stamVals,{v=v,bool=v:IsA("BoolValue")})
+                        return
                     end
-                    for _,root in ipairs(roots) do
-                        if root then
-                            for _,d in pairs(root:GetDescendants()) do consider(d) end
-                        end
-                    end
-                    local function considerAttr(obj)
-                        if not obj or not obj.GetAttributes then return end
-                        for k,val in pairs(obj:GetAttributes()) do
-                            local n=string.lower(tostring(k))
-                            if type(val)=="number" then
-                                for _,sn in ipairs(names) do
-                                    if string.find(n,sn,1,true) then table.insert(ST._stamVals,{attr=obj,key=k}) return end
-                                end
-                            end
-                        end
-                    end
-                    considerAttr(ch) considerAttr(hum) considerAttr(LP)
-                end
-                local found=0
-                for _,e in ipairs(ST._stamVals) do
-                    pcall(function()
-                        if e.attr then
-                            local maxv=e.attr:GetAttribute(e.key)
-                            if type(maxv)=="number" and maxv>0 and maxv~=math.huge then e.attr:SetAttribute(e.key,math.max(maxv,100)) end
-                            found=found+1
-                        elseif e.bool then
-                            if e.v and e.v.Parent and e.v.Value==false then e.v.Value=true end
-                            found=found+1
-                        elseif e.v and e.v.Parent then
-                            local cur=e.v.Value
-                            if type(cur)=="number" then e.v.Value=math.max(cur,100) end
-                            found=found+1
-                        end
-                    end)
-                end
-                if found==0 and not ST._stamWarned then
-                    ST._stamWarned=true
-                    ntf("Stamina","No stamina values found on char/player (scan 1s)",5)
                 end
             end
+            for _,d in pairs(ch:GetDescendants()) do consider(d) end
+            local pg=LP:FindFirstChild("PlayerGui")
+            if pg then
+                for _,d in pairs(pg:GetDescendants()) do consider(d) end
+            end
+            local function considerAttr(obj)
+                if not obj or not obj.GetAttributes then return end
+                for k,val in pairs(obj:GetAttributes()) do
+                    if type(val)=="number" then
+                        local n=string.lower(tostring(k))
+                        for _,sn in ipairs(names) do
+                            if string.find(n,sn,1,true) then table.insert(ST._stamVals,{attr=obj,key=k}) return end
+                        end
+                    end
+                end
+            end
+            considerAttr(ch) considerAttr(hum) considerAttr(LP)
+        end
+        local vals=ST._stamVals
+        if not vals then return end
+        local found=0
+        for i=1,#vals do
+            local e=vals[i]
+            if e.attr then
+                local maxv=e.attr:GetAttribute(e.key)
+                if type(maxv)=="number" and maxv>0 and maxv<1e12 then
+                    local want=math.max(maxv,100)
+                    if want~=maxv then e.attr:SetAttribute(e.key,want) end
+                    found=found+1
+                end
+            elseif e.v and e.v.Parent then
+                if e.bool then
+                    if e.v.Value==false then e.v.Value=true end
+                    found=found+1
+                else
+                    local cur=e.v.Value
+                    if type(cur)=="number" and cur<100 then e.v.Value=100 end
+                    found=found+1
+                end
+            end
+        end
+        if found==0 and not ST._stamWarned then
+            ST._stamWarned=true
+            ntf("Stamina","No stamina values found (scan 5s)",5)
         end
     end)
     pcall(function()
         if ST.freeCam then return end
+        local wantSp=ST.speedPreset or 0
+        if ST.speedHard and wantSp<50 then wantSp=50 end
+        local wantJp=ST.jumpPreset or 0
+        if wantSp<=0 and wantJp<=0 then return end
+        local now=tick()
+        if now-(ST._spApplyT or 0)<0.12 then return end
+        ST._spApplyT=now
         local ch=LP.Character
         if not ch then return end
         local hum=ch:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-        local wantSp=ST.speedPreset or 0
-        if ST.speedHard and wantSp<50 then wantSp=50 end
+        if not hum or hum.Health<=0 or hum.Seated then return end
         if wantSp>0 and hum.WalkSpeed~=wantSp then
             hum.WalkSpeed=wantSp
         end
-        local wantJp=ST.jumpPreset or 0
         if wantJp>0 then
             if not hum.UseJumpPower then hum.UseJumpPower=true end
             if hum.JumpPower~=wantJp then hum.JumpPower=wantJp end
@@ -1851,7 +1920,7 @@ R.RenderStepped:Connect(function()
     end)
 end)
 pcall(function() P.PlayerAdded:Connect(function(pp) pp.CharacterAdded:Connect(function(ch) task.wait(1) pcall(function() if ST.esp and pp~=LP then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=ch ST.espList[pp.UserId]=hl end end) end) end) end)
-pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=70 end end) end end) pcall(function() if ST.godmodeLoop then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then if hum.MaxHealth<100 then hum.MaxHealth=100 end hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end end) end end) end) end)
+pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=math.max(ST.speedPreset or 0,50) end end) end end) pcall(function() if ST.godmodeLoop then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then if hum.MaxHealth<100 then hum.MaxHealth=100 end hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end end) end end) end) end)
 P.PlayerRemoving:Connect(function(pp) if ST.espList[pp.UserId] then ST.espList[pp.UserId]:Destroy() ST.espList[pp.UserId]=nil end if ST.esp2D and ST.esp2D[pp.UserId] then pcall(function() ST.esp2D[pp.UserId]:Destroy() end) ST.esp2D[pp.UserId]=nil end end)
 for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end end
 pcall(function() for _,g in pairs({CG,LP:WaitForChild("PlayerGui")}) do for _,v in pairs(g:GetDescendants()) do if v.Name=="AxESP_2D" then v:Destroy() end end end end)
