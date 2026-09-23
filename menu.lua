@@ -574,8 +574,6 @@ local function setFreeCam(on)
             if hum then
                 if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
                 if ST._fcJump==nil then ST._fcJump=hum.JumpPower end
-                hum.WalkSpeed=0
-                hum.JumpPower=0
             end
             local cam=W.CurrentCamera or CAM
             CAM=cam
@@ -586,16 +584,21 @@ local function setFreeCam(on)
             cam.CameraType=Enum.CameraType.Scriptable
             cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(rx,ry,0)
             U.MouseBehavior=Enum.MouseBehavior.Default
+            pcall(function()
+                local CAS=game:GetService("ContextActionService")
+                CAS:BindActionAtPriority("AxFreecamSink",function() return Enum.ContextActionResult.Sink end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift,Enum.KeyCode.One,Enum.KeyCode.Two,Enum.KeyCode.Three)
+            end)
         end)
-        ntf("FreeCam","ON - camera only (WASD + hold RMB)")
+        ntf("FreeCam","ON - camera moves only (WASD + RMB), player idle")
     else
         local was=ST.freeCam
         ST.freeCam=false
         pcall(function()
+            game:GetService("ContextActionService"):UnbindAction("AxFreecamSink")
             local ch=LP.Character
             local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
             local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-            if hrp then hrp.Anchored=false end
+            if hrp then hrp.Anchored=false hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end
             if hum then
                 hum.WalkSpeed=ST._fcWalk or 16
                 hum.JumpPower=ST._fcJump or 50
@@ -611,62 +614,191 @@ local function setFreeCam(on)
         if was then ntf("FreeCam","OFF") end
     end
 end
+local function applyFreeCam(cam)
+    if not ST.freeCam then return end
+    if not cam then return end
+    cam.CameraType=Enum.CameraType.Scriptable
+    local ch=LP.Character
+    local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+    if hum then
+        if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
+        if hum.JumpPower~=0 then hum.JumpPower=0 end
+    end
+    local pos=ST.freeCamPos
+    if not pos then
+        pos=cam.CFrame.Position
+        ST.freeCamPos=pos
+    end
+    if U:IsKeyDown(Enum.UserInputType.MouseButton2) then
+        U.MouseBehavior=Enum.MouseBehavior.LockCenter
+        local md=U:GetMouseDelta()
+        if md then
+            ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.0035
+            ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.0035,-1.45,1.45)
+        end
+    elseif U.MouseBehavior~=Enum.MouseBehavior.Default then
+        U.MouseBehavior=Enum.MouseBehavior.Default
+    end
+    local yaw=ST.freeCamYaw or 0
+    local pitch=ST.freeCamPitch or 0
+    local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
+    local dir=Vector3.new(0,0,0)
+    local sp=2
+    if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=5 end
+    if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+rot.LookVector end
+    if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-rot.LookVector end
+    if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-rot.RightVector end
+    if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+rot.RightVector end
+    if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
+    if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
+    if dir.Magnitude>0 then
+        pos=pos+dir.Unit*sp
+        ST.freeCamPos=pos
+    end
+    local cf=CFrame.new(pos)*rot
+    cam.CFrame=cf
+    cam.Focus=cf
+end
+local function applyOverhead(cam)
+    if not ST.spectateOverhead or not ST.spectating or not ST.spectating.Character then return end
+    local hrpT=ST.spectating.Character:FindFirstChild("HumanoidRootPart")
+    if not hrpT then return end
+    if not cam then return end
+    cam.CameraType=Enum.CameraType.Scriptable
+    if not ST.ovhInit then
+        ST.ovhOff=Vector3.new(0,25,0)
+        ST.ovhYaw=0
+        ST.ovhPitch=-1.4
+        ST.ovhInit=true
+    end
+    if U:IsKeyDown(Enum.UserInputType.MouseButton2) then
+        U.MouseBehavior=Enum.MouseBehavior.LockCenter
+        local md=U:GetMouseDelta()
+        if md then
+            ST.ovhYaw=(ST.ovhYaw or 0)-md.X*0.0035
+            ST.ovhPitch=math.clamp((ST.ovhPitch or 0)-md.Y*0.0035,-1.45,1.45)
+        end
+    elseif U.MouseBehavior~=Enum.MouseBehavior.Default then
+        U.MouseBehavior=Enum.MouseBehavior.Default
+    end
+    local yaw=ST.ovhYaw or 0
+    local pitch=ST.ovhPitch or 0
+    local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
+    local off=ST.ovhOff or Vector3.new(0,25,0)
+    local sp=2
+    if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=5 end
+    if U:IsKeyDown(Enum.KeyCode.W) then off=off+rot.LookVector*sp end
+    if U:IsKeyDown(Enum.KeyCode.S) then off=off-rot.LookVector*sp end
+    if U:IsKeyDown(Enum.KeyCode.A) then off=off-rot.RightVector*sp end
+    if U:IsKeyDown(Enum.KeyCode.D) then off=off+rot.RightVector*sp end
+    if U:IsKeyDown(Enum.KeyCode.Space) then off=off+Vector3.new(0,1,0)*sp end
+    if U:IsKeyDown(Enum.KeyCode.LeftControl) then off=off-Vector3.new(0,1,0)*sp end
+    ST.ovhOff=off
+    local pos=hrpT.Position+off
+    local cf=CFrame.new(pos)*rot
+    cam.CFrame=cf
+    cam.Focus=cf
+end
+local function applyAim(cam)
+    local aimActive=((not ST.aimHoldKey and ST.aimEnabled) or (ST.aimHoldKey and ST.aimKeyHeld))
+    if not aimActive then return end
+    if not (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid")) then return end
+    local camPos=cam.CFrame.Position
+    local mpA=U:GetMouseLocation()
+    local center=Vector2.new(mpA.X,mpA.Y)
+    local bestTarget=nil local bestDist=ST.aimFOV
+    local cur=ST.aimTarget
+    local curOk=false
+    if cur and cur.Character and cur.Character:FindFirstChild(ST.aimTargetPart) and cur.Character:FindFirstChildOfClass("Humanoid") then
+        local h=cur.Character:FindFirstChildOfClass("Humanoid")
+        if h.Health>0 and not (ST.aimTeamCheck and cur.Team==LP.Team) then
+            local tgtPos=cur.Character[ST.aimTargetPart].Position
+            local wallOK=true
+            if ST.aimWallCheck then
+                local cacheKey=cur.UserId
+                local now=tick()
+                local c=ST._aimWallC and ST._aimWallC[cacheKey]
+                if c and now-c.t<0.15 then
+                    wallOK=c.ok
+                else
+                    local params=RaycastParams.new()
+                    params.FilterType=Enum.RaycastFilterType.Exclude
+                    local filt={LP.Character}
+                    for _,v in pairs(cur.Character:GetDescendants()) do table.insert(filt,v) end
+                    params.FilterDescendantsInstances=filt
+                    wallOK=(W:Raycast(camPos,tgtPos-camPos,params)==nil)
+                    ST._aimWallC=ST._aimWallC or {}
+                    ST._aimWallC[cacheKey]={t=now,ok=wallOK}
+                end
+            end
+            if wallOK then
+                local sp2,onscreen=cam:WorldToViewportPoint(tgtPos)
+                if onscreen then
+                    local d=(Vector2.new(sp2.X,sp2.Y)-center).Magnitude
+                    if d<=ST.aimFOV*1.5 then
+                        curOk=true bestTarget=cur bestDist=d
+                    end
+                end
+            end
+        end
+    end
+    if not curOk then
+        for _,pp in pairs(P:GetPlayers()) do
+            if pp~=LP and pp~=cur and pp.Character and pp.Character:FindFirstChild(ST.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
+                if pp.Character:FindFirstChildOfClass("Humanoid").Health>0 then
+                    if ST.aimTeamCheck and pp.Team==LP.Team then continue end
+                    local tgtPos=pp.Character[ST.aimTargetPart].Position
+                    if ST.aimWallCheck then
+                        local params=RaycastParams.new()
+                        params.FilterType=Enum.RaycastFilterType.Exclude
+                        local filt={LP.Character}
+                        for _,v in pairs(pp.Character:GetDescendants()) do table.insert(filt,v) end
+                        params.FilterDescendantsInstances=filt
+                        if W:Raycast(camPos,tgtPos-camPos,params) then continue end
+                    end
+                    local sp2,onscreen=cam:WorldToViewportPoint(tgtPos)
+                    if onscreen then
+                        local d=(Vector2.new(sp2.X,sp2.Y)-center).Magnitude
+                        if d<bestDist then bestDist=d bestTarget=pp end
+                    end
+                end
+            end
+        end
+    end
+    if bestTarget and bestTarget.Character and bestTarget.Character:FindFirstChild(ST.aimTargetPart) then
+        ST.aimTarget=bestTarget
+        local tgtPos=bestTarget.Character[ST.aimTargetPart].Position
+        local lookDir=CFrame.lookAt(camPos,tgtPos)
+        cam.CFrame=cam.CFrame:Lerp(lookDir,0.85)
+        cam.Focus=CFrame.new(tgtPos)
+        local myHRP=LP.Character:FindFirstChild("HumanoidRootPart")
+        local myHum=LP.Character:FindFirstChildOfClass("Humanoid")
+        if myHRP and myHum then
+            if myHum.AutoRotate then myHum.AutoRotate=false end
+            local flat=Vector3.new(tgtPos.X-myHRP.Position.X,0,tgtPos.Z-myHRP.Position.Z)
+            if flat.Magnitude>0.5 then
+                local faceCF=CFrame.lookAt(myHRP.Position,myHRP.Position+flat)
+                myHRP.CFrame=myHRP.CFrame:Lerp(faceCF,0.35)
+            end
+        end
+    else
+        ST.aimTarget=nil
+        local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
+    end
+end
 pcall(function()
-    R:BindToRenderStep("AxFreecam",Enum.RenderPriority.Camera.Value+1,function()
-        if not ST.freeCam then return end
+    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Last.Value,function()
         pcall(function()
             local cam=W.CurrentCamera
             if not cam then return end
             CAM=cam
-            cam.CameraType=Enum.CameraType.Scriptable
-            local ch=LP.Character
-            local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-            if hum then
-                if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
-                if hum.JumpPower~=0 then hum.JumpPower=0 end
+            if ST.freeCam then
+                applyFreeCam(cam)
+            elseif ST.spectateOverhead then
+                applyOverhead(cam)
             end
-            local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-            if hrp and (not hum or not hum.Seated) then
-                if hrp.Anchored then hrp.Anchored=false end
-                hrp.Velocity=Vector3.new(0,0,0)
-                hrp.RotVelocity=Vector3.new(0,0,0)
-            end
-            local pos=ST.freeCamPos
-            if not pos then
-                pos=cam.CFrame.Position
-                ST.freeCamPos=pos
-            end
-            if U:IsKeyDown(Enum.UserInputType.MouseButton2) then
-                U.MouseBehavior=Enum.MouseBehavior.LockCenter
-                local md=U:GetMouseDelta()
-                if md then
-                    ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.0035
-                    ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.0035,-1.45,1.45)
-                end
-            else
-                if U.MouseBehavior~=Enum.MouseBehavior.Default then
-                    U.MouseBehavior=Enum.MouseBehavior.Default
-                end
-            end
-            local yaw=ST.freeCamYaw or 0
-            local pitch=ST.freeCamPitch or 0
-            local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
-            local dir=Vector3.new(0,0,0)
-            local sp=2
-            if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=5 end
-            if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+rot.LookVector end
-            if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-rot.LookVector end
-            if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-rot.RightVector end
-            if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+rot.RightVector end
-            if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
-            if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
-            if dir.Magnitude>0 then
-                pos=pos+dir.Unit*sp
-                ST.freeCamPos=pos
-            end
-            local cf=CFrame.new(pos)*rot
-            cam.CFrame=cf
-            cam.Focus=cf
+            applyAim(cam)
         end)
     end)
 end)
@@ -900,7 +1032,32 @@ btn(tP,"Spectate",function() if ST.selectedPlayer and ST.selectedPlayer.Characte
 btn(tP,"Stop Spectate",function() ST.spectateOverhead=false if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end CAM.CameraType=Enum.CameraType.Custom ST.spectating=nil end ntf("Spectate","Stopped") end,"stopspec")
 btn(tP,"Spectate: Next Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local nextI=idx+1 if nextI>#plrs then nextI=1 end local np=plrs[nextI] if np~=LP and np.Character then local h=np.Character:FindFirstChildOfClass("Humanoid") if h then if not ST.spectateOverhead then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom end ST.spectating=np ST.ovhInit=false ntf("Spectate","Following: "..np.DisplayName) end end end,"specnext")
 btn(tP,"Spectate: Prev Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local prevI=idx-1 if prevI<1 then prevI=#plrs end local pp2=plrs[prevI] if pp2~=LP and pp2.Character then local h=pp2.Character:FindFirstChildOfClass("Humanoid") if h then if not ST.spectateOverhead then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom end ST.spectating=pp2 ST.ovhInit=false ntf("Spectate","Following: "..pp2.DisplayName) end end end,"specprev")
-btn(tP,"Spectate: Overhead",function() if ST.spectating and ST.spectating.Character and ST.spectating.Character:FindFirstChild("HumanoidRootPart") then ST.spectateOverhead=not ST.spectateOverhead if ST.spectateOverhead then setFreeCam(false) CAM.CameraType=Enum.CameraType.Scriptable ST.ovhOff=Vector3.new(0,25,0) ST.ovhYaw=0 ST.ovhPitch=-1.4 ST.ovhInit=true ntf("Spectate","Overhead ON - WASD + hold RMB to move camera") else CAM.CameraType=Enum.CameraType.Custom if ST.spectating then local h=ST.spectating.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end U.MouseBehavior=Enum.MouseBehavior.Default ntf("Spectate","Overhead OFF") end end end,"specover")
+btn(tP,"Spectate: Overhead",function()
+    if not ST.spectating then
+        if ST.selectedPlayer and ST.selectedPlayer.Character then ST.spectating=ST.selectedPlayer end
+        if not ST.spectating then
+            for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character then ST.spectating=pp break end end
+        end
+    end
+    if not ST.spectating or not ST.spectating.Character or not ST.spectating.Character:FindFirstChild("HumanoidRootPart") then
+        ntf("Spectate","No target - select a player first",4) return
+    end
+    ST.spectateOverhead=not ST.spectateOverhead
+    if ST.spectateOverhead then
+        setFreeCam(false)
+        ST.ovhOff=Vector3.new(0,25,0)
+        ST.ovhYaw=0
+        ST.ovhPitch=-1.4
+        ST.ovhInit=true
+        ntf("Spectate","Overhead ON on "..ST.spectating.DisplayName.." - WASD + RMB")
+    else
+        CAM.CameraType=Enum.CameraType.Custom
+        local h=ST.spectating.Character:FindFirstChildOfClass("Humanoid")
+        if h then CAM.CameraSubject=h end
+        U.MouseBehavior=Enum.MouseBehavior.Default
+        ntf("Spectate","Overhead OFF")
+    end
+end,"specover")
 local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Enabled=CFG.ESPFillEnabled hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
 table.insert(allToggles,tESP)
 sep(tP)
@@ -1281,7 +1438,73 @@ U.InputEnded:Connect(function(inp)
     end
     if ST.aimHoldKey and KB.aimbot and (inp.KeyCode==KB.aimbot or inp.UserInputType==KB.aimbot) then ST.aimKeyHeld=false end
 end)
-MS.Button1Down:Connect(function() if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,2,0)) end end end)
+local _lastTracer=0
+local function drawShotTracer()
+    pcall(function()
+        local now=tick()
+        if now-_lastTracer<0.08 then return end
+        _lastTracer=now
+        local cam=W.CurrentCamera or CAM
+        if not cam then return end
+        local origin=cam.CFrame.Position
+        local dir=cam.CFrame.LookVector*500
+        local params=RaycastParams.new()
+        params.FilterType=Enum.RaycastFilterType.Exclude
+        local filt={}
+        if LP.Character then table.insert(filt,LP.Character) end
+        params.FilterDescendantsInstances=filt
+        local hit=W:Raycast(origin,dir,params)
+        local endPos=hit and hit.Position or (origin+dir)
+        local holder=Instance.new("Part")
+        holder.Name="AxTracer"
+        holder.Anchored=true
+        holder.CanCollide=false
+        holder.CanQuery=false
+        holder.Transparency=1
+        holder.Size=Vector3.new(0.2,0.2,0.2)
+        holder.CFrame=CFrame.lookAt(origin,endPos)
+        holder.Parent=W
+        local a0=Instance.new("Attachment") a0.Position=Vector3.new(0,0,0) a0.Parent=holder
+        local a1=Instance.new("Attachment") a1.Parent=holder
+        a1.WorldPosition=endPos
+        local beam=Instance.new("Beam")
+        beam.Attachment0=a0
+        beam.Attachment1=a1
+        beam.Width0=0.18
+        beam.Width1=0.05
+        beam.FaceCamera=true
+        beam.Color=ColorSequence.new(Color3.fromRGB(255,210,60),Color3.fromRGB(255,70,70))
+        beam.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0.1),NumberSequenceKeypoint.new(1,0.6)})
+        beam.LightEmission=1
+        beam.Parent=holder
+        local ball=Instance.new("Part")
+        ball.Name="AxTracerHit"
+        ball.Shape=Enum.PartType.Ball
+        ball.Size=Vector3.new(0.55,0.55,0.55)
+        ball.Anchored=true
+        ball.CanCollide=false
+        ball.CanQuery=false
+        ball.Material=Enum.Material.Neon
+        ball.Color=Color3.fromRGB(255,140,40)
+        ball.Position=endPos
+        ball.Parent=W
+        task.delay(0.16,function()
+            pcall(function()
+                if beam then beam:Destroy() end
+                if holder then holder:Destroy() end
+                if ball then ball:Destroy() end
+            end)
+        end)
+        pcall(function()
+            local r=findRemote("WeaponsSystem.Network.WeaponFired")
+            if r then r:FireServer(origin,endPos) end
+        end)
+    end)
+end
+MS.Button1Down:Connect(function()
+    if not ST.menuOpen then drawShotTracer() end
+    if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,2,0)) end end
+end)
 local lastInfJump=0
 U.JumpRequest:Connect(function()
     if ST.infJump and not ST.freeCam and LP.Character and tick()-lastInfJump>0.2 then
@@ -1394,7 +1617,7 @@ R.RenderStepped:Connect(function()
                     ST._vehOrig[seat]=seat.MaxSpeed
                 end
                 local target=math.max(ST._vehOrig[seat] or 30, ST.vehBoost or 80)
-                if seat.MaxSpeed<target then
+                if seat.MaxSpeed~=target then
                     seat.MaxSpeed=target
                 end
             end
@@ -1415,44 +1638,36 @@ R.RenderStepped:Connect(function()
         if ST.botPlay and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then if #ST.botFrames>0 then local elapsed=tick()-ST.botStart local idx=1 for i=1,#ST.botFrames do if ST.botFrames[i].t<=elapsed then idx=i else break end end if idx>#ST.botFrames then if ST.botLoop then ST.botStart=tick() idx=1 else ST.botPlay=false ntf("Bot","Playback finished!") end end if ST.botPlay and ST.botFrames[idx] then LP.Character.HumanoidRootPart.CFrame=ST.botFrames[idx].cf end end end
     end)
     pcall(function()
-        if not ST.spectateOverhead or not ST.spectating or not ST.spectating.Character then return end
-        local hrpT=ST.spectating.Character:FindFirstChild("HumanoidRootPart")
-        if not hrpT then return end
-        CAM=W.CurrentCamera or CAM
-        CAM.CameraType=Enum.CameraType.Scriptable
-        if not ST.ovhInit then
-            ST.ovhOff=Vector3.new(0,25,0)
-            ST.ovhYaw=0
-            ST.ovhPitch=-1.4
-            ST.ovhInit=true
-        end
-        if U:IsKeyDown(Enum.UserInputType.MouseButton2) then
-            U.MouseBehavior=Enum.MouseBehavior.LockCenter
-            local md=U:GetMouseDelta()
-            if md then
-                ST.ovhYaw=(ST.ovhYaw or 0)-md.X*0.0035
-                ST.ovhPitch=math.clamp((ST.ovhPitch or 0)-md.Y*0.0035,-1.45,1.45)
+        local aimActive=((not ST.aimHoldKey and ST.aimEnabled) or (ST.aimHoldKey and ST.aimKeyHeld))
+        local wantFOV=aimActive or ST.showFOV
+        if wantFOV and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+            if not ST.aimFOVGui then
+                local s=Instance.new("ScreenGui") s.Name="AimFOV" s.ResetOnSpawn=false s.DisplayOrder=50 s.IgnoreGuiInset=true
+                pcall(function() s.Parent=CG end) if not s.Parent then s.Parent=LP:WaitForChild("PlayerGui") end
+                local c=Instance.new("Frame") c.Name="Circle" c.AnchorPoint=Vector2.new(0.5,0.5)
+                c.Position=UDim2.new(0.5,0,0.5,0)
+                c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2)
+                c.BackgroundTransparency=1 c.BorderSizePixel=0 c.Parent=s
+                local st=Instance.new("UIStroke") st.Color=Color3.fromRGB(255,80,80) st.Thickness=1.5 st.Transparency=0.3 st.Parent=c
+                local cr=Instance.new("UICorner") cr.CornerRadius=UDim.new(1,0) cr.Parent=c
+                ST.aimFOVGui=s
             end
-        elseif U.MouseBehavior~=Enum.MouseBehavior.Default then
-            U.MouseBehavior=Enum.MouseBehavior.Default
+            local circ=ST.aimFOVGui:FindFirstChild("Circle")
+            if circ then
+                circ.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2)
+                local mp=U:GetMouseLocation()
+                circ.Position=UDim2.new(0,mp.X,0,mp.Y)
+            end
+        elseif ST.aimFOVGui then
+            ST.aimFOVGui:Destroy()
+            ST.aimFOVGui=nil
         end
-        local yaw=ST.ovhYaw or 0
-        local pitch=ST.ovhPitch or 0
-        local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
-        local off=ST.ovhOff or Vector3.new(0,25,0)
-        local sp=2
-        if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=5 end
-        if U:IsKeyDown(Enum.KeyCode.W) then off=off+rot.LookVector*sp end
-        if U:IsKeyDown(Enum.KeyCode.S) then off=off-rot.LookVector*sp end
-        if U:IsKeyDown(Enum.KeyCode.A) then off=off-rot.RightVector*sp end
-        if U:IsKeyDown(Enum.KeyCode.D) then off=off+rot.RightVector*sp end
-        if U:IsKeyDown(Enum.KeyCode.Space) then off=off+Vector3.new(0,1,0)*sp end
-        if U:IsKeyDown(Enum.KeyCode.LeftControl) then off=off-Vector3.new(0,1,0)*sp end
-        ST.ovhOff=off
-        local pos=hrpT.Position+off
-        local cf=CFrame.new(pos)*rot
-        CAM.CFrame=cf
-        CAM.Focus=cf
+        if not aimActive then
+            ST.aimTarget=nil
+            ST._aimWallC=nil
+            local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
+        end
     end)
     pcall(function() if ST.cursorTPPreview then if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local m=MS.Hit if m then ST.cursorTPPreview.Position=m.Position+Vector3.new(0,3,0) end end end end)
     pcall(function()
@@ -1463,7 +1678,12 @@ R.RenderStepped:Connect(function()
                     local hrp=pp.Character.HumanoidRootPart
                     local hum=pp.Character:FindFirstChildOfClass("Humanoid")
                     local dist=(myPos-hrp.Position).Magnitude
-                    if dist>CFG.ESPMaxDist then local bb2=pp.Character:FindFirstChild("AxESP_BB") if bb2 then bb2:Destroy() end if ST.esp2D then local box2=ST.esp2D[pp.UserId] if box2 then pcall(function() box2:Destroy() end) ST.esp2D[pp.UserId]=nil end end continue end
+                    if dist>CFG.ESPMaxDist then
+                        local bb2=pp.Character:FindFirstChild("AxESP_BB")
+                        if bb2 then bb2:Destroy() end
+                        if ST.esp2D then local box2=ST.esp2D[pp.UserId] if box2 then pcall(function() box2:Destroy() end) ST.esp2D[pp.UserId]=nil end end
+                        continue
+                    end
                     local head=pp.Character:FindFirstChild("Head")
                     local headY=head and head.Position.Y+3 or hrp.Position.Y+3
                     ST.esp2D=ST.esp2D or {}
@@ -1552,125 +1772,6 @@ R.RenderStepped:Connect(function()
     end)
     pcall(function()
         if ST.esp2D then for uid,fr in pairs(ST.esp2D) do local pp=P:GetPlayerByUserId(uid) if not pp or not pp.Character then if fr then pcall(function() fr:Destroy() end) end ST.esp2D[uid]=nil end end end
-    end)
-    pcall(function()
-        local aimActive=((not ST.aimHoldKey and ST.aimEnabled) or (ST.aimHoldKey and ST.aimKeyHeld))
-        local wantFOV=aimActive or ST.showFOV
-        if wantFOV and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-            if not ST.aimFOVGui then
-                local s=Instance.new("ScreenGui") s.Name="AimFOV" s.ResetOnSpawn=false s.DisplayOrder=50 s.IgnoreGuiInset=true
-                pcall(function() s.Parent=CG end) if not s.Parent then s.Parent=LP:WaitForChild("PlayerGui") end
-                local c=Instance.new("Frame") c.Name="Circle" c.AnchorPoint=Vector2.new(0.5,0.5)
-                c.Position=UDim2.new(0.5,0,0.5,0)
-                c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2)
-                c.BackgroundTransparency=1 c.BorderSizePixel=0 c.Parent=s
-                local st=Instance.new("UIStroke") st.Color=Color3.fromRGB(255,80,80) st.Thickness=1.5 st.Transparency=0.3 st.Parent=c
-                local cr=Instance.new("UICorner") cr.CornerRadius=UDim.new(1,0) cr.Parent=c
-                ST.aimFOVGui=s
-            end
-            local circ=ST.aimFOVGui:FindFirstChild("Circle")
-            if circ then
-                circ.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2)
-                local mp=U:GetMouseLocation()
-                circ.Position=UDim2.new(0,mp.X,0,mp.Y)
-            end
-        elseif ST.aimFOVGui then
-            ST.aimFOVGui:Destroy()
-            ST.aimFOVGui=nil
-        end
-        if aimActive and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid") then
-            local camPos=CAM.CFrame.Position
-            local mpA=U:GetMouseLocation()
-            local center=Vector2.new(mpA.X,mpA.Y)
-            local bestTarget=nil local bestDist=ST.aimFOV
-            local cur=ST.aimTarget
-            local curOk=false
-            if cur and cur.Character and cur.Character:FindFirstChild(ST.aimTargetPart) and cur.Character:FindFirstChildOfClass("Humanoid") then
-                local h=cur.Character:FindFirstChildOfClass("Humanoid")
-                if h.Health>0 and not (ST.aimTeamCheck and cur.Team==LP.Team) then
-                    local part=cur.Character[ST.aimTargetPart]
-                    local tgtPos=part.Position
-                    local wallOK=true
-                    if ST.aimWallCheck then
-                        local cacheKey=cur.UserId
-                        local now=tick()
-                        local c=ST._aimWallC and ST._aimWallC[cacheKey]
-                        if c and now-c.t<0.12 then
-                            wallOK=c.ok
-                        else
-                            local params=RaycastParams.new()
-                            params.FilterType=Enum.RaycastFilterType.Exclude
-                            local filt={LP.Character}
-                            for _,v in pairs(cur.Character:GetDescendants()) do table.insert(filt,v) end
-                            params.FilterDescendantsInstances=filt
-                            wallOK=(W:Raycast(camPos,tgtPos-camPos,params)==nil)
-                            ST._aimWallC=ST._aimWallC or {}
-                            ST._aimWallC[cacheKey]={t=now,ok=wallOK}
-                        end
-                    end
-                    if wallOK then
-                        local sp2,onscreen=CAM:WorldToViewportPoint(tgtPos)
-                        if onscreen then
-                            local d=(Vector2.new(sp2.X,sp2.Y)-center).Magnitude
-                            if d<=ST.aimFOV*1.35 then
-                                curOk=true
-                                bestTarget=cur
-                                bestDist=d
-                            end
-                        end
-                    end
-                end
-            end
-            if not curOk then
-                for _,pp in pairs(P:GetPlayers()) do
-                    if pp~=LP and pp~=cur and pp.Character and pp.Character:FindFirstChild(ST.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
-                        if pp.Character:FindFirstChildOfClass("Humanoid").Health>0 then
-                            if ST.aimTeamCheck and pp.Team==LP.Team then continue end
-                            local part=pp.Character[ST.aimTargetPart]
-                            local tgtPos=part.Position
-                            if ST.aimWallCheck then
-                                local params=RaycastParams.new()
-                                params.FilterType=Enum.RaycastFilterType.Exclude
-                                local filt={LP.Character}
-                                for _,v in pairs(pp.Character:GetDescendants()) do table.insert(filt,v) end
-                                params.FilterDescendantsInstances=filt
-                                if W:Raycast(camPos,tgtPos-camPos,params) then continue end
-                            end
-                            local sp2,onscreen=CAM:WorldToViewportPoint(tgtPos)
-                            if onscreen then
-                                local d=(Vector2.new(sp2.X,sp2.Y)-center).Magnitude
-                                if d<bestDist then bestDist=d bestTarget=pp end
-                            end
-                        end
-                    end
-                end
-            end
-            if bestTarget and bestTarget.Character and bestTarget.Character:FindFirstChild(ST.aimTargetPart) then
-                ST.aimTarget=bestTarget
-                local tgtPos=bestTarget.Character[ST.aimTargetPart].Position
-                local lookDir=CFrame.lookAt(camPos,tgtPos)
-                CAM.CFrame=CAM.CFrame:Lerp(lookDir,0.35)
-                local myHRP=LP.Character:FindFirstChild("HumanoidRootPart")
-                local myHum=LP.Character:FindFirstChildOfClass("Humanoid")
-                if myHRP and myHum then
-                    if myHum.AutoRotate then myHum.AutoRotate=false end
-                    local flat=Vector3.new(tgtPos.X-myHRP.Position.X,0,tgtPos.Z-myHRP.Position.Z)
-                    if flat.Magnitude>0.5 then
-                        local faceCF=CFrame.lookAt(myHRP.Position,myHRP.Position+flat)
-                        myHRP.CFrame=myHRP.CFrame:Lerp(faceCF,0.2)
-                    end
-                end
-            else
-                ST.aimTarget=nil
-                local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-                if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
-            end
-        else
-            ST.aimTarget=nil
-            ST._aimWallC=nil
-            local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-            if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
-        end
     end)
     pcall(function()
         if ST.arrayList then
