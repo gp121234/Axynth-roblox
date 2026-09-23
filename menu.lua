@@ -1528,7 +1528,7 @@ local function throwSpheres()
         dir=dir.Unit
         local right=cam.CFrame.RightVector
         local up=cam.CFrame.UpVector
-        for i=1,5 do
+        for i=1,10 do
             local ball=Instance.new("Part")
             ball.Name="AxSphere"
             ball.Shape=Enum.PartType.Ball
@@ -1540,10 +1540,10 @@ local function throwSpheres()
             ball.CanQuery=true
             ball.CanTouch=true
             ball.Massless=true
-            ball.CFrame=CFrame.new(origin+look*2+right*((i-3)*0.5)+up*0.15)
+            ball.CFrame=CFrame.new(origin+look*2+right*((i-5.5)*0.35)+up*0.15)
             ball.Parent=W
             local bv=Instance.new("BodyVelocity")
-            bv.Velocity=dir*math.random(90,130)+right*((i-3)*10)+up*math.random(2,8)
+            bv.Velocity=dir*math.random(90,130)+right*((i-5.5)*8)+up*math.random(2,8)
             bv.MaxForce=Vector3.new(1e5,1e5,1e5)
             bv.P=1e4
             bv.Parent=ball
@@ -1580,7 +1580,7 @@ local function throwSpheres()
                 end)
             end)
         end
-        ntf("Spheres","Fired at click x5")
+        ntf("Spheres","Fired at click x10")
     end)
 end
 MS.Button1Down:Connect(function()
