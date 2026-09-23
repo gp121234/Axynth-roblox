@@ -502,7 +502,7 @@ end)
 local ntf
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
-ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,aimWallCheck=true}
+ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false}
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
 local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
@@ -568,25 +568,25 @@ local function setFreeCam(on)
         if ST.freeCam then return end
         ST.freeCam=true
         pcall(function()
+            ST.spectateOverhead=false
             local ch=LP.Character
             local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
             local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-            if hrp then
+            if hrp and (not hum or not hum.Seated) then
                 ST.freeCamAnchor=hrp.CFrame
                 hrp.Anchored=true
                 hrp.Velocity=Vector3.new(0,0,0)
                 hrp.RotVelocity=Vector3.new(0,0,0)
             end
             if hum then
-                ST._fcWalk=hum.WalkSpeed
-                ST._fcJump=hum.JumpPower
+                if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
+                if ST._fcJump==nil then ST._fcJump=hum.JumpPower end
                 hum.WalkSpeed=0
                 hum.JumpPower=0
-                hum.PlatformStand=true
             end
             local cam=W.CurrentCamera or CAM
             CAM=cam
-            local rx,ry,rz=cam.CFrame:ToEulerAnglesYXZ()
+            local rx,ry=cam.CFrame:ToEulerAnglesYXZ()
             ST.freeCamYaw=ry
             ST.freeCamPitch=rx
             ST.freeCamPos=cam.CFrame.Position
@@ -606,7 +606,6 @@ local function setFreeCam(on)
             if hum then
                 hum.WalkSpeed=ST._fcWalk or 16
                 hum.JumpPower=ST._fcJump or 50
-                hum.PlatformStand=false
                 local cam=W.CurrentCamera or CAM
                 CAM=cam
                 cam.CameraSubject=hum
@@ -619,31 +618,17 @@ local function setFreeCam(on)
     end
 end
 pcall(function()
-    R:BindToRenderStep("AxFreecam",Enum.RenderPriority.Last,function()
+    R:BindToRenderStep("AxFreecam",Enum.RenderPriority.Camera.Value+1,function()
         if not ST.freeCam then return end
         pcall(function()
             local cam=W.CurrentCamera
             if not cam then return end
             CAM=cam
             cam.CameraType=Enum.CameraType.Scriptable
-            local ch=LP.Character
-            if ch then
-                local hrp=ch:FindFirstChild("HumanoidRootPart")
-                local hum=ch:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
-                    if hum.JumpPower~=0 then hum.JumpPower=0 end
-                    if not hum.PlatformStand then hum.PlatformStand=true end
-                    hum:ChangeState(Enum.HumanoidStateType.Physics)
-                end
-                if hrp and (not hum or not hum.Seated) then
-                    if not hrp.Anchored then hrp.Anchored=true end
-                    if ST.freeCamAnchor then
-                        hrp.CFrame=ST.freeCamAnchor
-                    end
-                    hrp.Velocity=Vector3.new(0,0,0)
-                    hrp.RotVelocity=Vector3.new(0,0,0)
-                end
+            local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
+                if hum.JumpPower~=0 then hum.JumpPower=0 end
             end
             local pos=ST.freeCamPos
             if not pos then
@@ -827,11 +812,15 @@ for gi,gp in ipairs(gravPresets) do
     gb.MouseButton1Click:Connect(function() pcall(function() W.Gravity=gp[2] ntf("Gravity",gp[1].." ("..gp[2]..")") end) end)
 end
 lbl(tW,">> VEHICLE SPEED")
-local vehPresets={{"Restore",nil},{"Max",200},{"Turbo",500}}
+local vehPresets={{"Restore",nil},{"Boost+",nil,"up"},{"Boost-",nil,"down"},{"Max",200},{"Turbo",500}}
 local vehFrame=Instance.new("Frame") vehFrame.Size=UDim2.new(1,-12,0,30) vehFrame.BackgroundColor3=TH.p vehFrame.BorderSizePixel=0 vehFrame.Parent=tW mkCorner(vehFrame,6)
 for vi,vp in ipairs(vehPresets) do
     local vb=Instance.new("TextButton") vb.Size=UDim2.new(0,72,0,22) vb.Position=UDim2.new(0,(vi-1)*78+4,0,4) vb.BackgroundColor3=TH.b vb.BorderSizePixel=0 vb.Text=vp[1] vb.TextColor3=TH.t vb.TextSize=10 vb.Font=Enum.Font.GothamBold vb.Parent=vehFrame mkCorner(vb,4)
-    vb.MouseButton1Click:Connect(function() pcall(function() local ch=LP.Character if ch then local seat=ch:FindFirstChildOfClass("VehicleSeat") or ch:FindFirstChild("Seat") if seat then ST._vehOrig=ST._vehOrig or {} if ST._vehOrig[seat]==nil then ST._vehOrig[seat]=seat.MaxSpeed end if vp[2]==nil then seat.MaxSpeed=ST._vehOrig[seat] ntf("Vehicle","Restored: "..tostring(ST._vehOrig[seat])) else seat.MaxSpeed=math.max(vp[2],ST._vehOrig[seat] or 0) ntf("Vehicle",vp[1]..": "..tostring(seat.MaxSpeed)) end end end end) end)
+    vb.MouseButton1Click:Connect(function() pcall(function()
+        if vp[3]=="up" then ST.vehBoost=math.min((ST.vehBoost or 80)+20,500) ntf("Vehicle","Boost: "..ST.vehBoost) return end
+        if vp[3]=="down" then ST.vehBoost=math.max((ST.vehBoost or 80)-20,30) ntf("Vehicle","Boost: "..ST.vehBoost) return end
+        local ch=LP.Character if ch then local seat=ch:FindFirstChildOfClass("VehicleSeat") or ch:FindFirstChild("Seat") if seat then ST._vehOrig=ST._vehOrig or {} if ST._vehOrig[seat]==nil and seat.MaxSpeed>0 then ST._vehOrig[seat]=seat.MaxSpeed end if vp[2]==nil then seat.MaxSpeed=ST._vehOrig[seat] or 30 ntf("Vehicle","Restored: "..tostring(seat.MaxSpeed)) else seat.MaxSpeed=math.max(vp[2],ST._vehOrig[seat] or 0) ntf("Vehicle",vp[1]..": "..tostring(seat.MaxSpeed)) end end end
+    end) end)
 end
 local tP=tF["plr"]
 lbl(tP,">> SELECT PLAYER")
@@ -907,10 +896,10 @@ btn(tP,"Goto Player",function() if ST.selectedPlayer and ST.selectedPlayer.Chara
 sep(tP)
 lbl(tP,">> SPECTATE + ESP")
 btn(tP,"Spectate",function() if ST.selectedPlayer and ST.selectedPlayer.Character then local h=ST.selectedPlayer.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=ST.selectedPlayer end end end,"spec")
-btn(tP,"Stop Spectate",function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end CAM.CameraType=Enum.CameraType.Custom ST.spectating=nil end end,"stopspec")
-btn(tP,"Spectate: Next Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local nextI=idx+1 if nextI>#plrs then nextI=1 end local np=plrs[nextI] if np~=LP and np.Character then local h=np.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=np ntf("Spectate","Following: "..np.DisplayName) end end end,"specnext")
-btn(tP,"Spectate: Prev Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local prevI=idx-1 if prevI<1 then prevI=#plrs end local pp2=plrs[prevI] if pp2~=LP and pp2.Character then local h=pp2.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=pp2 ntf("Spectate","Following: "..pp2.DisplayName) end end end,"specprev")
-btn(tP,"Spectate: Overhead",function() if ST.spectating and ST.spectating.Character and ST.spectating.Character:FindFirstChild("HumanoidRootPart") then ST.spectateOverhead=not ST.spectateOverhead if ST.spectateOverhead then CAM.CameraType=Enum.CameraType.Scriptable ntf("Spectate","Overhead follow ON") else CAM.CameraType=Enum.CameraType.Custom ntf("Spectate","Overhead follow OFF") end end end,"specover")
+btn(tP,"Stop Spectate",function() ST.spectateOverhead=false if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end CAM.CameraType=Enum.CameraType.Custom ST.spectating=nil end ntf("Spectate","Stopped") end,"stopspec")
+btn(tP,"Spectate: Next Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local nextI=idx+1 if nextI>#plrs then nextI=1 end local np=plrs[nextI] if np~=LP and np.Character then local h=np.Character:FindFirstChildOfClass("Humanoid") if h then if not ST.spectateOverhead then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom end ST.spectating=np ST.ovhInit=false ntf("Spectate","Following: "..np.DisplayName) end end end,"specnext")
+btn(tP,"Spectate: Prev Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local prevI=idx-1 if prevI<1 then prevI=#plrs end local pp2=plrs[prevI] if pp2~=LP and pp2.Character then local h=pp2.Character:FindFirstChildOfClass("Humanoid") if h then if not ST.spectateOverhead then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom end ST.spectating=pp2 ST.ovhInit=false ntf("Spectate","Following: "..pp2.DisplayName) end end end,"specprev")
+btn(tP,"Spectate: Overhead",function() if ST.spectating and ST.spectating.Character and ST.spectating.Character:FindFirstChild("HumanoidRootPart") then ST.spectateOverhead=not ST.spectateOverhead if ST.spectateOverhead then setFreeCam(false) CAM.CameraType=Enum.CameraType.Scriptable ST.ovhOff=Vector3.new(0,25,0) ST.ovhYaw=0 ST.ovhPitch=-1.4 ST.ovhInit=true ntf("Spectate","Overhead ON - WASD + hold RMB to move camera") else CAM.CameraType=Enum.CameraType.Custom if ST.spectating then local h=ST.spectating.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end U.MouseBehavior=Enum.MouseBehavior.Default ntf("Spectate","Overhead OFF") end end end,"specover")
 local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Enabled=CFG.ESPFillEnabled hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
 table.insert(allToggles,tESP)
 sep(tP)
@@ -1143,7 +1132,7 @@ btn(tMi,"Reset Character",function() if LP.Character then local h=LP.Character:F
 btn(tMi,"Anti-AFK",function() pcall(function() LP.Character:WaitForChild("Humanoid"):ChangeState(Enum.HumanoidStateType.Running) end) end,"antiafk")
 local tAC=tog(tMi,"Auto Clicker",function() return ST.autoClicker end,function() ST.autoClicker=not ST.autoClicker ntf("AutoClick",ST.autoClicker and "ON (5 CPS)" or "OFF") end,"autoclick")
 table.insert(allToggles,tAC)
-local tVS=tog(tMi,"Vehicle Speed",function() return ST.vehicleSpeedOn end,function() ST.vehicleSpeedOn=not ST.vehicleSpeedOn if ST.vehicleSpeedOn then ntf("VehicleSpeed","ON - raises car speed only (never lowers)") else ntf("VehicleSpeed","OFF - restoring car speeds") pcall(function() if ST._vehOrig and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum and hum.Seated and hum.SeatPart and ST._vehOrig[hum.SeatPart] then hum.SeatPart.MaxSpeed=ST._vehOrig[hum.SeatPart] end end end) end end,"vehspeed")
+local tVS=tog(tMi,"Vehicle Speed",function() return ST.vehicleSpeedOn end,function() ST.vehicleSpeedOn=not ST.vehicleSpeedOn if ST.vehicleSpeedOn then ntf("VehicleSpeed","ON - boost "..tostring(ST.vehBoost or 80).." (re-applied gently)") else ntf("VehicleSpeed","OFF - restoring car speeds") pcall(function() if ST._vehOrig and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum and hum.Seated and hum.SeatPart and ST._vehOrig[hum.SeatPart] then hum.SeatPart.MaxSpeed=ST._vehOrig[hum.SeatPart] end end end) end end,"vehspeed")
 table.insert(allToggles,tVS)
 local tAL=tog(tMi,"ArrayList",function() return ST.arrayList end,function() ST.arrayList=not ST.arrayList ntf("ArrayList",ST.arrayList and "ON" or "OFF") end,"arraylist")
 table.insert(allToggles,tAL)
@@ -1180,7 +1169,7 @@ btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=rea
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
-btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
+btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false ST.spectateOverhead=false ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -1245,7 +1234,7 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="spinner" then ST.spinner=not ST.spinner if not ST.spinner and LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end
             elseif id=="autoclick" then ST.autoClicker=not ST.autoClicker
             elseif id=="macetp" then ST.maceTP=not ST.maceTP
-            elseif id=="vehspeed" then ST.vehicleSpeedOn=not ST.vehicleSpeedOn
+            elseif id=="vehspeed" then ST.vehicleSpeedOn=not ST.vehicleSpeedOn if not ST.vehicleSpeedOn then pcall(function() if ST._vehOrig and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum and hum.Seated and hum.SeatPart and ST._vehOrig[hum.SeatPart] then hum.SeatPart.MaxSpeed=ST._vehOrig[hum.SeatPart] end end end) end
             elseif id=="arraylist" then ST.arrayList=not ST.arrayList
             end
             end
@@ -1281,7 +1270,7 @@ U.InputEnded:Connect(function(inp)
                 elseif id=="spinner" then ST.spinner=false if LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end
                 elseif id=="autoclick" then ST.autoClicker=false
                 elseif id=="macetp" then ST.maceTP=false
-                elseif id=="vehspeed" then ST.vehicleSpeedOn=false
+                elseif id=="vehspeed" then ST.vehicleSpeedOn=false pcall(function() if ST._vehOrig and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum and hum.Seated and hum.SeatPart and ST._vehOrig[hum.SeatPart] then hum.SeatPart.MaxSpeed=ST._vehOrig[hum.SeatPart] end end end)
                 elseif id=="arraylist" then ST.arrayList=false
                 elseif id=="clicktp" then ST.clickTP=false if ST.cursorTPPreview then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end
                 end
@@ -1317,7 +1306,24 @@ R.RenderStepped:Connect(function()
         if ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") then if ST.savedCollide[p2]==nil then ST.savedCollide[p2]=p2.CanCollide end p2.CanCollide=false end end end
     end)
     pcall(function()
-        if ST.vehicleSpeedOn and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum and hum.Seated and hum.SeatPart and hum.SeatPart:IsA("VehicleSeat") then local seat=hum.SeatPart if not ST._vehOrig then ST._vehOrig={} end if ST._vehOrig[seat]==nil then ST._vehOrig[seat]=seat.MaxSpeed end seat.MaxSpeed=math.max(seat.MaxSpeed,ST._vehOrig[seat] or 0,300) end end
+        if ST.vehicleSpeedOn and LP.Character then
+            local hum=LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Seated and hum.SeatPart and hum.SeatPart:IsA("VehicleSeat") then
+                local seat=hum.SeatPart
+                if not ST._vehOrig then ST._vehOrig={} end
+                if ST._vehOrig[seat]==nil and seat.MaxSpeed>0 then
+                    ST._vehOrig[seat]=seat.MaxSpeed
+                end
+                local target=math.max(ST._vehOrig[seat] or 30, ST.vehBoost or 80)
+                local now=tick()
+                if seat.MaxSpeed<target then
+                    if now-(ST.vehApplyT or 0)>0.35 then
+                        ST.vehApplyT=now
+                        seat.MaxSpeed=target
+                    end
+                end
+            end
+        end
     end)
     pcall(function()
         if ST.spinner and LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then local sv=hrp:FindFirstChild("AxSpin") if not sv then sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) end end
@@ -1334,7 +1340,44 @@ R.RenderStepped:Connect(function()
         if ST.botPlay and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then if #ST.botFrames>0 then local elapsed=tick()-ST.botStart local idx=1 for i=1,#ST.botFrames do if ST.botFrames[i].t<=elapsed then idx=i else break end end if idx>#ST.botFrames then if ST.botLoop then ST.botStart=tick() idx=1 else ST.botPlay=false ntf("Bot","Playback finished!") end end if ST.botPlay and ST.botFrames[idx] then LP.Character.HumanoidRootPart.CFrame=ST.botFrames[idx].cf end end end
     end)
     pcall(function()
-        if ST.spectateOverhead and ST.spectating and ST.spectating.Character and ST.spectating.Character:FindFirstChild("HumanoidRootPart") then local pos=ST.spectating.Character.HumanoidRootPart.Position CAM.CFrame=CFrame.new(pos+Vector3.new(0,25,0),pos) end
+        if not ST.spectateOverhead or not ST.spectating or not ST.spectating.Character then return end
+        local hrpT=ST.spectating.Character:FindFirstChild("HumanoidRootPart")
+        if not hrpT then return end
+        CAM=W.CurrentCamera or CAM
+        CAM.CameraType=Enum.CameraType.Scriptable
+        if not ST.ovhInit then
+            ST.ovhOff=Vector3.new(0,25,0)
+            ST.ovhYaw=0
+            ST.ovhPitch=-1.4
+            ST.ovhInit=true
+        end
+        if U:IsKeyDown(Enum.UserInputType.MouseButton2) then
+            U.MouseBehavior=Enum.MouseBehavior.LockCenter
+            local md=U:GetMouseDelta()
+            if md then
+                ST.ovhYaw=(ST.ovhYaw or 0)-md.X*0.0035
+                ST.ovhPitch=math.clamp((ST.ovhPitch or 0)-md.Y*0.0035,-1.45,1.45)
+            end
+        elseif U.MouseBehavior~=Enum.MouseBehavior.Default then
+            U.MouseBehavior=Enum.MouseBehavior.Default
+        end
+        local yaw=ST.ovhYaw or 0
+        local pitch=ST.ovhPitch or 0
+        local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
+        local off=ST.ovhOff or Vector3.new(0,25,0)
+        local sp=2
+        if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=5 end
+        if U:IsKeyDown(Enum.KeyCode.W) then off=off+rot.LookVector*sp end
+        if U:IsKeyDown(Enum.KeyCode.S) then off=off-rot.LookVector*sp end
+        if U:IsKeyDown(Enum.KeyCode.A) then off=off-rot.RightVector*sp end
+        if U:IsKeyDown(Enum.KeyCode.D) then off=off+rot.RightVector*sp end
+        if U:IsKeyDown(Enum.KeyCode.Space) then off=off+Vector3.new(0,1,0)*sp end
+        if U:IsKeyDown(Enum.KeyCode.LeftControl) then off=off-Vector3.new(0,1,0)*sp end
+        ST.ovhOff=off
+        local pos=hrpT.Position+off
+        local cf=CFrame.new(pos)*rot
+        CAM.CFrame=cf
+        CAM.Focus=cf
     end)
     pcall(function() if ST.cursorTPPreview then if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local m=MS.Hit if m then ST.cursorTPPreview.Position=m.Position+Vector3.new(0,3,0) end end end end)
     pcall(function()
