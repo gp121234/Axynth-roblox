@@ -766,15 +766,17 @@ local function findRemote(name)
 end
 local function forceFire(r, ...)
     if not r then return end
+    local args={...}
     ST._forceFire=true
-    local ok=pcall(function() r:FireServer(...) end)
+    local ok=pcall(function() r:FireServer(unpack(args)) end)
     ST._forceFire=false
     return ok
 end
 local function forceInvoke(r, ...)
     if not r then return end
+    local args={...}
     ST._forceFire=true
-    pcall(function() r:InvokeServer(...) end)
+    pcall(function() r:InvokeServer(unpack(args)) end)
     ST._forceFire=false
 end
 local function getFXRemotes()
