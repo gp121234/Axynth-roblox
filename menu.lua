@@ -531,16 +531,30 @@ local function setFreeCam(on)
             local ch=LP.Character
             local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
             local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-            if hrp then ST.freeCamAnchor=hrp.Position hrp.Anchored=true hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end
-            if hum then ST._fcWalk=hum.WalkSpeed ST._fcJump=hum.JumpPower hum.WalkSpeed=0 hum.JumpPower=0 end
-            local rx,ry,rz=CAM.CFrame:ToEulerAnglesYXZ()
+            if hrp then
+                ST.freeCamAnchor=hrp.CFrame
+                hrp.Anchored=true
+                hrp.Velocity=Vector3.new(0,0,0)
+                hrp.RotVelocity=Vector3.new(0,0,0)
+            end
+            if hum then
+                ST._fcWalk=hum.WalkSpeed
+                ST._fcJump=hum.JumpPower
+                hum.WalkSpeed=0
+                hum.JumpPower=0
+                hum.PlatformStand=true
+            end
+            local cam=W.CurrentCamera or CAM
+            CAM=cam
+            local rx,ry,rz=cam.CFrame:ToEulerAnglesYXZ()
             ST.freeCamYaw=ry
             ST.freeCamPitch=rx
-            ST.freeCamPos=CAM.CFrame.Position
-            CAM.CameraType=Enum.CameraType.Scriptable
+            ST.freeCamPos=cam.CFrame.Position
+            cam.CameraType=Enum.CameraType.Scriptable
+            cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(rx,ry,0)
             U.MouseBehavior=Enum.MouseBehavior.Default
         end)
-        ntf("FreeCam","ON - player frozen, WASD + hold RMB")
+        ntf("FreeCam","ON - camera only (WASD + hold RMB), player frozen")
     else
         local was=ST.freeCam
         ST.freeCam=false
@@ -549,8 +563,15 @@ local function setFreeCam(on)
             local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
             local hum=ch and ch:FindFirstChildOfClass("Humanoid")
             if hrp then hrp.Anchored=false end
-            if hum then hum.WalkSpeed=ST._fcWalk or 16 hum.JumpPower=ST._fcJump or 50 CAM.CameraSubject=hum end
-            CAM.CameraType=Enum.CameraType.Custom
+            if hum then
+                hum.WalkSpeed=ST._fcWalk or 16
+                hum.JumpPower=ST._fcJump or 50
+                hum.PlatformStand=false
+                local cam=W.CurrentCamera or CAM
+                CAM=cam
+                cam.CameraSubject=hum
+                cam.CameraType=Enum.CameraType.Custom
+            end
             U.MouseBehavior=Enum.MouseBehavior.Default
         end)
         ST._fcWalk=nil ST._fcJump=nil ST.freeCamAnchor=nil ST.freeCamPos=nil
@@ -558,10 +579,13 @@ local function setFreeCam(on)
     end
 end
 pcall(function()
-    R:BindToRenderStep("AxFreecam",Enum.RenderPriority.Camera.Value+50,function()
+    R:BindToRenderStep("AxFreecam",Enum.RenderPriority.Last,function()
         if not ST.freeCam then return end
         pcall(function()
-            CAM.CameraType=Enum.CameraType.Scriptable
+            local cam=W.CurrentCamera
+            if not cam then return end
+            CAM=cam
+            cam.CameraType=Enum.CameraType.Scriptable
             local ch=LP.Character
             if ch then
                 local hrp=ch:FindFirstChild("HumanoidRootPart")
@@ -569,46 +593,54 @@ pcall(function()
                 if hum then
                     if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
                     if hum.JumpPower~=0 then hum.JumpPower=0 end
+                    if not hum.PlatformStand then hum.PlatformStand=true end
+                    hum:ChangeState(Enum.HumanoidStateType.Physics)
                 end
                 if hrp and (not hum or not hum.Seated) then
                     if not hrp.Anchored then hrp.Anchored=true end
-                    if ST.freeCamAnchor and (hrp.Position-ST.freeCamAnchor).Magnitude>1 then
-                        hrp.CFrame=CFrame.new(ST.freeCamAnchor)*(hrp.CFrame-hrp.CFrame.Position)
+                    if ST.freeCamAnchor then
+                        hrp.CFrame=ST.freeCamAnchor
                     end
                     hrp.Velocity=Vector3.new(0,0,0)
                     hrp.RotVelocity=Vector3.new(0,0,0)
                 end
             end
-            local pos=ST.freeCamPos or CAM.CFrame.Position
-            local yaw=ST.freeCamYaw or 0
-            local pitch=ST.freeCamPitch or 0
-            local dir=Vector3.new(0,0,0)
-            local sp=1
-            if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=3 end
-            local base=CFrame.new(pos)*CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
-            if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+base.LookVector end
-            if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-base.LookVector end
-            if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-base.RightVector end
-            if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+base.RightVector end
-            if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
-            if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
-            if dir.Magnitude>0 then
-                pos=pos+dir.Unit*sp
+            local pos=ST.freeCamPos
+            if not pos then
+                pos=cam.CFrame.Position
                 ST.freeCamPos=pos
             end
             if U:IsKeyDown(Enum.UserInputType.MouseButton2) then
                 U.MouseBehavior=Enum.MouseBehavior.LockCenter
                 local md=U:GetMouseDelta()
                 if md then
-                    ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.003
-                    ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.003,-1.4,1.4)
+                    ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.0035
+                    ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.0035,-1.45,1.45)
                 end
             else
-                U.MouseBehavior=Enum.MouseBehavior.Default
+                if U.MouseBehavior~=Enum.MouseBehavior.Default then
+                    U.MouseBehavior=Enum.MouseBehavior.Default
+                end
             end
-            local cf=CFrame.new(pos)*CFrame.Angles(0,ST.freeCamYaw or 0,0)*CFrame.Angles(ST.freeCamPitch or 0,0,0)
-            CAM.CFrame=cf
-            CAM.Focus=cf
+            local yaw=ST.freeCamYaw or 0
+            local pitch=ST.freeCamPitch or 0
+            local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
+            local dir=Vector3.new(0,0,0)
+            local sp=2
+            if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=5 end
+            if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+rot.LookVector end
+            if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-rot.LookVector end
+            if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-rot.RightVector end
+            if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+rot.RightVector end
+            if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
+            if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
+            if dir.Magnitude>0 then
+                pos=pos+dir.Unit*sp
+                ST.freeCamPos=pos
+            end
+            local cf=CFrame.new(pos)*rot
+            cam.CFrame=cf
+            cam.Focus=cf
         end)
     end)
 end)
