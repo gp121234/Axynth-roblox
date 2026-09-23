@@ -753,7 +753,7 @@ btn(tH,"Jump 75",function() ST.jumpPreset=75 ntf("Jump","75 - applied") end,"jp1
 btn(tH,"Jump 100",function() ST.jumpPreset=100 ntf("Jump","100 - applied") end,"jp300")
 btn(tH,"Jump 150",function() ST.jumpPreset=150 ntf("Jump","150 - applied") end,"jp500")
 btn(tH,"Reset Jump",function() ST.jumpPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=50 end end end) ntf("Jump","Reset 50") end,"jprst")
-local tInfJ=tog(tH,"Infinite Jump",function() return ST.infJump end,function() ST.infJump=not ST.infJump ntf("InfJump",ST.infJump and "ON - Space (throttled)" or "OFF") end,"infjump")
+local tInfJ=tog(tH,"Infinite Jump",function() return ST.infJump end,function() ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true ntf("InfJump","ON - Space + Godmode forced") else ntf("InfJump","OFF") end end,"infjump")
 table.insert(allToggles,tInfJ)
 local tSPH=tog(tH,"Speed Hard",function() return ST.speedHard end,function() ST.speedHard=not ST.speedHard if ST.speedHard then ST.speedPreset=math.max(ST.speedPreset,50) ntf("SpeedHard","ON (50)") else ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) ntf("SpeedHard","OFF") end end,"speedhard")
 table.insert(allToggles,tSPH)
@@ -1267,7 +1267,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     elseif id=="aimhold" then ST.aimKeyHeld=true
                     elseif id=="showfov" then ST.showFOV=true
                     elseif id=="aimwc" then ST.aimWallCheck=true
-                    elseif id=="infjump" then ST.infJump=true
+                    elseif id=="infjump" then ST.infJump=true ST.godmodeLoop=true
                     elseif id=="godloop" then ST.godmodeLoop=true
                     elseif id=="spheres" then ST.spheresOn=true
                     elseif id=="speedhard" then ST.speedHard=true ST.speedPreset=math.max(ST.speedPreset,50)
@@ -1295,7 +1295,7 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="aimhold" then ST.aimKeyHeld=true
             elseif id=="showfov" then ST.showFOV=not ST.showFOV
             elseif id=="aimwc" then ST.aimWallCheck=not ST.aimWallCheck
-            elseif id=="infjump" then ST.infJump=not ST.infJump if ST.infJump then ntf("InfJump","ON - Hold Space") end
+            elseif id=="infjump" then ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true ntf("InfJump","ON - Space + Godmode forced") end
             elseif id=="godloop" then ST.godmodeLoop=not ST.godmodeLoop
             elseif id=="spheres" then ST.spheresOn=not ST.spheresOn if ST.spheresOn then ntf("Spheres","ON") else ntf("Spheres","OFF") end
             elseif id=="speedhard" then ST.speedHard=not ST.speedHard ST.speedPreset=ST.speedHard and math.max(ST.speedPreset,50) or 0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=ST.speedHard and 50 or 16 end end end)
@@ -1551,6 +1551,9 @@ print("[Axynth] Events OK")
 R.RenderStepped:Connect(function()
     pcall(function()
         if ST.fly and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then local dir=Vector3.new(0,0,0) local sp=ST.flySpeed if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=sp*3 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if dir.Magnitude>0 then dir=dir.Unit h.Velocity=Vector3.new(0,0,0) h.RotVelocity=Vector3.new(0,0,0) h.CFrame=h.CFrame+dir*sp/60 else h.Velocity=Vector3.new(0,0,0) end end end
+    end)
+    pcall(function()
+        if ST.infJump then ST.godmodeLoop=true end
     end)
     pcall(function()
         if ST.godmodeLoop and LP.Character then
