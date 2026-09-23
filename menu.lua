@@ -800,6 +800,18 @@ end
 local function mpKillPlayer(victim, hitPos)
     if not victim or victim==LP or not victim.Character then return end
     pcall(function()
+        if not LP.Character then return end
+        local bp=LP:FindFirstChild("Backpack")
+        if bp then
+            for _,tool in pairs(bp:GetChildren()) do
+                if tool:IsA("Tool") then
+                    pcall(function() LP.Character:EquipTool(tool) end)
+                    break
+                end
+            end
+        end
+    end)
+    pcall(function()
         local part=victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
         local hrp=victim.Character:FindFirstChild("HumanoidRootPart")
         local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
@@ -808,33 +820,53 @@ local function mpKillPlayer(victim, hitPos)
         if dir.Magnitude<1 then dir=Vector3.new(0,0,-1) end
         local rf=findRemote("WeaponsSystem.Network.WeaponFired")
         if rf then
-            for i=1,6 do forceFire(rf, origin, hitPos) end
+            for i=1,8 do forceFire(rf, origin, hitPos) end
             forceFire(rf, origin, dir.Unit)
             forceFire(rf, hitPos)
+            forceFire(rf, origin, hitPos, part)
         end
         local hitRemotes={}
+        local seen={}
+        local function addRem(r)
+            if not r then return end
+            for _,e in ipairs(hitRemotes) do if e==r then return end end
+            table.insert(hitRemotes,r)
+        end
         local names={
             "WeaponsSystem.Network.WeaponHit",
             "WeaponsSystem.Network.Hit",
             "WeaponsSystem.Network.WeaponHitConfirm",
             "WeaponsSystem.Network.Damage",
-            "WeaponsSystem.Network.Hurt"
+            "WeaponsSystem.Network.Hurt",
+            "WeaponsSystem.Network.Kill",
+            "WeaponsSystem.Network.Eliminate",
+            "KillRemote",
+            "KillEvent",
+            "PlayerKill",
+            "DamagePlayer",
+            "TakeDamage"
         }
         for _,nm in ipairs(names) do
-            local r=findRemote(nm)
-            if r then table.insert(hitRemotes,r) end
+            addRem(findRemote(nm))
         end
+        local keys={"weaponhit","weapondamage","network.hit","kill","eliminate","takedamage","damageplayer","playerdamage","hurt"}
         pcall(function()
-            for _,d in pairs(RS:GetDescendants()) do
-                if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) then
-                    local low=string.lower(d.Name)
-                    if string.find(low,"weaponhit",1,true) or string.find(low,"weapondamage",1,true) or string.find(low,"network.hit",1,true) then
-                        table.insert(hitRemotes,d)
+            for _,parent in ipairs({RS,W,game:GetService("ReplicatedFirst")}) do
+                for _,d in pairs(parent:GetDescendants()) do
+                    if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) and not seen[d] then
+                        local low=string.lower(d.Name)
+                        for _,k in ipairs(keys) do
+                            if string.find(low,k,1,true) then
+                                seen[d]=true
+                                addRem(d)
+                                break
+                            end
+                        end
                     end
                 end
             end
         end)
-        local dmg=ST.weaponDmg or 100000
+        local dmg=999999
         for _,r in ipairs(hitRemotes) do
             local argSets={
                 {hitPos},
@@ -847,14 +879,18 @@ local function mpKillPlayer(victim, hitPos)
                 {victim.Name,hitPos},
                 {victim.Name,hitPos,part},
                 {victim.Name,hitPos,part,dmg},
+                {victim.Name,dmg},
+                {victim.UserId,hitPos},
+                {victim.UserId,hitPos,dmg},
+                {victim.UserId,dmg},
                 {origin,hitPos},
                 {origin,dir.Unit,hitPos},
                 {origin,dir.Unit,part,hitPos,dmg},
                 {part,hitPos,dmg},
                 {part,dmg},
                 {victim,dmg},
-                {victim.UserId,hitPos,dmg},
-                {victim.UserId,dmg}
+                {victim},
+                {victim.Name}
             }
             for _,args in ipairs(argSets) do
                 if r:IsA("RemoteFunction") then
@@ -868,6 +904,36 @@ local function mpKillPlayer(victim, hitPos)
             fireGameVolley(origin, hrp.Position)
         end
     end)
+end
+local function killNearestOrSelected()
+    local target=ST.selectedPlayer
+    if not (target and target~=LP and target.Character and target.Character:FindFirstChild("HumanoidRootPart")) then
+        target=nil
+        local best=nil
+        local bestD=80
+        for _,pp in pairs(P:GetPlayers()) do
+            if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") then
+                local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                local d=my and (pp.Character.HumanoidRootPart.Position-my.Position).Magnitude or 999
+                if d<bestD then bestD=d best=pp end
+            end
+        end
+        target=best
+    end
+    if not target then ntf("Kill","No target within 80 studs (select a player)") return end
+    local hrp=target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local pos=hrp.Position
+    for i=1,3 do mpKillPlayer(target,pos) end
+    pcall(function()
+        if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
+        if AR then AR:FireServer("kill", target.Name) end
+    end)
+    pcall(function()
+        local h=target.Character:FindFirstChildOfClass("Humanoid")
+        if h and h.Health>0 then h.Health=math.max(0,h.Health-100000) end
+    end)
+    ntf("Kill","Sent MP kill to "..target.DisplayName.." (game weapons)")
 end
 local function fireGameVolley(origin, target)
     pcall(function()
@@ -1391,6 +1457,31 @@ btn(tEx,"Mult x2",function() ST.weaponDmgMult=2 ntf("WeaponDmg","Multiplier: x2"
 btn(tEx,"Mult x5",function() ST.weaponDmgMult=5 ntf("WeaponDmg","Multiplier: x5") end,"wmult5")
 btn(tEx,"Mult x10",function() ST.weaponDmgMult=10 ntf("WeaponDmg","Multiplier: x10") end,"wmult10")
 sep(tEx)
+lbl(tEx,">> MULTIPLAYER KILL (no server.lua)")
+btn(tEx,"Kill Selected/Nearest (MP)",function()
+    if cd() then killNearestOrSelected() end
+end,"killmp")
+btn(tEx,"Kill All in Range 40 (MP)",function()
+    if not cd() then return end
+    local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if not my then return end
+    local nkill=0
+    for _,pp in pairs(P:GetPlayers()) do
+        if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") then
+            local d=(pp.Character.HumanoidRootPart.Position-my.Position).Magnitude
+            if d<=40 then
+                for i=1,2 do mpKillPlayer(pp, pp.Character.HumanoidRootPart.Position) end
+                pcall(function()
+                    if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
+                    if AR then AR:FireServer("kill", pp.Name) end
+                end)
+                nkill=nkill+1
+            end
+        end
+    end
+    ntf("Kill","Tried MP kill on "..nkill.." player(s) in 40 studs")
+end,"killall40")
+sep(tEx)
 lbl(tEx,">> REMOTE SCANNER")
 btn(tEx,"Open Remote Scanner",function() if _G.RemoteScanner then pcall(function() _G.RemoteScanner:Destroy() end) end
     local SG2=Instance.new("ScreenGui") SG2.Name="RemoteScanner" SG2.ResetOnSpawn=false SG2.DisplayOrder=2 pcall(function() SG2.Parent=CG end) if not SG2.Parent then SG2.Parent=LP:WaitForChild("PlayerGui") end _G.RemoteScanner=SG2
@@ -1834,7 +1925,7 @@ local function sphereKillAt(pos)
             end
         end
         if hitPl then
-            mpKillPlayer(hitPl, pos)
+            for i=1,3 do mpKillPlayer(hitPl, pos) end
             pcall(function()
                 if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
                 if AR then AR:FireServer("kill", hitPl.Name) end
