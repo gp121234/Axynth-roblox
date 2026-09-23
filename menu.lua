@@ -506,7 +506,9 @@ ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=n
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
 local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
-KB.aimbot=Enum.UserInputType.MouseButton2
+local KBMode={}
+local KBActive={}
+local kbBtns={}
 local waitingForKey = nil
 local togUpdates={}
 local function tw(o,p,d) local t=TW:Create(o,TweenInfo.new(d or 0.25,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),p) t:Play() return t end
@@ -517,7 +519,9 @@ local function mkPadding(p,t,b,l,r2) local pd=Instance.new("UIPadding",p) pd.Pad
 local function sep(p) local f=Instance.new("Frame") f.Size=UDim2.new(1,-12,0,1) f.Position=UDim2.new(0,6,0,0) f.BackgroundColor3=Color3.fromRGB(50,50,75) f.BorderSizePixel=0 f.Parent=p end
 local function lbl(p,t) local l=Instance.new("TextLabel") l.Size=UDim2.new(1,-12,0,22) l.Position=UDim2.new(0,6,0,0) l.BackgroundTransparency=1 l.Text=t l.TextColor3=TH.a l.TextSize=11 l.Font=Enum.Font.GothamBold l.TextXAlignment=Enum.TextXAlignment.Left l.Parent=p return l end
 ntf=function(t,x,d) pcall(function() S:SetCore("SendNotification",{Title=t,Text=x,Duration=d or 3}) end) end
-local function getKeyDisplay(key) if not key then return "NONE" end local s=tostring(key) s=s:gsub("Enum.KeyCode.","") s=s:gsub("Enum.UserInputType.","") return s end
+local function getKeyDisplay(key) if not key then return "NONE" end local s=tostring(key) s=s:gsub("Enum.KeyCode%.","") s=s:gsub("Enum.UserInputType%.MouseButton2","RMB") s=s:gsub("Enum.UserInputType%.MouseButton1","LMB") s=s:gsub("Enum.UserInputType%.MouseButton3","MMB") s=s:gsub("Enum.UserInputType%.","") return s end
+local function refreshKBBtns() for id,kb in pairs(kbBtns) do if kb and kb.Parent then kb.Text=getKeyDisplay(KB[id]) kb.TextColor3=(KBMode[id]=="hold") and Color3.fromRGB(255,200,80) or TH.a end end end
+local function cycleKBMode(id) KBMode[id]=(KBMode[id]=="hold") and "toggle" or "hold" refreshKBBtns() ntf("Keybind",(KBMode[id]=="hold") and "Mode: HOLD (while key down)" or "Mode: TOGGLE (press once)") end
 local function findRemote(name)
     local cur=RS
     local okPath=true
@@ -533,8 +537,10 @@ end
 local function btn(p,t,fn,id)
     local b=Instance.new("TextButton") b.Size=UDim2.new(1,-12,0,30) b.Position=UDim2.new(0,6,0,0) b.BackgroundColor3=TH.b b.BorderSizePixel=0 b.Text="  "..t b.TextColor3=TH.t b.TextSize=12 b.Font=Enum.Font.GothamMedium b.TextXAlignment=Enum.TextXAlignment.Left b.Parent=p
     mkCorner(b,6) mkStroke(b,Color3.fromRGB(60,60,90),1)
-    local kbBtn=Instance.new("TextButton") kbBtn.Size=UDim2.new(0,40,0,22) kbBtn.Position=UDim2.new(1,-48,0,6) kbBtn.BackgroundColor3=TH.p kbBtn.BorderSizePixel=0 kbBtn.Text=getKeyDisplay(KB[id]) kbBtn.TextColor3=TH.a kbBtn.TextSize=9 kbBtn.Font=Enum.Font.GothamBold kbBtn.Parent=b mkCorner(kbBtn,4) mkStroke(kbBtn,TH.a,1)
-    kbBtn.MouseButton1Click:Connect(function() waitingForKey=id kbBtn.Text="..." kbBtn.TextColor3=TH.r ntf("Keybind","Press any key for: "..t,5) end)
+    local kbBtn=Instance.new("TextButton") kbBtn.Size=UDim2.new(0,40,0,22) kbBtn.Position=UDim2.new(1,-48,0,6) kbBtn.BackgroundColor3=TH.p kbBtn.BorderSizePixel=0 kbBtn.Text=getKeyDisplay(KB[id]) kbBtn.TextColor3=(KBMode[id]=="hold") and Color3.fromRGB(255,200,80) or TH.a kbBtn.TextSize=9 kbBtn.Font=Enum.Font.GothamBold kbBtn.Parent=b mkCorner(kbBtn,4) mkStroke(kbBtn,TH.a,1)
+    if id then kbBtns[id]=kbBtn end
+    kbBtn.MouseButton1Click:Connect(function() waitingForKey=id kbBtn.Text="..." kbBtn.TextColor3=TH.r ntf("Keybind","Press key for: "..t.." (Backspace=clear, RMB on box=hold/toggle)",6) end)
+    kbBtn.MouseButton2Click:Connect(function() if id then cycleKBMode(id) end end)
     b.MouseEnter:Connect(function() twFast(b,{BackgroundColor3=TH.bh,TextColor3=Color3.new(1,1,1)}) end)
     b.MouseLeave:Connect(function() tw(b,{BackgroundColor3=TH.b,TextColor3=TH.t},0.2) end)
     b.MouseButton1Click:Connect(function() twFast(b,{BackgroundColor3=TH.a},0.08) wait(0.08) tw(b,{BackgroundColor3=TH.bh},0.15) pcall(fn) end)
@@ -544,12 +550,14 @@ local function tog(p,t,gf,fn,id)
     local b=Instance.new("TextButton") b.Size=UDim2.new(1,-12,0,34) b.Position=UDim2.new(0,6,0,0) b.BackgroundColor3=TH.b b.BorderSizePixel=0
     local st=gf() b.Text="  "..t..": "..(st and "ON" or "OFF") b.TextColor3=st and TH.g or TH.t b.TextSize=13 b.Font=Enum.Font.GothamMedium b.TextXAlignment=Enum.TextXAlignment.Left b.Parent=p
     mkCorner(b,6) mkStroke(b,st and TH.g or Color3.fromRGB(60,60,90),1)
-    local kbBtn=Instance.new("TextButton") kbBtn.Size=UDim2.new(0,40,0,22) kbBtn.Position=UDim2.new(1,-48,0,6) kbBtn.BackgroundColor3=TH.p kbBtn.BorderSizePixel=0 kbBtn.Text=getKeyDisplay(KB[id]) kbBtn.TextColor3=TH.a kbBtn.TextSize=9 kbBtn.Font=Enum.Font.GothamBold kbBtn.Parent=b mkCorner(kbBtn,4) mkStroke(kbBtn,TH.a,1)
-    kbBtn.MouseButton1Click:Connect(function() waitingForKey=id kbBtn.Text="..." kbBtn.TextColor3=TH.r ntf("Keybind","Press any key for: "..t,5) end)
+    local kbBtn=Instance.new("TextButton") kbBtn.Size=UDim2.new(0,40,0,22) kbBtn.Position=UDim2.new(1,-48,0,6) kbBtn.BackgroundColor3=TH.p kbBtn.BorderSizePixel=0 kbBtn.Text=getKeyDisplay(KB[id]) kbBtn.TextColor3=(KBMode[id]=="hold") and Color3.fromRGB(255,200,80) or TH.a kbBtn.TextSize=9 kbBtn.Font=Enum.Font.GothamBold kbBtn.Parent=b mkCorner(kbBtn,4) mkStroke(kbBtn,TH.a,1)
+    if id then kbBtns[id]=kbBtn end
+    kbBtn.MouseButton1Click:Connect(function() waitingForKey=id kbBtn.Text="..." kbBtn.TextColor3=TH.r ntf("Keybind","Press key for: "..t.." (Backspace=clear, RMB on box=hold/toggle)",6) end)
+    kbBtn.MouseButton2Click:Connect(function() if id then cycleKBMode(id) end end)
     b.MouseEnter:Connect(function() twFast(b,{BackgroundColor3=TH.bh}) end)
     b.MouseLeave:Connect(function() tw(b,{BackgroundColor3=TH.b},0.2) end)
     b.MouseButton1Click:Connect(function() twFast(b,{BackgroundColor3=TH.a},0.08) wait(0.08) fn() local s=gf() tw(b,{BackgroundColor3=s and Color3.fromRGB(30,60,30) or TH.b},0.15) b.Text="  "..t..": "..(s and "ON" or "OFF") b.TextColor3=s and TH.g or TH.t pcall(function() b.UIStroke.Color=s and TH.g or Color3.fromRGB(60,60,90) end) end)
-    local updateFn=function() local s=gf() b.Text="  "..t..": "..(s and "ON" or "OFF") b.TextColor3=s and TH.g or TH.t pcall(function() b.UIStroke.Color=s and TH.g or Color3.fromRGB(60,60,90) end) kbBtn.Text=getKeyDisplay(KB[id]) end
+    local updateFn=function() local s=gf() b.Text="  "..t..": "..(s and "ON" or "OFF") b.TextColor3=s and TH.g or TH.t pcall(function() b.UIStroke.Color=s and TH.g or Color3.fromRGB(60,60,90) end) kbBtn.Text=getKeyDisplay(KB[id]) kbBtn.TextColor3=(KBMode[id]=="hold") and Color3.fromRGB(255,200,80) or TH.a end
     togUpdates[b]=updateFn
     return b
 end
@@ -577,6 +585,7 @@ local XBtn=Instance.new("TextButton") XBtn.Size=UDim2.new(0,32,0,32) XBtn.Positi
 XBtn.MouseEnter:Connect(function() twFast(XBtn,{TextColor3=Color3.new(1,1,1)}) end)
 XBtn.MouseLeave:Connect(function() tw(XBtn,{TextColor3=TH.r},0.2) end)
 XBtn.MouseButton1Click:Connect(function() ST.menuOpen=false tw(MF,{Position=UDim2.new(0.5,-260,0.5,-280),BackgroundTransparency=1,Size=UDim2.new(0,520,0,420)},0.3) wait(0.3) MF.Visible=false MF.Position=UDim2.new(0.5,-260,0.5,-240) MF.Size=UDim2.new(0,520,0,480) MF.BackgroundTransparency=0.02 end)
+local OVF=Instance.new("Frame") OVF.Name="AxOverlay" OVF.Size=UDim2.fromScale(1,1) OVF.BackgroundTransparency=1 OVF.BorderSizePixel=0 OVF.ZIndex=100 OVF.Active=false OVF.Parent=SG
 local CFB=Instance.new("Frame") CFB.Size=UDim2.new(1,0,0,38) CFB.Position=UDim2.new(0,0,0,40) CFB.BackgroundColor3=Color3.fromRGB(20,20,36) CFB.BorderSizePixel=0 CFB.Parent=MF
 print("[Axynth] GUI OK")
 local tabs={} local tF={}
@@ -620,7 +629,7 @@ local tFly=tog(tH,"Fly",function() return ST.fly end,function() ST.fly=not ST.fl
 table.insert(allToggles,tFly)
 local tNoclip=tog(tH,"Noclip",function() return ST.noclip end,function() ST.noclip=not ST.noclip if not ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") and ST.savedCollide[p2]~=nil then p2.CanCollide=ST.savedCollide[p2] end end ST.savedCollide={} end end,"noclip")
 table.insert(allToggles,tNoclip)
-local tFC=tog(tH,"Free Cam",function() return ST.freeCam end,function() ST.freeCam=not ST.freeCam if ST.freeCam then ST.freeCamPos=CAM.CFrame ST.freeCamYaw=0 ST.freeCamPitch=0 CAM.CameraType=Enum.CameraType.Scriptable U.MouseBehavior=Enum.MouseBehavior.LockCenter ntf("FreeCam","ON - WASD + Mouse") else CAM.CameraType=Enum.CameraType.Custom U.MouseBehavior=Enum.MouseBehavior.Default if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end ntf("FreeCam","OFF") end end,"freecam")
+local tFC=tog(tH,"Free Cam",function() return ST.freeCam end,function() ST.freeCam=not ST.freeCam if ST.freeCam then ST.freeCamPos=CAM.CFrame ST.freeCamYaw=0 ST.freeCamPitch=0 CAM.CameraType=Enum.CameraType.Scriptable U.MouseBehavior=Enum.MouseBehavior.Default ntf("FreeCam","ON - WASD move, hold RMB to look") else CAM.CameraType=Enum.CameraType.Custom U.MouseBehavior=Enum.MouseBehavior.Default if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end ntf("FreeCam","OFF") end end,"freecam")
 table.insert(allToggles,tFC)
 local tSpin=tog(tH,"Spinner (Self)",function() return ST.spinner end,function() ST.spinner=not ST.spinner if not ST.spinner and LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end end,"spinner")
 table.insert(allToggles,tSpin)
@@ -670,7 +679,8 @@ pDropBtn.MouseButton1Click:Connect(function()
     pDropOpen=not pDropOpen
     if pDropOpen then
         if pDropdown then pDropdown:Destroy() end
-        pDropdown=Instance.new("ScrollingFrame") pDropdown.Size=UDim2.new(1,-12,0,120) pDropdown.Position=UDim2.new(0,6,0,38) pDropdown.BackgroundColor3=TH.s pDropdown.BorderSizePixel=0 pDropdown.ScrollBarThickness=3 pDropdown.ScrollBarImageColor3=TH.a pDropdown.Parent=tP mkCorner(pDropdown,6) mkStroke(pDropdown,TH.a,1)
+        pDropdown=Instance.new("ScrollingFrame") pDropdown.Size=UDim2.new(1,-12,0,120) pDropdown.BackgroundColor3=TH.s pDropdown.BorderSizePixel=0 pDropdown.ScrollBarThickness=3 pDropdown.ScrollBarImageColor3=TH.a pDropdown.ZIndex=101 pDropdown.Parent=OVF mkCorner(pDropdown,6) mkStroke(pDropdown,TH.a,1)
+        local bp=pDropBtn.AbsolutePosition pDropdown.Position=UDim2.fromOffset(bp.X,bp.Y+pDropBtn.AbsoluteSize.Y)
         Instance.new("UIListLayout",pDropdown).Padding=UDim.new(0,2) mkPadding(pDropdown,2,2,4,4)
         local pl=P:GetPlayers() pDropdown.CanvasSize=UDim2.new(0,0,0,#pl*28)
         for _,pp in pairs(pl) do if pp~=LP then local o=Instance.new("TextButton") o.Size=UDim2.new(1,-8,0,26) o.BackgroundColor3=TH.p o.BorderSizePixel=0 o.Text="  "..pp.DisplayName o.TextColor3=TH.t o.TextXAlignment=Enum.TextXAlignment.Left o.TextSize=12 o.Font=Enum.Font.Gotham o.Parent=pDropdown mkCorner(o,4)
@@ -698,7 +708,7 @@ for ci,cc in ipairs(espColors) do
     local cb=Instance.new("TextButton") cb.Size=UDim2.new(0,28,0,28) cb.Position=UDim2.new(0,(ci-1)*32+4,0,4) cb.BackgroundColor3=cc cb.BorderSizePixel=0 cb.Text="" cb.Parent=espColorFrame mkCorner(cb,4)
     cb.MouseButton1Click:Connect(function() CFG.ESPColor=cc CFG.ESPTracerColor=cc ntf("ESP","Color set!") end)
 end
-local espTogFrame=Instance.new("Frame") espTogFrame.Size=UDim2.new(1,-12,0,70) espTogFrame.BackgroundColor3=TH.p espTogFrame.BorderSizePixel=0 espTogFrame.Parent=tP mkCorner(espTogFrame,6)
+local espTogFrame=Instance.new("Frame") espTogFrame.Size=UDim2.new(1,-12,0,76) espTogFrame.BackgroundColor3=TH.p espTogFrame.BorderSizePixel=0 espTogFrame.Parent=tP mkCorner(espTogFrame,6)
 local espTogData={{n="Names",k="ESPShowName",o=0},{n="Health",k="ESPShowHealth",o=1},{n="Distance",k="ESPShowDistance",o=2},{n="Fill",k="ESPFillEnabled",o=3},{n="Outline",k="ESPOutlineEnabled",o=4},{n="2D Box",k="ESP2D",o=5}}
 for _,d in ipairs(espTogData) do
     local col=(d.o%2==0) and 0 or 0.5
@@ -728,7 +738,7 @@ btn(tP,"Open ESP Color Palette",function()
     for _,hx in ipairs(palHex) do local cc=Color3.fromHex(hx) local cb=Instance.new("TextButton") cb.BackgroundColor3=cc cb.BorderSizePixel=0 cb.Text="" cb.Parent=grid mkCorner(cb,6)
         cb.MouseButton1Click:Connect(function() CFG.ESPColor=cc CFG.ESPTracerColor=cc ntf("ESP","Color: #"..hx) end) end
 end,"esppal")
-makeSlider(tP,"Max Dist",500,15000,function() return CFG.ESPMaxDist end,function(v) CFG.ESPMaxDist=math.floor(v) end)
+makeSlider(tP,"Max Dist",100,100000,function() return CFG.ESPMaxDist end,function(v) CFG.ESPMaxDist=math.floor(v) end)
 local thFrame=Instance.new("Frame") thFrame.Size=UDim2.new(1,-12,0,30) thFrame.BackgroundColor3=TH.p thFrame.BorderSizePixel=0 thFrame.Parent=tP mkCorner(thFrame,6)
 local thVals={{"Thin",1},{"Med",2},{"Thick",4}}
 for ti,tv in ipairs(thVals) do local tb=Instance.new("TextButton") tb.Size=UDim2.new(0,70,0,22) tb.Position=UDim2.new(0,(ti-1)*76+4,0,4) tb.BackgroundColor3=TH.b tb.BorderSizePixel=0 tb.Text=tv[1].." ("..tv[2]..")" tb.TextColor3=TH.t tb.TextSize=10 tb.Font=Enum.Font.GothamBold tb.Parent=thFrame mkCorner(tb,4)
@@ -859,7 +869,7 @@ end,"openspy")
 btn(tEx,"Clear Spy Log",function() ST.remoteSpyLog={} if _G._spyFrame then for _,ch in pairs(_G._spyFrame:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end end ntf("Spy","Cleared!") end,"clrspry")
 sep(tEx)
 lbl(tEx,">> AIMBOT")
-local tAim=tog(tEx,"Aimbot (Silent)",function() return ST.aimEnabled end,function() ST.aimEnabled=not ST.aimEnabled if ST.aimEnabled then ntf("Aimbot","ON - Silent Aim") else ntf("Aimbot","OFF") end end,"aimbot")
+local tAim=tog(tEx,"Aimbot (Silent)",function() return ST.aimEnabled end,function() ST.aimEnabled=not ST.aimEnabled if ST.aimEnabled then ntf("Aimbot","ON - Silent Aim") else ntf("Aimbot","OFF") local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum then myHum.AutoRotate=true end end end,"aimbot")
 table.insert(allToggles,tAim)
 local tAimHold=tog(tEx,"Hold to Aim",function() return ST.aimHoldKey end,function() ST.aimHoldKey=not ST.aimHoldKey if not ST.aimHoldKey then ST.aimKeyHeld=false end ntf("Aimbot","Hold mode: "..(ST.aimHoldKey and "ON - hold AIMBOT key" or "OFF - always aim")) end,"aimhold")
 table.insert(allToggles,tAimHold)
@@ -871,7 +881,8 @@ aimDropBtn.MouseButton1Click:Connect(function()
     aimDropOpen=not aimDropOpen
     if aimDropOpen then
         if aimDropList then aimDropList:Destroy() end
-        aimDropList=Instance.new("ScrollingFrame") aimDropList.Size=UDim2.new(1,-12,0,148) aimDropList.BackgroundColor3=TH.s aimDropList.BorderSizePixel=0 aimDropList.ScrollBarThickness=3 aimDropList.ScrollBarImageColor3=TH.a aimDropList.Parent=tEx mkCorner(aimDropList,6) mkStroke(aimDropList,TH.a,1)
+        aimDropList=Instance.new("ScrollingFrame") aimDropList.Size=UDim2.new(1,-12,0,148) aimDropList.BackgroundColor3=TH.s aimDropList.BorderSizePixel=0 aimDropList.ScrollBarThickness=3 aimDropList.ScrollBarImageColor3=TH.a aimDropList.ZIndex=101 aimDropList.Parent=OVF mkCorner(aimDropList,6) mkStroke(aimDropList,TH.a,1)
+        local abp=aimDropBtn.AbsolutePosition aimDropList.Position=UDim2.fromOffset(abp.X,abp.Y+aimDropBtn.AbsoluteSize.Y)
         Instance.new("UIListLayout",aimDropList).Padding=UDim.new(0,2) mkPadding(aimDropList,2,2,4,4)
         aimDropList.CanvasSize=UDim2.new(0,0,0,#aimParts*28)
         for _,pn in pairs(aimParts) do local o=Instance.new("TextButton") o.Size=UDim2.new(1,-8,0,26) o.BackgroundColor3=TH.p o.BorderSizePixel=0 o.Text="  "..pn o.TextColor3=TH.t o.TextXAlignment=Enum.TextXAlignment.Left o.TextSize=12 o.Font=Enum.Font.Gotham o.Parent=aimDropList mkCorner(o,4)
@@ -914,29 +925,62 @@ btn(tSe,"Dark Green",function() TH.p=Color3.fromRGB(12,24,12) TH.s=Color3.fromRG
 btn(tSe,"Midnight",function() TH.p=Color3.fromRGB(8,8,20) TH.s=Color3.fromRGB(12,12,28) TH.b=Color3.fromRGB(20,20,40) TH.bh=Color3.fromRGB(30,30,55) TH.a=Color3.fromRGB(100,180,255) MF.BackgroundColor3=TH.p end,"thmid")
 sep(tSe)
 lbl(tSe,">> KEYBINDS INFO")
-lbl(tSe,"Click the small box on any button")
-lbl(tSe,"then press a key to set hotkey.")
-lbl(tSe,"All features = click OR hotkey.")
+lbl(tSe,"Click box = set key (any key)")
+lbl(tSe,"Backspace while waiting = clear")
+lbl(tSe,"Right-click box = Hold/Toggle")
+lbl(tSe,"Yellow box = Hold mode active.")
 sep(tSe)
 lbl(tSe,">> CONFIG SAVE / LOAD")
-btn(tSe,"Save Config",function() pcall(function() local cfg={kb={},esp={color={CFG.ESPColor.R,CFG.ESPColor.G,CFG.ESPColor.B},fillAlpha=CFG.ESPFillAlpha,outline=CFG.ESPOutlineEnabled,fill=CFG.ESPFillEnabled,name=CFG.ESPShowName,health=CFG.ESPShowHealth,distance=CFG.ESPShowDistance}} for id,key in pairs(KB) do cfg.kb[id]=tostring(key) end writefile("AxynthConfig.json",game:GetService("HttpService"):JSONEncode(cfg)) ntf("Config","Saved to AxynthConfig.json!") end) end,"savecfg")
-btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=readfile("AxynthConfig.json") if raw then local cfg=game:GetService("HttpService"):JSONDecode(raw) if cfg.kb then for id,str in pairs(cfg.kb) do local kcn=str:match("Enum%.KeyCode%.(.+)") if kcn and Enum.KeyCode[kcn] then KB[id]=Enum.KeyCode[kcn] else local utn=str:match("Enum%.UserInputType%.(.+)") if utn and Enum.UserInputType[utn] then KB[id]=Enum.UserInputType[utn] end end end end if cfg.esp then local c=cfg.esp if c.color then CFG.ESPColor=Color3.new(c.color[1],c.color[2],c.color[3]) end if c.fillAlpha then CFG.ESPFillAlpha=c.fillAlpha end if c.outline~=nil then CFG.ESPOutlineEnabled=c.outline end if c.fill~=nil then CFG.ESPFillEnabled=c.fill end if c.name~=nil then CFG.ESPShowName=c.name end if c.health~=nil then CFG.ESPShowHealth=c.health end if c.distance~=nil then CFG.ESPShowDistance=c.distance end end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end ntf("Config","Loaded from AxynthConfig.json!") end end end) end,"loadcfg")
+btn(tSe,"Save Config",function() pcall(function() local cfg={kb={},kbm={},esp={color={CFG.ESPColor.R,CFG.ESPColor.G,CFG.ESPColor.B},fillAlpha=CFG.ESPFillAlpha,outline=CFG.ESPOutlineEnabled,fill=CFG.ESPFillEnabled,name=CFG.ESPShowName,health=CFG.ESPShowHealth,distance=CFG.ESPShowDistance,maxDist=CFG.ESPMaxDist}} for id,key in pairs(KB) do cfg.kb[id]=tostring(key) end for id,m in pairs(KBMode) do cfg.kbm[id]=m end writefile("AxynthConfig.json",game:GetService("HttpService"):JSONEncode(cfg)) ntf("Config","Saved to AxynthConfig.json!") end) end,"savecfg")
+btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=readfile("AxynthConfig.json") if raw then local cfg=game:GetService("HttpService"):JSONDecode(raw) if cfg.kb then for id,str in pairs(cfg.kb) do local kcn=str:match("Enum%.KeyCode%.(.+)") if kcn and Enum.KeyCode[kcn] then KB[id]=Enum.KeyCode[kcn] else local utn=str:match("Enum%.UserInputType%.(.+)") if utn and Enum.UserInputType[utn] then KB[id]=Enum.UserInputType[utn] end end end end if cfg.kbm then for id,m in pairs(cfg.kbm) do KBMode[id]=m end end refreshKBBtns() if cfg.esp then local c=cfg.esp if c.color then CFG.ESPColor=Color3.new(c.color[1],c.color[2],c.color[3]) end if c.fillAlpha then CFG.ESPFillAlpha=c.fillAlpha end if c.outline~=nil then CFG.ESPOutlineEnabled=c.outline end if c.fill~=nil then CFG.ESPFillEnabled=c.fill end if c.name~=nil then CFG.ESPShowName=c.name end if c.health~=nil then CFG.ESPShowHealth=c.health end if c.distance~=nil then CFG.ESPShowDistance=c.distance end if c.maxDist then CFG.ESPMaxDist=c.maxDist end end for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end ntf("Config","Loaded from AxynthConfig.json!") end end end) end,"loadcfg")
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
-btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false ST.freeCam=false U.MouseBehavior=Enum.MouseBehavior.Default ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
+btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false ST.freeCam=false U.MouseBehavior=Enum.MouseBehavior.Default ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
     if waitingForKey then
-        local key=inp.KeyCode~=Enum.KeyCode.Unknown and inp.KeyCode or inp.UserInputType KB[waitingForKey]=key waitingForKey=nil ntf("Keybind","Key assigned!")
+        local wid=waitingForKey
+        if inp.KeyCode==Enum.KeyCode.Backspace or inp.KeyCode==Enum.KeyCode.Delete then
+            KB[wid]=nil waitingForKey=nil ntf("Keybind","Keybind cleared!")
+        else
+            local key=inp.KeyCode~=Enum.KeyCode.Unknown and inp.KeyCode or inp.UserInputType KB[wid]=key waitingForKey=nil ntf("Keybind","Key assigned!")
+        end
+        refreshKBBtns()
         for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end return
     end
     for id,key in pairs(KB) do
-        if inp.KeyCode==key or inp.UserInputType==key then
+        if key and (inp.KeyCode==key or inp.UserInputType==key) then
+            if KBMode[id]=="hold" then
+                if not KBActive[id] then
+                    KBActive[id]=true
+                    if id=="fly" then ST.fly=true
+                    elseif id=="noclip" then ST.noclip=true
+                    elseif id=="freecam" then ST.freeCam=true CAM.CameraType=Enum.CameraType.Scriptable U.MouseBehavior=Enum.MouseBehavior.Default
+                    elseif id=="esp" then ST.esp=true
+                    elseif id=="night" then ST.night=true
+                    elseif id=="bright" then ST.bright=true if not ST.savedLighting then ST.savedLighting={Brightness=L.Brightness,GlobalShadows=L.GlobalShadows,FogEnd=L.FogEnd,Ambient=L.Ambient,OutdoorAmbient=L.OutdoorAmbient,ClockTime=L.ClockTime} end
+                    elseif id=="nofog" then ST.noFog=true
+                    elseif id=="aimbot" then if ST.aimHoldKey then ST.aimKeyHeld=true else ST.aimEnabled=true end
+                    elseif id=="infjump" then ST.infJump=true
+                    elseif id=="godloop" then ST.godmodeLoop=true
+                    elseif id=="speedhard" then ST.speedHard=true pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=70 end end end)
+                    elseif id=="infstam" then ST.infStamina=true
+                    elseif id=="magbul" then ST.magicBullet=true
+                    elseif id=="spinner" then ST.spinner=true
+                    elseif id=="autoclick" then ST.autoClicker=true
+                    elseif id=="macetp" then ST.maceTP=true
+                    elseif id=="vehspeed" then ST.vehicleSpeedOn=true
+                    elseif id=="arraylist" then ST.arrayList=true
+                    elseif id=="clicktp" then ST.clickTP=true
+                    end
+                    for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
+                end
+            else
             if id=="fly" then ST.fly=not ST.fly if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end
             elseif id=="noclip" then ST.noclip=not ST.noclip
-            elseif id=="freecam" then ST.freeCam=not ST.freeCam if ST.freeCam then CAM.CameraType=Enum.CameraType.Scriptable U.MouseBehavior=Enum.MouseBehavior.LockCenter else CAM.CameraType=Enum.CameraType.Custom U.MouseBehavior=Enum.MouseBehavior.Default if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end end
+            elseif id=="freecam" then ST.freeCam=not ST.freeCam if ST.freeCam then CAM.CameraType=Enum.CameraType.Scriptable U.MouseBehavior=Enum.MouseBehavior.Default else CAM.CameraType=Enum.CameraType.Custom U.MouseBehavior=Enum.MouseBehavior.Default if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end end
             elseif id=="clicktp" then ST.clickTP=not ST.clickTP if ST.clickTP then if not ST.cursorTPPreview then local p=Instance.new("Part") p.Name="AxCTPPreview" p.Size=Vector3.new(3,0.2,3) p.Anchored=true p.CanCollide=false p.Material=Enum.Material.Neon p.Color=Color3.fromRGB(255,0,0) p.Transparency=0.5 p.Parent=W ST.cursorTPPreview=p end else if ST.cursorTPPreview then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end end
             elseif id=="esp" then ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for uid,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[uid]=nil end end
             elseif id=="night" then ST.night=not ST.night
@@ -954,11 +998,41 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="vehspeed" then ST.vehicleSpeedOn=not ST.vehicleSpeedOn
             elseif id=="arraylist" then ST.arrayList=not ST.arrayList
             end
+            end
             for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
         end
-    if inp.KeyCode==Enum.KeyCode.F4 then ST.menuOpen=not ST.menuOpen if ST.menuOpen then MF.Visible=true MF.BackgroundTransparency=1 MF.Size=UDim2.new(0,520,0,420) tw(MF,{BackgroundTransparency=0.02,Size=UDim2.new(0,520,0,480),Position=UDim2.new(0.5,-260,0.5,-240)},0.35) else tw(MF,{Position=UDim2.new(0.5,-260,0.5,-280),BackgroundTransparency=1,Size=UDim2.new(0,520,0,420)},0.25) wait(0.25) MF.Visible=false MF.Position=UDim2.new(0.5,-260,0.5,-240) MF.Size=UDim2.new(0,520,0,480) MF.BackgroundTransparency=0.02 end end
+    if inp.KeyCode==Enum.KeyCode.F4 then ST.menuOpen=not ST.menuOpen if ST.menuOpen then MF.Visible=true MF.BackgroundTransparency=1 MF.Size=UDim2.new(0,520,0,420) tw(MF,{BackgroundTransparency=0.02,Size=UDim2.new(0,520,0,480),Position=UDim2.new(0.5,-260,0.5,-240)},0.35) else tw(MF,{Position=UDim2.new(0.5,-260,0.5,-280),BackgroundTransparency=1,Size=UDim2.new(0,520,0,420)},0.25) wait(0.25) MF.Visible=false MF.Position=UDim2.new(0.5,-260,0.5,-240) MF.Size=UDim2.new(0,520,0,480) MF.BackgroundTransparency=0.02 if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end end end
 end)
 U.InputEnded:Connect(function(inp)
+    for id,act in pairs(KBActive) do
+        if act then
+            local key=KB[id]
+            if key and (inp.KeyCode==key or inp.UserInputType==key) then
+                KBActive[id]=nil
+                if id=="fly" then ST.fly=false if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end end
+                elseif id=="noclip" then ST.noclip=false
+                elseif id=="freecam" then ST.freeCam=false CAM.CameraType=Enum.CameraType.Custom U.MouseBehavior=Enum.MouseBehavior.Default if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h end end
+                elseif id=="esp" then ST.esp=false
+                elseif id=="night" then ST.night=false
+                elseif id=="bright" then ST.bright=false if ST.savedLighting then pcall(function() L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime end) ST.savedLighting=nil end
+                elseif id=="nofog" then ST.noFog=false
+                elseif id=="aimbot" then if ST.aimHoldKey then ST.aimKeyHeld=false else ST.aimEnabled=false end
+                elseif id=="infjump" then ST.infJump=false
+                elseif id=="godloop" then ST.godmodeLoop=false
+                elseif id=="speedhard" then ST.speedHard=false pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end)
+                elseif id=="infstam" then ST.infStamina=false
+                elseif id=="magbul" then ST.magicBullet=false
+                elseif id=="spinner" then ST.spinner=false if LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end
+                elseif id=="autoclick" then ST.autoClicker=false
+                elseif id=="macetp" then ST.maceTP=false
+                elseif id=="vehspeed" then ST.vehicleSpeedOn=false
+                elseif id=="arraylist" then ST.arrayList=false
+                elseif id=="clicktp" then ST.clickTP=false if ST.cursorTPPreview then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end
+                end
+                for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
+            end
+        end
+    end
     if ST.aimHoldKey and KB.aimbot and (inp.KeyCode==KB.aimbot or inp.UserInputType==KB.aimbot) then ST.aimKeyHeld=false end
 end)
 MS.Button1Down:Connect(function() if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,2,0)) end end end)
@@ -1006,7 +1080,7 @@ R.RenderStepped:Connect(function()
     end)
     pcall(function() if ST.cursorTPPreview then if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local m=MS.Hit if m then ST.cursorTPPreview.Position=m.Position+Vector3.new(0,3,0) end end end end)
     pcall(function()
-        if ST.freeCam then CAM.CameraType=Enum.CameraType.Scriptable local dir=Vector3.new(0,0,0) local sp=1 if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=2 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end local md=U:GetMouseDelta() if md then ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.002 ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.002,-1.2,1.2) end local cf=CFrame.new(CAM.CFrame.Position)*CFrame.Angles(0,ST.freeCamYaw or 0,0)*CFrame.Angles(ST.freeCamPitch or 0,0,0) CAM.CFrame=cf+dir*sp end
+        if ST.freeCam then CAM.CameraType=Enum.CameraType.Scriptable local dir=Vector3.new(0,0,0) local sp=1 if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=2 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if U:IsKeyDown(Enum.UserInputType.MouseButton2) then U.MouseBehavior=Enum.MouseBehavior.LockCenter local md=U:GetMouseDelta() if md then ST.freeCamYaw=(ST.freeCamYaw or 0)-md.X*0.002 ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-md.Y*0.002,-1.2,1.2) end else U.MouseBehavior=Enum.MouseBehavior.Default end local cf=CFrame.new(CAM.CFrame.Position)*CFrame.Angles(0,ST.freeCamYaw or 0,0)*CFrame.Angles(ST.freeCamPitch or 0,0,0) CAM.CFrame=cf+dir*sp end
     end)
     pcall(function()
         if ST.aimEnabled and (not ST.aimHoldKey or ST.aimKeyHeld) and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid") then
@@ -1032,11 +1106,25 @@ R.RenderStepped:Connect(function()
                 local tgtPos=bestTarget.Character[ST.aimTargetPart].Position
                 local lookDir=CFrame.lookAt(camPos,tgtPos)
                 CAM.CFrame=CAM.CFrame:Lerp(lookDir,0.3)
+                local myHRP=LP.Character:FindFirstChild("HumanoidRootPart")
+                local myHum=LP.Character:FindFirstChildOfClass("Humanoid")
+                if myHRP and myHum then
+                    myHum.AutoRotate=false
+                    local flat=Vector3.new(tgtPos.X-myHRP.Position.X,0,tgtPos.Z-myHRP.Position.Z)
+                    if flat.Magnitude>0.1 then
+                        local faceCF=CFrame.lookAt(myHRP.Position,myHRP.Position+flat)
+                        myHRP.CFrame=myHRP.CFrame:Lerp(faceCF,0.35)
+                    end
+                end
             else
                 ST.aimTarget=nil
+                local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                if myHum then myHum.AutoRotate=true end
             end
         else
             ST.aimTarget=nil
+            local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if myHum then myHum.AutoRotate=true end
         end
     end)
     pcall(function()
@@ -1162,12 +1250,26 @@ R.RenderStepped:Connect(function()
                 local tgtPos=bestTarget.Character[ST.aimTargetPart].Position
                 local lookDir=CFrame.lookAt(camPos,tgtPos)
                 CAM.CFrame=CAM.CFrame:Lerp(lookDir,0.3)
+                local myHRP=LP.Character:FindFirstChild("HumanoidRootPart")
+                local myHum=LP.Character:FindFirstChildOfClass("Humanoid")
+                if myHRP and myHum then
+                    myHum.AutoRotate=false
+                    local flat=Vector3.new(tgtPos.X-myHRP.Position.X,0,tgtPos.Z-myHRP.Position.Z)
+                    if flat.Magnitude>0.1 then
+                        local faceCF=CFrame.lookAt(myHRP.Position,myHRP.Position+flat)
+                        myHRP.CFrame=myHRP.CFrame:Lerp(faceCF,0.35)
+                    end
+                end
             else
                 ST.aimTarget=nil
+                local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                if myHum then myHum.AutoRotate=true end
             end
         else
             if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end
             ST.aimTarget=nil
+            local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if myHum then myHum.AutoRotate=true end
         end
     end)
     pcall(function()
