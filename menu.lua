@@ -49,6 +49,10 @@ local whitelistRemotes={
     ["SupermarketEvent.BuyItem"]=true,
     ["WeaponsSystem.Network.WeaponFired"]=true,
     ["WeaponsSystem.Network.WeaponHit"]=true,
+    ["WeaponsSystem.Network.Hit"]=true,
+    ["WeaponsSystem.Network.WeaponHitConfirm"]=true,
+    ["WeaponsSystem.Network.Damage"]=true,
+    ["WeaponsSystem.Network.Hurt"]=true,
     ["WeaponsSystem.Network.WeaponReloadRequest"]=true,
     ["ClaimEvent"]=true,
 }
@@ -792,6 +796,78 @@ local function getFXRemotes()
     end)
     ST._fxRemotes=list
     return list
+end
+local function mpKillPlayer(victim, hitPos)
+    if not victim or victim==LP or not victim.Character then return end
+    pcall(function()
+        local part=victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
+        local hrp=victim.Character:FindFirstChild("HumanoidRootPart")
+        local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        local origin=my and my.Position or hitPos
+        local dir=(hitPos-origin)
+        if dir.Magnitude<1 then dir=Vector3.new(0,0,-1) end
+        local rf=findRemote("WeaponsSystem.Network.WeaponFired")
+        if rf then
+            for i=1,6 do forceFire(rf, origin, hitPos) end
+            forceFire(rf, origin, dir.Unit)
+            forceFire(rf, hitPos)
+        end
+        local hitRemotes={}
+        local names={
+            "WeaponsSystem.Network.WeaponHit",
+            "WeaponsSystem.Network.Hit",
+            "WeaponsSystem.Network.WeaponHitConfirm",
+            "WeaponsSystem.Network.Damage",
+            "WeaponsSystem.Network.Hurt"
+        }
+        for _,nm in ipairs(names) do
+            local r=findRemote(nm)
+            if r then table.insert(hitRemotes,r) end
+        end
+        pcall(function()
+            for _,d in pairs(RS:GetDescendants()) do
+                if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) then
+                    local low=string.lower(d.Name)
+                    if string.find(low,"weaponhit",1,true) or string.find(low,"weapondamage",1,true) or string.find(low,"network.hit",1,true) then
+                        table.insert(hitRemotes,d)
+                    end
+                end
+            end
+        end)
+        local dmg=ST.weaponDmg or 100000
+        for _,r in ipairs(hitRemotes) do
+            local argSets={
+                {hitPos},
+                {hitPos,part},
+                {hitPos,part,dmg},
+                {hitPos,dmg},
+                {victim,hitPos},
+                {victim,hitPos,dmg},
+                {victim,part,hitPos,dmg},
+                {victim.Name,hitPos},
+                {victim.Name,hitPos,part},
+                {victim.Name,hitPos,part,dmg},
+                {origin,hitPos},
+                {origin,dir.Unit,hitPos},
+                {origin,dir.Unit,part,hitPos,dmg},
+                {part,hitPos,dmg},
+                {part,dmg},
+                {victim,dmg},
+                {victim.UserId,hitPos,dmg},
+                {victim.UserId,dmg}
+            }
+            for _,args in ipairs(argSets) do
+                if r:IsA("RemoteFunction") then
+                    forceInvoke(r, unpack(args))
+                else
+                    forceFire(r, unpack(args))
+                end
+            end
+        end
+        if hrp then
+            fireGameVolley(origin, hrp.Position)
+        end
+    end)
 end
 local function fireGameVolley(origin, target)
     pcall(function()
@@ -1614,30 +1690,37 @@ local function dealWeaponDamage(victim, hitPos)
     if now-(ST._wdT or 0)<0.1 then return end
     ST._wdT=now
     local mult=math.clamp(ST.weaponDmgMult or 1,1,10)
+    local amt=ST.weaponDmg or 30
     pcall(function()
-        local r=findRemote("WeaponsSystem.Network.WeaponHit")
-        if r then
-            local part=victim.Character:FindFirstChild(ST.aimTargetPart) or victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
-            for i=1,mult do
-                local jp=hitPos+Vector3.new(math.random(-20,20)/20,math.random(-20,20)/20,math.random(-20,20)/20)
-                forceFire(r, jp)
-                forceFire(r, jp, part)
-                forceFire(r, victim, jp)
-                forceFire(r, victim.Name, jp, part)
+        local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        local origin=my and my.Position or hitPos
+        local rf=findRemote("WeaponsSystem.Network.WeaponFired")
+        if rf then
+            for i=1,math.min(mult,6) do forceFire(rf, origin, hitPos) end
+        end
+    end)
+    pcall(function()
+        local part=victim.Character:FindFirstChild(ST.aimTargetPart) or victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
+        local hits={
+            findRemote("WeaponsSystem.Network.WeaponHit"),
+            findRemote("WeaponsSystem.Network.Hit")
+        }
+        for _,r in ipairs(hits) do
+            if r then
+                for i=1,mult do
+                    local jp=hitPos+Vector3.new(math.random(-20,20)/20,math.random(-20,20)/20,math.random(-20,20)/20)
+                    forceFire(r, jp)
+                    forceFire(r, jp, part)
+                    forceFire(r, jp, part, amt)
+                    forceFire(r, victim, jp, amt)
+                    forceFire(r, victim.Name, jp, part, amt)
+                end
             end
         end
     end)
     pcall(function()
-        local r=findRemote("WeaponsSystem.Network.WeaponFired")
-        if r then
-            local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-            local origin=my and my.Position or hitPos
-            for i=1,math.min(mult,5) do forceFire(r, origin, hitPos) end
-        end
-    end)
-    pcall(function()
         if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
-        if AR then AR:FireServer("damage",victim.Name,ST.weaponDmg or 30) end
+        if AR then AR:FireServer("damage",victim.Name,amt) end
     end)
 end
 local function weaponHitScan()
@@ -1751,27 +1834,14 @@ local function sphereKillAt(pos)
             end
         end
         if hitPl then
-            pcall(function()
-                local part=hitPl.Character:FindFirstChild("Head") or hitPl.Character:FindFirstChild("HumanoidRootPart")
-                local r=findRemote("WeaponsSystem.Network.WeaponHit")
-                if r then
-                    for i=1,20 do
-                        forceFire(r, pos, part)
-                        forceFire(r, hitPl, pos)
-                        forceFire(r, hitPl.Name, pos, part)
-                    end
-                end
-                local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                local origin=my and my.Position or pos
-                fireGameVolley(origin, pos)
-            end)
-            pcall(function()
-                local h=hitPl.Character:FindFirstChildOfClass("Humanoid")
-                if h then h.Health=0 end
-            end)
+            mpKillPlayer(hitPl, pos)
             pcall(function()
                 if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
                 if AR then AR:FireServer("kill", hitPl.Name) end
+            end)
+            pcall(function()
+                local h=hitPl.Character:FindFirstChildOfClass("Humanoid")
+                if h and h.Health>0 then h.Health=math.max(0,h.Health-100000) end
             end)
             pcall(function()
                 local e=Instance.new("Explosion")
@@ -1780,7 +1850,7 @@ local function sphereKillAt(pos)
                 e.BlastRadius=6
                 e.Parent=W
             end)
-            ntf("Spheres","Hit "..hitPl.DisplayName.."!")
+            ntf("Spheres","Hit "..hitPl.DisplayName.." - killing via game weapons")
         end
     end)
 end
