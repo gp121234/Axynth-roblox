@@ -99,6 +99,9 @@ pcall(function()
                 end
             end
             if (method=="FireServer" or method=="InvokeServer") and typeof(self)=="Instance" and (self:IsA("RemoteEvent") or self:IsA("RemoteFunction")) then
+                if ST._forceFire then
+                    return "PASS"
+                end
                 if isBlocked(self.Name) and not isWhitelisted(self.Name) then
                     table.insert(hookLog,{time=tick(),remote=self.Name,blocked=true})
                     return "BLOCK"
@@ -397,7 +400,7 @@ end)
 local ntf
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
-ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,spheresOn=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,weaponDmgOn=true,weaponDmg=30,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0}
+ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,spheresOn=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,weaponDmgOn=true,weaponDmg=30,weaponDmgMult=1,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0}
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
 local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
@@ -756,6 +759,60 @@ local function findRemote(name)
     local last=name:match("[^%.]+$")
     if last then local found=RS:FindFirstChild(last,true) if found then return found end end
     return nil
+end
+local function forceFire(r, ...)
+    if not r then return end
+    ST._forceFire=true
+    local ok=pcall(function() r:FireServer(...) end)
+    ST._forceFire=false
+    return ok
+end
+local function forceInvoke(r, ...)
+    if not r then return end
+    ST._forceFire=true
+    pcall(function() r:InvokeServer(...) end)
+    ST._forceFire=false
+end
+local function getFXRemotes()
+    if ST._fxRemotes then return ST._fxRemotes end
+    local list={}
+    local keys={"explo","grenade","rocket","missile","bullet","tracer","muzzle","impact","effect","damage","hurt","shoot","projectile","artillery","c4","bomb"}
+    pcall(function()
+        for _,d in pairs(RS:GetDescendants()) do
+            if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                local nm=string.lower(d.Name)
+                for _,k in ipairs(keys) do
+                    if string.find(nm,k,1,true) then
+                        table.insert(list,d)
+                        break
+                    end
+                end
+            end
+        end
+    end)
+    ST._fxRemotes=list
+    return list
+end
+local function fireGameVolley(origin, target)
+    pcall(function()
+        local rf=findRemote("WeaponsSystem.Network.WeaponFired")
+        if rf then
+            for i=1,8 do
+                local j=Vector3.new(math.random(-40,40)/10,math.random(-40,40)/10,math.random(-40,40)/10)
+                forceFire(rf, origin, target+j)
+            end
+        end
+        for _,r in pairs(getFXRemotes()) do
+            if r:IsA("RemoteEvent") then
+                forceFire(r, target)
+                forceFire(r, origin, target)
+                forceFire(r, target.X, target.Y, target.Z)
+            elseif r:IsA("RemoteFunction") then
+                forceInvoke(r, target)
+                forceInvoke(r, origin, target)
+            end
+        end
+    end)
 end
 local function btn(p,t,fn,id)
     local b=Instance.new("TextButton") b.Size=UDim2.new(1,-12,0,30) b.Position=UDim2.new(0,6,0,0) b.BackgroundColor3=TH.b b.BorderSizePixel=0 b.Text="  "..t b.TextColor3=TH.t b.TextSize=12 b.Font=Enum.Font.GothamMedium b.TextXAlignment=Enum.TextXAlignment.Left b.Parent=p
@@ -1253,6 +1310,10 @@ btn(tEx,"Dmg: 20",function() ST.weaponDmg=20 ntf("WeaponDmg","Amount: 20") end,"
 btn(tEx,"Dmg: 40",function() ST.weaponDmg=40 ntf("WeaponDmg","Amount: 40") end,"wdmg40")
 btn(tEx,"Dmg: 60",function() ST.weaponDmg=60 ntf("WeaponDmg","Amount: 60") end,"wdmg60")
 btn(tEx,"Dmg: 100",function() ST.weaponDmg=100 ntf("WeaponDmg","Amount: 100") end,"wdmg100")
+btn(tEx,"Mult x1",function() ST.weaponDmgMult=1 ntf("WeaponDmg","Multiplier: x1") end,"wmult1")
+btn(tEx,"Mult x2",function() ST.weaponDmgMult=2 ntf("WeaponDmg","Multiplier: x2") end,"wmult2")
+btn(tEx,"Mult x5",function() ST.weaponDmgMult=5 ntf("WeaponDmg","Multiplier: x5") end,"wmult5")
+btn(tEx,"Mult x10",function() ST.weaponDmgMult=10 ntf("WeaponDmg","Multiplier: x10") end,"wmult10")
 sep(tEx)
 lbl(tEx,">> REMOTE SCANNER")
 btn(tEx,"Open Remote Scanner",function() if _G.RemoteScanner then pcall(function() _G.RemoteScanner:Destroy() end) end
@@ -1418,7 +1479,7 @@ btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=rea
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
-btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false syncServerGod() ST.spheresOn=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.weaponDmgOn=false ST.vehicleSpeedOn=false ST.spectateOverhead=false ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
+btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false syncServerGod() ST.spheresOn=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.weaponDmgOn=false ST.weaponDmgMult=1 ST.vehicleSpeedOn=false ST.spectateOverhead=false ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -1549,15 +1610,21 @@ local _lastTracer=0
 local function dealWeaponDamage(victim, hitPos)
     if not ST.weaponDmgOn then return end
     if not victim or victim==LP or not victim.Character then return end
-    local amt=ST.weaponDmg or 30
+    local now=tick()
+    if now-(ST._wdT or 0)<0.1 then return end
+    ST._wdT=now
+    local mult=math.clamp(ST.weaponDmgMult or 1,1,10)
     pcall(function()
         local r=findRemote("WeaponsSystem.Network.WeaponHit")
         if r then
             local part=victim.Character:FindFirstChild(ST.aimTargetPart) or victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
-            pcall(function() r:FireServer(hitPos) end)
-            pcall(function() r:FireServer(hitPos,part) end)
-            pcall(function() r:FireServer(victim,hitPos) end)
-            pcall(function() r:FireServer(victim.Name,hitPos,part) end)
+            for i=1,mult do
+                local jp=hitPos+Vector3.new(math.random(-20,20)/20,math.random(-20,20)/20,math.random(-20,20)/20)
+                forceFire(r, jp)
+                forceFire(r, jp, part)
+                forceFire(r, victim, jp)
+                forceFire(r, victim.Name, jp, part)
+            end
         end
     end)
     pcall(function()
@@ -1565,16 +1632,18 @@ local function dealWeaponDamage(victim, hitPos)
         if r then
             local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
             local origin=my and my.Position or hitPos
-            pcall(function() r:FireServer(origin,hitPos) end)
+            for i=1,math.min(mult,5) do forceFire(r, origin, hitPos) end
         end
     end)
     pcall(function()
         if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
-        if AR then AR:FireServer("damage",victim.Name,amt) end
+        if AR then AR:FireServer("damage",victim.Name,ST.weaponDmg or 30) end
     end)
 end
 local function weaponHitScan()
     if not ST.weaponDmgOn then return end
+    if tick()-(ST._whsT or 0)<0.12 then return end
+    ST._whsT=tick()
     local cam=W.CurrentCamera or CAM
     if not cam then return end
     local origin=cam.CFrame.Position
@@ -1667,7 +1736,7 @@ local function drawShotTracer()
         end)
         pcall(function()
             local r=findRemote("WeaponsSystem.Network.WeaponFired")
-            if r then r:FireServer(origin,endPos) end
+            if r then forceFire(r, origin, endPos) end
         end)
         weaponHitScan()
     end)
@@ -1682,6 +1751,20 @@ local function sphereKillAt(pos)
             end
         end
         if hitPl then
+            pcall(function()
+                local part=hitPl.Character:FindFirstChild("Head") or hitPl.Character:FindFirstChild("HumanoidRootPart")
+                local r=findRemote("WeaponsSystem.Network.WeaponHit")
+                if r then
+                    for i=1,20 do
+                        forceFire(r, pos, part)
+                        forceFire(r, hitPl, pos)
+                        forceFire(r, hitPl.Name, pos, part)
+                    end
+                end
+                local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                local origin=my and my.Position or pos
+                fireGameVolley(origin, pos)
+            end)
             pcall(function()
                 local h=hitPl.Character:FindFirstChildOfClass("Humanoid")
                 if h then h.Health=0 end
@@ -1703,6 +1786,15 @@ local function sphereKillAt(pos)
 end
 local function throwSpheres()
     pcall(function()
+        if tick()-(ST._sphT or 0)<0.45 then return end
+        ST._sphT=tick()
+        local alive=0
+        for _,o in pairs(W:GetChildren()) do
+            if o.Name=="AxSphere" then
+                alive=alive+1
+                if alive>24 then pcall(function() o:Destroy() end) end
+            end
+        end
         local cam=W.CurrentCamera or CAM
         if not cam then return end
         local origin=cam.CFrame.Position
@@ -1724,6 +1816,7 @@ local function throwSpheres()
         local dir=(target-origin)
         if dir.Magnitude<1 then dir=look*50 end
         dir=dir.Unit
+        fireGameVolley(origin, target)
         pcall(function()
             if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
             if AR then AR:FireServer("spawnSpheres",origin,target) end
@@ -1782,13 +1875,12 @@ local function throwSpheres()
                 end)
             end)
         end
-        ntf("Spheres",AR and "Fired x10 - VISIBLE to all" or "Fired x10 local (need server.lua for others)")
+        ntf("Spheres","Fired x10 - weapon FX via game (visible to all)")
     end)
 end
 MS.Button1Down:Connect(function()
     if not ST.menuOpen then
         drawShotTracer()
-        weaponHitScan()
         if ST.spheresOn then throwSpheres() end
     end
     if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,2,0)) end end
@@ -2151,7 +2243,7 @@ R.RenderStepped:Connect(function()
     end)
 end)
 pcall(function() P.PlayerAdded:Connect(function(pp) pp.CharacterAdded:Connect(function(ch) task.wait(1) pcall(function() if ST.esp and pp~=LP then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=ch ST.espList[pp.UserId]=hl end end) end) end) end)
-pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=math.max(ST.speedPreset or 0,50) end end) end end) pcall(function() if ST.godmodeLoop then ST._srvGod=false task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then if hum.MaxHealth<100 then hum.MaxHealth=100 end hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) syncServerGod() end end) end end) end) end)
+pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=math.max(ST.speedPreset or 0,50) end end) end end) pcall(function() if ST.godmodeLoop then ST._srvGod=false task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then if hum.MaxHealth<100 then hum.MaxHealth=100 end hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) syncServerGod() end end) end end) pcall(function() if ST.freeCam then task.delay(0.8,function() if not ST.freeCam then return end local hrp=ch:FindFirstChild("HumanoidRootPart") local hum=ch:FindFirstChildOfClass("Humanoid") if hrp then hrp.Anchored=true hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end if hum then hum.WalkSpeed=0 hum.AutoRotate=false end end) end end) end) end)
 P.PlayerRemoving:Connect(function(pp) if ST.espList[pp.UserId] then ST.espList[pp.UserId]:Destroy() ST.espList[pp.UserId]=nil end if ST.esp2D and ST.esp2D[pp.UserId] then pcall(function() ST.esp2D[pp.UserId]:Destroy() end) ST.esp2D[pp.UserId]=nil end end)
 for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end end
 pcall(function() for _,g in pairs({CG,LP:WaitForChild("PlayerGui")}) do for _,v in pairs(g:GetDescendants()) do if v.Name=="AxESP_2D" then v:Destroy() end end end end)
