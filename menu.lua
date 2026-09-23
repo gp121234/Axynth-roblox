@@ -1496,16 +1496,8 @@ R.RenderStepped:Connect(function()
             local circ=ST.aimFOVGui:FindFirstChild("Circle")
             if circ then
                 circ.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2)
-                local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local feet=hrp.Position-Vector3.new(0,3,0)
-                    local sp,onscreen=CAM:WorldToViewportPoint(feet)
-                    if onscreen then
-                        circ.Position=UDim2.new(0,sp.X,0,sp.Y)
-                    else
-                        circ.Position=UDim2.new(0.5,0,0.5,0)
-                    end
-                end
+                local mp=U:GetMouseLocation()
+                circ.Position=UDim2.new(0,mp.X,0,mp.Y)
             end
         elseif ST.aimFOVGui then
             ST.aimFOVGui:Destroy()
@@ -1513,15 +1505,8 @@ R.RenderStepped:Connect(function()
         end
         if aimActive and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid") then
             local camPos=CAM.CFrame.Position
-            local hrpMe=LP.Character.HumanoidRootPart
-            local feetPos=hrpMe.Position-Vector3.new(0,3,0)
-            local spF,onscreenF=CAM:WorldToViewportPoint(feetPos)
-            local center
-            if onscreenF then
-                center=Vector2.new(spF.X,spF.Y)
-            else
-                center=Vector2.new(CAM.ViewportSize.X/2,CAM.ViewportSize.Y/2)
-            end
+            local mpA=U:GetMouseLocation()
+            local center=Vector2.new(mpA.X,mpA.Y)
             local bestTarget=nil local bestDist=ST.aimFOV
             for _,pp in pairs(P:GetPlayers()) do
                 if pp~=LP and pp.Character and pp.Character:FindFirstChild(ST.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
