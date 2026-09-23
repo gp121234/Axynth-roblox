@@ -51,7 +51,7 @@ AR.OnServerEvent:Connect(function(player, action, ...)
     local now = tick()
     if now - remoteReset > 60 then remoteCount = 0 remoteReset = now end
     remoteCount = remoteCount + 1
-    if remoteCount > 30 then return end
+    if remoteCount > 120 then return end
 
     if action == "bring" then
         local targets = getTargets(args[1], 1)
@@ -356,6 +356,67 @@ AR.OnServerEvent:Connect(function(player, action, ...)
                 local h = t.Character:FindFirstChildOfClass("Humanoid")
                 if h then h.Name = "Humanoid" end
             end
+        end
+
+    elseif action == "spawnSpheres" then
+        local origin = args[1]
+        local target = args[2]
+        if typeof(origin) ~= "Vector3" or typeof(target) ~= "Vector3" then return end
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        if (origin - hrp.Position).Magnitude > 80 then origin = hrp.Position end
+        local dir = (target - origin)
+        if dir.Magnitude < 1 then return end
+        dir = dir.Unit
+        local shooter = player
+        for i = 1, 10 do
+            local ball = Instance.new("Part")
+            ball.Name = "AxSphere"
+            ball.Shape = Enum.PartType.Ball
+            ball.Size = Vector3.new(1.4, 1.4, 1.4)
+            ball.Material = Enum.Material.Neon
+            ball.Color = Color3.fromRGB(255, math.random(60, 160), math.random(20, 100))
+            ball.Anchored = false
+            ball.CanCollide = false
+            ball.CanQuery = false
+            ball.CanTouch = true
+            ball.Massless = true
+            local side = (i - 5.5) * 0.35
+            ball.CFrame = CFrame.new(origin + dir * 2 + Vector3.new(side, 0.15, 0))
+            ball.Parent = workspace
+            local bv = Instance.new("BodyVelocity")
+            bv.Velocity = dir * math.random(90, 130) + Vector3.new(side * 8, math.random(2, 8), 0)
+            bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            bv.P = 1e4
+            bv.Parent = ball
+            local light = Instance.new("PointLight")
+            light.Color = ball.Color
+            light.Range = 14
+            light.Brightness = 2
+            light.Parent = ball
+            local dead = false
+            ball.Touched:Connect(function(hit)
+                if dead then return end
+                if not hit or not hit:IsA("BasePart") then return end
+                local model = hit:FindFirstAncestorOfClass("Model")
+                if not model then return end
+                local hum = model:FindFirstChildOfClass("Humanoid")
+                if not hum then return end
+                local victim = P:GetPlayerFromCharacter(model)
+                if not victim or victim == shooter then return end
+                dead = true
+                local pos = ball.Position
+                pcall(function() ball:Destroy() end)
+                pcall(function() hum.Health = 0 end)
+                pcall(function()
+                    local e = Instance.new("Explosion")
+                    e.Position = pos
+                    e.BlastPressure = 0
+                    e.BlastRadius = 6
+                    e.Parent = workspace
+                end)
+            end)
+            game:GetService("Debris"):AddItem(ball, 2.5)
         end
     end
 end)

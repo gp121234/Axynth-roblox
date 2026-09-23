@@ -201,6 +201,16 @@ pcall(function()
                 if hum then
                     if hum.MaxHealth<100 then hum.MaxHealth=100 end
                     hum.Health=hum.MaxHealth
+                    if not ST._godHC then
+                        ST._godHC=hum.HealthChanged:Connect(function(h)
+                            if not ST.godmodeLoop then return end
+                            pcall(function()
+                                if hum.MaxHealth<100 then hum.MaxHealth=100 end
+                                if h<hum.MaxHealth then hum.Health=hum.MaxHealth end
+                                if h<=0 then hum.Health=hum.MaxHealth end
+                            end)
+                        end)
+                    end
                 end
             end)
         end
@@ -375,7 +385,7 @@ ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=n
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
 local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
-local KBMode={}
+local KBMode={aimhold="hold",aimbot="hold"}
 local KBActive={}
 local kbBtns={}
 local waitingForKey = nil
@@ -446,7 +456,6 @@ local function setFreeCam(on)
                 if ST._fcJump==nil then ST._fcJump=hum.JumpPower end
                 if not ST._fcAS then ST._fcAS=hum.AutoRotate end
                 hum.WalkSpeed=0
-                hum.JumpPower=0
                 hum.AutoRotate=false
             end
             if hrp then
@@ -482,8 +491,9 @@ local function setFreeCam(on)
             if hum then
                 hum.WalkSpeed=ST._fcWalk or (ST.speedHard and math.max(ST.speedPreset or 0,50) or (ST.speedPreset or 0))
                 if hum.WalkSpeed<=0 then hum.WalkSpeed=16 end
-                if ST.jumpPreset and ST.jumpPreset>0 then hum.JumpPower=ST.jumpPreset else hum.JumpPower=ST._fcJump or 50 end
-                if hum.JumpPower<=0 then hum.JumpPower=50 end
+                if ST.jumpPreset and ST.jumpPreset>0 then
+                    if hum.UseJumpPower then hum.JumpPower=ST.jumpPreset else hum.JumpHeight=math.max(5,math.floor(ST.jumpPreset*0.14+0.5)) end
+                end
                 hum.AutoRotate=ST._fcAS~=false
                 hum.PlatformStand=false
                 local cam=W.CurrentCamera or CAM
@@ -507,7 +517,6 @@ local function applyFreeCam(cam)
     local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
     if hum then
         if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
-        if hum.JumpPower~=0 then hum.JumpPower=0 end
         if hum.AutoRotate then hum.AutoRotate=false end
         if hum.PlatformStand then hum.PlatformStand=false end
     end
@@ -803,16 +812,16 @@ local allToggles={}
 _G.AxST=ST
 local tH=tF["home"]
 lbl(tH,">> SPEED")
-btn(tH,"Speed 40",function() ST.speedPreset=40 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.WalkSpeed=40 end end) ntf("Speed","40 - applied") end,"sp100")
-btn(tH,"Speed 55",function() ST.speedPreset=55 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.WalkSpeed=55 end end) ntf("Speed","55 - applied") end,"sp250")
-btn(tH,"Speed 70",function() ST.speedPreset=70 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.WalkSpeed=70 end end) ntf("Speed","70 - applied") end,"sp500")
+btn(tH,"Speed 40",function() ST.speedPreset=40 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam and not h.Seated and h.Health>0 then h.WalkSpeed=40 end end) ntf("Speed","40 - applied") end,"sp100")
+btn(tH,"Speed 55",function() ST.speedPreset=55 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam and not h.Seated and h.Health>0 then h.WalkSpeed=55 end end) ntf("Speed","55 - applied") end,"sp250")
+btn(tH,"Speed 70",function() ST.speedPreset=70 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam and not h.Seated and h.Health>0 then h.WalkSpeed=70 end end) ntf("Speed","70 - applied") end,"sp500")
 btn(tH,"Reset Speed",function() ST.speedPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) ntf("Speed","Reset 16") end,"sprst")
 sep(tH)
 lbl(tH,">> JUMP")
-btn(tH,"Jump 75",function() ST.jumpPreset=75 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.UseJumpPower=true h.JumpPower=75 end end) ntf("Jump","75 - applied") end,"jp100")
-btn(tH,"Jump 100",function() ST.jumpPreset=100 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.UseJumpPower=true h.JumpPower=100 end end) ntf("Jump","100 - applied") end,"jp300")
-btn(tH,"Jump 150",function() ST.jumpPreset=150 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam then h.UseJumpPower=true h.JumpPower=150 end end) ntf("Jump","150 - applied") end,"jp500")
-btn(tH,"Reset Jump",function() ST.jumpPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then h.UseJumpPower=true h.JumpPower=50 end end end) ntf("Jump","Reset 50") end,"jprst")
+btn(tH,"Jump 75",function() ST.jumpPreset=75 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam and not h.Seated and h.Health>0 then if h.UseJumpPower then h.JumpPower=75 else h.JumpHeight=math.max(5,math.floor(75*0.14+0.5)) end end end) ntf("Jump","75 - applied") end,"jp100")
+btn(tH,"Jump 100",function() ST.jumpPreset=100 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam and not h.Seated and h.Health>0 then if h.UseJumpPower then h.JumpPower=100 else h.JumpHeight=math.max(5,math.floor(100*0.14+0.5)) end end end) ntf("Jump","100 - applied") end,"jp300")
+btn(tH,"Jump 150",function() ST.jumpPreset=150 pcall(function() local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if h and not ST.freeCam and not h.Seated and h.Health>0 then if h.UseJumpPower then h.JumpPower=150 else h.JumpHeight=math.max(5,math.floor(150*0.14+0.5)) end end end) ntf("Jump","150 - applied") end,"jp500")
+btn(tH,"Reset Jump",function() ST.jumpPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then if h.UseJumpPower then h.JumpPower=50 else h.JumpHeight=7 end end end end) ntf("Jump","Reset") end,"jprst")
 local tInfJ=tog(tH,"Infinite Jump",function() return ST.infJump end,function() ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true ntf("InfJump","ON - Space + Godmode forced") else ntf("InfJump","OFF") end end,"infjump")
 table.insert(allToggles,tInfJ)
 local tSPH=tog(tH,"Speed Hard",function() return ST.speedHard end,function() ST.speedHard=not ST.speedHard if ST.speedHard then ST.speedPreset=math.max(ST.speedPreset,50) ntf("SpeedHard","ON (50)") else ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) ntf("SpeedHard","OFF") end end,"speedhard")
@@ -1117,10 +1126,100 @@ local function doFullHeal()
     ntf("Heal", fired>0 and ("Full heal + "..fired.." remote(s)") or "Full heal applied")
 end
 btn(tEx,"Full Heal Self",function() if cd() then doFullHeal() end end,"fheal")
-local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop ntf("Godmode",ST.godmodeLoop and "ON - top-up every frame" or "OFF") end,"godloop")
+local function bindGodHC()
+    pcall(function()
+        if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end
+        local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if hum and ST.godmodeLoop then
+            ST._godHC=hum.HealthChanged:Connect(function(h)
+                if not ST.godmodeLoop then return end
+                pcall(function()
+                    if hum.MaxHealth<100 then hum.MaxHealth=100 end
+                    if h<hum.MaxHealth then hum.Health=hum.MaxHealth end
+                    if h<=0 then hum.Health=hum.MaxHealth end
+                end)
+            end)
+        end
+    end)
+end
+local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop if ST.godmodeLoop then bindGodHC() ntf("Godmode","ON - blocks weapon spheres too") else if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end ntf("Godmode","OFF") end end,"godloop")
 table.insert(allToggles,tGML)
 local tSPH3=tog(tEx,"Spheres on Click",function() return ST.spheresOn end,function() ST.spheresOn=not ST.spheresOn ntf("Spheres",ST.spheresOn and "ON - LMB throws neon spheres" or "OFF") end,"spheres")
 table.insert(allToggles,tSPH3)
+local function equipAnyTool()
+    pcall(function()
+        if not LP.Character then return end
+        local tool=LP.Character:FindFirstChildOfClass("Tool")
+        if tool then return end
+        local bp=LP:FindFirstChild("Backpack")
+        if not bp then return end
+        for _,t in pairs(bp:GetChildren()) do
+            if t:IsA("Tool") then t.Parent=LP.Character return end
+        end
+    end)
+end
+local function nearestPl(maxD)
+    local best=nil local bestD=maxD or 12
+    local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if not my then return nil end
+    for _,pp in pairs(P:GetPlayers()) do
+        if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") then
+            local d=(pp.Character.HumanoidRootPart.Position-my.Position).Magnitude
+            if d<bestD then bestD=d best=pp end
+        end
+    end
+    return best
+end
+local function doGreenSteal()
+    if not cd() then return end
+    equipAnyTool()
+    local t=ST.selectedPlayer
+    if not t or t==LP or not t.Character then t=nearestPl(15) end
+    if not t then ntf("Steal","No player nearby / not selected",4) return end
+    local fired=0
+    local paths={
+        "ThiefSystem.RemoteEvent","ThiefSystem.Steal","ThiefSystem",
+        "StealEvent","Steal","PickpocketEvent","Pickpocket",
+        "RobEvent","RobPlayer","Rob","ThiefRob",
+        "Inventory.Steal","PlayerActions.Steal"
+    }
+    local argSets={
+        {t},{t.Name},{"steal",t},{"steal",t.Name},
+        {t,"steal"},{t.UserId},{t.Name,true},{"rob",t.Name}
+    }
+    for _,path in ipairs(paths) do
+        pcall(function()
+            local r=findRemote(path)
+            if r and r:IsA("RemoteEvent") then
+                for _,args in ipairs(argSets) do
+                    pcall(function() r:FireServer(unpack(args)) end)
+                end
+                fired=fired+1
+            elseif r and r:IsA("RemoteFunction") then
+                pcall(function() r:InvokeServer(t) end)
+                pcall(function() r:InvokeServer(t.Name) end)
+                fired=fired+1
+            end
+        end)
+    end
+    pcall(function()
+        for _,d in pairs(RS:GetDescendants()) do
+            if d:IsA("RemoteEvent") then
+                local nm=d.Name:lower()
+                if nm:find("steal") or nm:find("thief") or nm:find("pickpocket") or (nm:find("rob") and not nm:find("group")) then
+                    pcall(function() d:FireServer(t) end)
+                    pcall(function() d:FireServer(t.Name) end)
+                    pcall(function() d:FireServer("steal",t.Name) end)
+                    fired=fired+1
+                end
+            end
+        end
+    end)
+    ntf("Steal",fired>0 and ("Tried "..fired.." path(s) on "..t.DisplayName.." - no weapon needed") or "No steal remotes found",4)
+end
+btn(tEx,"Steal in Greenzone (no gun)",function() doGreenSteal() end,"stealgreen")
+local tGS=tog(tEx,"Auto Steal Loop",function() return ST.autoSteal end,function() ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON - nearest every 0.6s") else ntf("Steal","Loop OFF") end end,"autosteal")
+table.insert(allToggles,tGS)
 sep(tEx)
 lbl(tEx,">> VISIBLE REMOTE EFFECTS")
 btn(tEx,"Fire Weapon (Effects)",function() pcall(function() local r=findRemote("WeaponsSystem.Network.WeaponFired") if r then r:FireServer() ntf("Weapon","Fired!") end end) end,"weapfire")
@@ -1194,7 +1293,7 @@ sep(tEx)
 lbl(tEx,">> AIMBOT")
 local tAim=tog(tEx,"Aimbot (Silent)",function() return ST.aimEnabled end,function() ST.aimEnabled=not ST.aimEnabled if ST.aimEnabled then ntf("Aimbot","ON - Silent Aim") else ntf("Aimbot","OFF") local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum then myHum.AutoRotate=true end end end,"aimbot")
 table.insert(allToggles,tAim)
-local tAimHold=tog(tEx,"Hold to Aim",function() return ST.aimHoldKey end,function() ST.aimHoldKey=not ST.aimHoldKey if not ST.aimHoldKey then ST.aimKeyHeld=false end if ST.aimHoldKey and not KB.aimhold then ntf("Aimbot","Hold ON - set a key on this button, then HOLD it to aim",5) else ntf("Aimbot","Hold mode: "..(ST.aimHoldKey and "ON - hold its key to aim" or "OFF")) end end,"aimhold")
+local tAimHold=tog(tEx,"Hold to Aim",function() return ST.aimHoldKey end,function() ST.aimHoldKey=not ST.aimHoldKey if not ST.aimHoldKey then ST.aimKeyHeld=false KBActive.aimhold=nil else if not KB.aimhold then KB.aimhold=Enum.UserInputType.MouseButton2 KBMode.aimhold="hold" end if not KB.aimbot or KBMode.aimbot~="hold" then KBMode.aimhold="hold" end ntf("Aimbot","Hold ON - hold "..getKeyDisplay(KB.aimhold).." to aim (default RMB)") end refreshKBBtns() end,"aimhold")
 table.insert(allToggles,tAimHold)
 lbl(tEx,"Aim Target Part")
 local aimParts={"Head","HumanoidRootPart","UpperTorso","LowerTorso","Torso"}
@@ -1297,7 +1396,7 @@ btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=rea
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
-btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.spheresOn=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false ST.spectateOverhead=false ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
+btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false ST.spheresOn=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.vehicleSpeedOn=false ST.spectateOverhead=false ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -1330,6 +1429,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     elseif id=="infjump" then ST.infJump=true ST.godmodeLoop=true
                     elseif id=="godloop" then ST.godmodeLoop=true
                     elseif id=="spheres" then ST.spheresOn=true
+                    elseif id=="autosteal" then ST.autoSteal=true
                     elseif id=="speedhard" then ST.speedHard=true ST.speedPreset=math.max(ST.speedPreset,50)
                     elseif id=="infstam" then ST.infStamina=true
                     elseif id=="magbul" then ST.magicBullet=true
@@ -1352,12 +1452,13 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="bright" then ST.bright=not ST.bright if ST.bright and not ST.savedLighting then ST.savedLighting={Brightness=L.Brightness,GlobalShadows=L.GlobalShadows,FogEnd=L.FogEnd,Ambient=L.Ambient,OutdoorAmbient=L.OutdoorAmbient,ClockTime=L.ClockTime} elseif not ST.bright and ST.savedLighting then pcall(function() L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime end) ST.savedLighting=nil end
             elseif id=="nofog" then setNoFog(not ST.noFog)
             elseif id=="aimbot" then if ST.aimHoldKey then ST.aimKeyHeld=true else ST.aimEnabled=not ST.aimEnabled if ST.aimEnabled then ntf("Aimbot","ON") else ntf("Aimbot","OFF") end end
-            elseif id=="aimhold" then ST.aimKeyHeld=true
+            elseif id=="aimhold" then if KBMode.aimhold=="toggle" then ST.aimKeyHeld=not ST.aimKeyHeld else ST.aimKeyHeld=true end
             elseif id=="showfov" then ST.showFOV=not ST.showFOV
             elseif id=="aimwc" then ST.aimWallCheck=not ST.aimWallCheck
             elseif id=="infjump" then ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true ntf("InfJump","ON - Space + Godmode forced") end
             elseif id=="godloop" then ST.godmodeLoop=not ST.godmodeLoop
             elseif id=="spheres" then ST.spheresOn=not ST.spheresOn if ST.spheresOn then ntf("Spheres","ON") else ntf("Spheres","OFF") end
+            elseif id=="autosteal" then ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON") else ntf("Steal","Loop OFF") end
             elseif id=="speedhard" then ST.speedHard=not ST.speedHard ST.speedPreset=ST.speedHard and math.max(ST.speedPreset,50) or 0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=ST.speedHard and 50 or 16 end end end)
             elseif id=="infstam" then ST.infStamina=not ST.infStamina
             elseif id=="magbul" then ST.magicBullet=not ST.magicBullet
@@ -1374,8 +1475,15 @@ U.InputBegan:Connect(function(inp,gpe)
     if inp.KeyCode==Enum.KeyCode.RightShift then ST.menuOpen=not ST.menuOpen if ST.menuOpen then MF.Visible=true MF.BackgroundTransparency=1 MF.Size=UDim2.new(0,520,0,420) tw(MF,{BackgroundTransparency=0.02,Size=UDim2.new(0,520,0,480),Position=UDim2.new(0.5,-260,0.5,-240)},0.35) else tw(MF,{Position=UDim2.new(0.5,-260,0.5,-280),BackgroundTransparency=1,Size=UDim2.new(0,520,0,420)},0.25) wait(0.25) MF.Visible=false MF.Position=UDim2.new(0.5,-260,0.5,-240) MF.Size=UDim2.new(0,520,0,480) MF.BackgroundTransparency=0.02 if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end end end
 end)
 U.InputEnded:Connect(function(inp)
-    if KB.aimhold and (inp.KeyCode==KB.aimhold or inp.UserInputType==KB.aimhold) then ST.aimKeyHeld=false end
-    if ST.aimHoldKey and KB.aimbot and (inp.KeyCode==KB.aimbot or inp.UserInputType==KB.aimbot) then ST.aimKeyHeld=false end
+    if KB.aimhold and (inp.KeyCode==KB.aimhold or inp.UserInputType==KB.aimhold) then
+        if KBMode.aimhold~="toggle" then ST.aimKeyHeld=false end
+    end
+    if ST.aimHoldKey and KB.aimbot and (inp.KeyCode==KB.aimbot or inp.UserInputType==KB.aimbot) then
+        if KBMode.aimbot~="toggle" then ST.aimKeyHeld=false end
+    end
+    if ST.aimHoldKey and KB.aimhold and (inp.KeyCode==KB.aimhold or inp.UserInputType==KB.aimhold) then
+        if KBMode.aimhold~="toggle" then ST.aimKeyHeld=false end
+    end
     for id,act in pairs(KBActive) do
         if act then
             local key=KB[id]
@@ -1395,6 +1503,7 @@ U.InputEnded:Connect(function(inp)
                 elseif id=="infjump" then ST.infJump=false
                 elseif id=="godloop" then ST.godmodeLoop=false
                 elseif id=="spheres" then ST.spheresOn=false
+                elseif id=="autosteal" then ST.autoSteal=false
                 elseif id=="speedhard" then ST.speedHard=false ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end)
                 elseif id=="infstam" then ST.infStamina=false
                 elseif id=="magbul" then ST.magicBullet=false
@@ -1409,7 +1518,7 @@ U.InputEnded:Connect(function(inp)
             end
         end
     end
-    if ST.aimHoldKey and KB.aimbot and (inp.KeyCode==KB.aimbot or inp.UserInputType==KB.aimbot) then ST.aimKeyHeld=false end
+    if ST.aimHoldKey and KB.aimbot and (inp.KeyCode==KB.aimbot or inp.UserInputType==KB.aimbot) and KBMode.aimbot~="toggle" then ST.aimKeyHeld=false end
 end)
 local _lastTracer=0
 local function drawShotTracer()
@@ -1526,6 +1635,10 @@ local function throwSpheres()
         local dir=(target-origin)
         if dir.Magnitude<1 then dir=look*50 end
         dir=dir.Unit
+        pcall(function()
+            if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
+            if AR then AR:FireServer("spawnSpheres",origin,target) end
+        end)
         local right=cam.CFrame.RightVector
         local up=cam.CFrame.UpVector
         for i=1,10 do
@@ -1580,7 +1693,7 @@ local function throwSpheres()
                 end)
             end)
         end
-        ntf("Spheres","Fired at click x10")
+        ntf("Spheres",AR and "Fired x10 - VISIBLE to all" or "Fired x10 local (need server.lua for others)")
     end)
 end
 MS.Button1Down:Connect(function()
@@ -1623,6 +1736,20 @@ R.RenderStepped:Connect(function()
                 if hum.Health<hum.MaxHealth then hum.Health=hum.MaxHealth end
                 if hum.Health<=0 then hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end
                 if hum.PlatformStand then hum.PlatformStand=false end
+            end
+            local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local myPos=hrp.Position
+                for _,obj in pairs(W:GetDescendants()) do
+                    if obj:IsA("BasePart") and obj~=hrp then
+                        local nm=obj.Name:lower()
+                        if nm=="axsphere" or nm:find("bullet") or nm:find("projectile") or nm:find("slug") or nm:find("shell") then
+                            if (obj.Position-myPos).Magnitude<10 then
+                                pcall(function() obj:Destroy() end)
+                            end
+                        end
+                    end
+                end
             end
         end
     end)
@@ -1715,24 +1842,38 @@ R.RenderStepped:Connect(function()
         end
     end)
     pcall(function()
+        if ST.autoSteal and tick()-(ST._stealT or 0)>0.6 then
+            ST._stealT=tick()
+            doGreenSteal()
+        end
+    end)
+    pcall(function()
         if ST.freeCam then return end
         local wantSp=ST.speedPreset or 0
         if ST.speedHard and wantSp<50 then wantSp=50 end
+        if wantSp>80 then wantSp=80 end
         local wantJp=ST.jumpPreset or 0
+        if wantJp>200 then wantJp=200 end
         if wantSp<=0 and wantJp<=0 then return end
         local now=tick()
-        if now-(ST._spApplyT or 0)<0.12 then return end
+        if now-(ST._spApplyT or 0)<0.35 then return end
         ST._spApplyT=now
         local ch=LP.Character
         if not ch then return end
         local hum=ch:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health<=0 or hum.Seated then return end
+        if not hum or not hum.Parent or hum.Health<=0 or hum.Seated or hum.PlatformStand then return end
         if wantSp>0 and hum.WalkSpeed~=wantSp then
-            hum.WalkSpeed=wantSp
+            pcall(function() hum.WalkSpeed=wantSp end)
         end
         if wantJp>0 then
-            if not hum.UseJumpPower then hum.UseJumpPower=true end
-            if hum.JumpPower~=wantJp then hum.JumpPower=wantJp end
+            pcall(function()
+                if hum.UseJumpPower then
+                    if hum.JumpPower~=wantJp then hum.JumpPower=wantJp end
+                else
+                    local jh=math.max(5,math.floor(wantJp*0.14+0.5))
+                    if hum.JumpHeight~=jh then hum.JumpHeight=jh end
+                end
+            end)
         end
     end)
     pcall(function()
@@ -1915,7 +2056,7 @@ R.RenderStepped:Connect(function()
     pcall(function()
         if ST.arrayList then
             if not _G.AxArrayList then local sg=Instance.new("ScreenGui") sg.Name="AxArrayList" sg.ResetOnSpawn=false sg.DisplayOrder=999 sg.IgnoreGuiInset=true pcall(function() sg.Parent=CG end) if not sg.Parent then sg.Parent=LP:WaitForChild("PlayerGui") end _G.AxArrayList=sg local f=Instance.new("Frame") f.Name="Container" f.Size=UDim2.new(0,180,0,20) f.Position=UDim2.new(1,-190,1,-30) f.BackgroundTransparency=1 f.Parent=sg local l=Instance.new("UIListLayout",f) l.SortOrder=Enum.SortOrder.LayoutOrder l.HorizontalAlignment=Enum.HorizontalAlignment.Right end
-            local c=_G.AxArrayList:FindFirstChild("Container") if c then for _,ch in pairs(c:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end local entries={} local function addE(name) table.insert(entries,name) end if ST.fly then addE("Fly") end if ST.noclip then addE("Noclip") end if ST.esp then addE("ESP") end if ST.infJump then addE("InfJump") end if ST.spinner then addE("Spinner") end if ST.autoClicker then addE("AutoClick") end if ST.godmodeLoop then addE("Godmode") end if ST.spheresOn then addE("Spheres") end if ST.speedHard then addE("SpeedHard") end if ST.infStamina then addE("InfStam") end if ST.magicBullet then addE("MagicBul") end if ST.maceTP then addE("MaceTP") end if ST.freeCam then addE("FreeCam") end if ST.clickTP then addE("ClickTP") end if ST.bright then addE("Fullbright") end if ST.night then addE("Night") end if ST.noFog then addE("NoFog") end if ST.vehicleSpeedOn then addE("VehicleSpeed") end if ST.botPlay then addE("BotPlay") end if ST.botRecord then addE("BotRec") end for i,name in pairs(entries) do local ef=Instance.new("Frame") ef.Size=UDim2.new(0,160,0,22) ef.BackgroundColor3=Color3.fromRGB(0,0,0) ef.BackgroundTransparency=0.4 ef.BorderSizePixel=0 ef.LayoutOrder=i ef.Parent=c mkCorner(ef,4) local et=Instance.new("TextLabel") et.Size=UDim2.new(1,-8,1,0) et.Position=UDim2.new(0,4,0,0) et.BackgroundTransparency=1 et.Text=name et.TextColor3=TH.a et.TextSize=12 et.Font=Enum.Font.GothamBold et.TextXAlignment=Enum.TextXAlignment.Right et.Parent=ef end end
+            local c=_G.AxArrayList:FindFirstChild("Container") if c then for _,ch in pairs(c:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end local entries={} local function addE(name) table.insert(entries,name) end if ST.fly then addE("Fly") end if ST.noclip then addE("Noclip") end if ST.esp then addE("ESP") end if ST.infJump then addE("InfJump") end if ST.spinner then addE("Spinner") end if ST.autoClicker then addE("AutoClick") end if ST.godmodeLoop then addE("Godmode") end if ST.spheresOn then addE("Spheres") end if ST.autoSteal then addE("AutoSteal") end if ST.speedHard then addE("SpeedHard") end if ST.infStamina then addE("InfStam") end if ST.magicBullet then addE("MagicBul") end if ST.maceTP then addE("MaceTP") end if ST.freeCam then addE("FreeCam") end if ST.clickTP then addE("ClickTP") end if ST.bright then addE("Fullbright") end if ST.night then addE("Night") end if ST.noFog then addE("NoFog") end if ST.vehicleSpeedOn then addE("VehicleSpeed") end if ST.botPlay then addE("BotPlay") end if ST.botRecord then addE("BotRec") end for i,name in pairs(entries) do local ef=Instance.new("Frame") ef.Size=UDim2.new(0,160,0,22) ef.BackgroundColor3=Color3.fromRGB(0,0,0) ef.BackgroundTransparency=0.4 ef.BorderSizePixel=0 ef.LayoutOrder=i ef.Parent=c mkCorner(ef,4) local et=Instance.new("TextLabel") et.Size=UDim2.new(1,-8,1,0) et.Position=UDim2.new(0,4,0,0) et.BackgroundTransparency=1 et.Text=name et.TextColor3=TH.a et.TextSize=12 et.Font=Enum.Font.GothamBold et.TextXAlignment=Enum.TextXAlignment.Right et.Parent=ef end end
         elseif _G.AxArrayList then _G.AxArrayList:Destroy() _G.AxArrayList=nil end
     end)
 end)
