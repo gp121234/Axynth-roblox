@@ -1715,7 +1715,40 @@ local function spawnVehicle(name, pos)
         ntf("Vehicle","Tried "..name.." - no remote accepted, client fallback used",4)
     end
 end
-local vehBox=Instance.new("TextBox") vehBox.Size=UDim2.new(1,-12,0,28) vehBox.Position=UDim2.new(0,6,0,0) vehBox.BackgroundColor3=TH.b vehBox.BorderSizePixel=0 vehBox.PlaceholderText="Vehicle name (e.g. Sultan, Adder) or empty for random" vehBox.PlaceholderColor3=Color3.fromRGB(100,100,120) vehBox.Text="" vehBox.TextColor3=TH.t vehBox.TextSize=11 vehBox.Font=Enum.Font.Gotham vehBox.ClearTextOnFocus=false vehBox.Parent=tW mkCorner(vehBox,6)
+local vDropBtn=Instance.new("TextButton") vDropBtn.Size=UDim2.new(1,-12,0,30) vDropBtn.Position=UDim2.new(0,6,0,0) vDropBtn.BackgroundColor3=TH.b vDropBtn.BorderSizePixel=0 vDropBtn.Text="  Select vehicle..." vDropBtn.TextColor3=TH.t vDropBtn.TextSize=11 vDropBtn.Font=Enum.Font.GothamMedium vDropBtn.TextXAlignment=Enum.TextXAlignment.Left vDropBtn.Parent=tW mkCorner(vDropBtn,6) mkStroke(vDropBtn,TH.a,1)
+local vDropOpen=false local vDropdown=nil
+vDropBtn.MouseButton1Click:Connect(function()
+    vDropOpen=not vDropOpen
+    if vDropOpen then
+        if vDropdown then pcall(function() vDropdown:Destroy() end) end
+        vDropdown=Instance.new("ScrollingFrame")
+        local bw=vDropBtn.AbsoluteSize.X if bw<40 then bw=300 end
+        vDropdown.Size=UDim2.fromOffset(bw,160) vDropdown.BackgroundColor3=TH.s vDropdown.BorderSizePixel=0 vDropdown.ScrollBarThickness=3 vDropdown.ScrollBarImageColor3=TH.a vDropdown.ZIndex=110 vDropdown.Active=true vDropdown.Parent=OVF
+        vDropdown.CanvasSize=UDim2.new(0,0,0,0) vDropdown.AutomaticCanvasSize=Enum.AutomaticSize.Y vDropdown.ScrollingDirection=Enum.ScrollingDirection.Y
+        mkCorner(vDropdown,6) mkStroke(vDropdown,TH.a,1) mkPadding(vDropdown,2,2,4,4)
+        local bp=vDropBtn.AbsolutePosition local op=OVF.AbsolutePosition
+        vDropdown.Position=UDim2.fromOffset(bp.X-op.X, bp.Y-op.Y+vDropBtn.AbsoluteSize.Y)
+        local y=4
+        local list=getVehicleList()
+        table.sort(list, function(a,b) return a.Name:lower()<b.Name:lower() end)
+        if #list==0 then
+            local lbl2=Instance.new("TextLabel") lbl2.Size=UDim2.new(1,-8,0,22) lbl2.Position=UDim2.new(0,4,0,y) lbl2.BackgroundTransparency=1 lbl2.Text="  No vehicles found" lbl2.TextColor3=TH.t lbl2.TextSize=11 lbl2.Font=Enum.Font.Gotham lbl2.TextXAlignment=Enum.TextXAlignment.Left lbl2.Parent=vDropdown
+        end
+        for _,m in ipairs(list) do
+            local o=Instance.new("TextButton") o.Size=UDim2.new(1,-8,0,24) o.Position=UDim2.new(0,4,0,y) o.BackgroundColor3=TH.b o.BorderSizePixel=0 o.Text="  "..m.Name o.TextColor3=TH.t o.TextSize=11 o.Font=Enum.Font.Gotham o.TextXAlignment=Enum.TextXAlignment.Left o.Parent=vDropdown mkCorner(o,4)
+            o.MouseButton1Click:Connect(function()
+                vehBox.Text=m.Name
+                vDropBtn.Text="  > "..m.Name
+                vDropOpen=false if vDropdown then vDropdown:Destroy() vDropdown=nil end
+                ntf("Vehicle","Selected: "..m.Name,3)
+            end)
+            y=y+28
+        end
+    else
+        if vDropdown then vDropdown:Destroy() vDropdown=nil end
+    end
+end)
+local vehBox=Instance.new("TextBox") vehBox.Size=UDim2.new(1,-12,0,28) vehBox.Position=UDim2.new(0,6,0,0) vehBox.BackgroundColor3=TH.b vehBox.BorderSizePixel=0 vehBox.PlaceholderText="Vehicle name or select above / empty for random" vehBox.PlaceholderColor3=Color3.fromRGB(100,100,120) vehBox.Text="" vehBox.TextColor3=TH.t vehBox.TextSize=11 vehBox.Font=Enum.Font.Gotham vehBox.ClearTextOnFocus=false vehBox.Parent=tW mkCorner(vehBox,6)
 btn(tW,"Spawn Vehicle Next to Me",function() spawnVehicle(vehBox.Text) end,"spawnveh")
 btn(tW,"Spawn Random Vehicle",function() spawnVehicle("") end,"spawnrand")
 btn(tW,"Despawn Nearest Vehicle",function()
@@ -1734,12 +1767,26 @@ btn(tW,"Despawn Nearest Vehicle",function()
             end
         end
         if best then
-            -- try remote despawn
+            local fired=0
+            -- try remotes (visible to all if server accepts)
             local r=findRemote("Cars.CarDealer") or findRemote("DespawnVehicle")
-            if r then grFire(r,{"Despawn",best.Name},"veh") grFire(r,{"Delete",best.Name},"veh") end
-            -- client fallback
+            if r then
+                if grFire(r,{"Despawn",best.Name},"veh") then fired=fired+1 end
+                if grFire(r,{"Delete",best.Name},"veh") then fired=fired+1 end
+                if grFire(r,{"Remove",best.Name},"veh") then fired=fired+1 end
+                if grFire(r,{best.Name,"Despawn"},"veh") then fired=fired+1 end
+            end
+            for _,obj in pairs(RS:GetDescendants()) do
+                if obj:IsA("RemoteEvent") and string.lower(obj.Name):find("despawn",1,true) then
+                    if grFire(obj,{best.Name},"veh2") then fired=fired+1 end
+                    if grFire(obj,{best},"veh2") then fired=fired+1 end
+                    if fired>3 then break end
+                end
+            end
+            -- client fallback (only you see)
             pcall(function() best:Destroy() end)
-            ntf("Vehicle","Despawed "..best.Name,4)
+            if fired>0 then ntf("Vehicle","Despawed "..best.Name.." (visible to all, "..fired.." remotes)",4)
+            else ntf("Vehicle","Despawed "..best.Name.." (client only - others still see it)",4) end
         else
             ntf("Vehicle","No vehicle nearby",4)
         end
