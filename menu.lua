@@ -187,6 +187,122 @@ local function hideBanGUI()
         end
     end)
 end
+local function applyGodLocal()
+    pcall(function()
+        if not ST.godmodeLoop then return end
+        local ch=LP.Character
+        if not ch then return end
+        local hum=ch:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        if hum.MaxHealth<10000000 then hum.MaxHealth=10000000 end
+        if hum.Health<hum.MaxHealth then hum.Health=hum.MaxHealth end
+        pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Dead,false) end)
+        pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false) end)
+        pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false) end)
+        if not ch:FindFirstChild("AxGodFF") then
+            local ff=Instance.new("ForceField")
+            ff.Name="AxGodFF"
+            ff.Visible=false
+            ff.Parent=ch
+        end
+    end)
+end
+local function clearGodLocal()
+    pcall(function()
+        local ch=LP.Character
+        if not ch then return end
+        local hum=ch:FindFirstChildOfClass("Humanoid")
+        if hum then
+            if hum.MaxHealth>=10000000 then
+                hum.MaxHealth=100
+                hum.Health=100
+            end
+            pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Dead,true) end)
+            pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown,true) end)
+            pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,true) end)
+        end
+        local ff=ch:FindFirstChild("AxGodFF")
+        if ff then ff:Destroy() end
+    end)
+end
+local function applyInvisible()
+    pcall(function()
+        local ch=LP.Character
+        if not ch or not ST.invisible then return end
+        for _,d in pairs(ch:GetDescendants()) do
+            if d:IsA("BasePart") then
+                if d.Transparency~=1 then d.Transparency=1 end
+                if d.LocalTransparencyModifier~=1 then d.LocalTransparencyModifier=1 end
+            elseif d:IsA("Decal") or d:IsA("Texture") then
+                if d.Transparency~=1 then d.Transparency=1 end
+            elseif d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") then
+                if d.Enabled then d.Enabled=false end
+            elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
+                if d.Enabled then d.Enabled=false end
+            elseif d:IsA("Accessory") then
+                local handle=d:FindFirstChild("Handle")
+                if handle and handle:IsA("BasePart") then
+                    handle.Transparency=1
+                    handle.LocalTransparencyModifier=1
+                end
+            end
+        end
+        local hum=ch:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local head=ch:FindFirstChild("Head")
+            if head then
+                for _,c in pairs(head:GetChildren()) do
+                    if c:IsA("BillboardGui") or c:IsA("SurfaceGui") then c.Enabled=false end
+                end
+            end
+        end
+    end)
+end
+local function fireInvisRemotes(on)
+    pcall(function()
+        local flag=on and true or false
+        local keys={"invis","invisible","cloak","ghost","hide","隐身"}
+        local argSets={
+            {flag},{on},{"toggle",flag},{"set",flag},
+            {"invisible",flag},{LP,flag},{LP.Name,flag},
+            {flag and "on" or "off"}
+        }
+        local budget=8
+        ST._invRateT=ST._invRateT or 0
+        local function try(r,args)
+            if not r or budget<=0 then return end
+            local now=tick()
+            if now-ST._invRateT<0.06 then return end
+            ST._invRateT=now
+            local ok2=false
+            if r:IsA("RemoteFunction") then
+                ST._forceFire=true
+                ok2=pcall(function() r:InvokeServer(unpack(args)) end)
+                ST._forceFire=false
+            else
+                ST._forceFire=true
+                ok2=pcall(function() r:FireServer(unpack(args)) end)
+                ST._forceFire=false
+            end
+            if ok2 then budget=budget-1 end
+        end
+        for _,parent in ipairs({RS,W}) do
+            if budget<=0 then break end
+            for _,d in pairs(parent:GetDescendants()) do
+                if budget<=0 then break end
+                if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                    local nm=string.lower(d.Name)
+                    for _,k in ipairs(keys) do
+                        if nm:find(k,1,true) and not nm:find("anticheat") then
+                            for _,args in ipairs(argSets) do try(d,args) end
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
 pcall(function()
     LP.CharacterAdded:Connect(function(char)
         task.wait(1)
@@ -204,20 +320,22 @@ pcall(function()
         end
         if ST.godmodeLoop then
             pcall(function()
+                applyGodLocal()
                 local hum=char:FindFirstChildOfClass("Humanoid")
                 if hum then
-                    if hum.MaxHealth<100 then hum.MaxHealth=100 end
-                    hum.Health=hum.MaxHealth
                     if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end
                     ST._godHC=hum.HealthChanged:Connect(function(h)
                         if not ST.godmodeLoop then return end
                         pcall(function()
-                            if hum.MaxHealth<100 then hum.MaxHealth=100 end
+                            if hum.MaxHealth<10000000 then hum.MaxHealth=10000000 end
                             if h<=0 or h<hum.MaxHealth then hum.Health=hum.MaxHealth end
                         end)
                     end)
                 end
             end)
+        end
+        if ST.invisible then
+            task.delay(0.2,function() applyInvisible() end)
         end
     end)
 end)
@@ -250,16 +368,18 @@ R.Heartbeat:Connect(function()
     _frameCount=_frameCount+1
     pcall(function()
         if ST.godmodeLoop and LP.Character then
-            local hum=LP.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                if hum.MaxHealth<100 then hum.MaxHealth=100 end
-                if hum.Health<=0 or hum.Health<hum.MaxHealth then
-                    hum.Health=hum.MaxHealth
-                end
-            end
-            if _frameCount%180==0 then syncServerGod() end
+            applyGodLocal()
+            if _frameCount%90==0 then syncServerGod() end
         elseif not ST.godmodeLoop and ST._srvGod then
             syncServerGod()
+        elseif not ST.godmodeLoop and _frameCount%300==0 then
+            pcall(function()
+                local ch=LP.Character
+                if ch and ch:FindFirstChild("AxGodFF") then clearGodLocal() end
+            end)
+        end
+        if ST.invisible and _frameCount%2==0 then
+            applyInvisible()
         end
     end)
     if _frameCount%60~=0 then return end
@@ -1595,17 +1715,19 @@ local function bindGodHC()
         if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end
         local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
         if hum and ST.godmodeLoop then
+            applyGodLocal()
             ST._godHC=hum.HealthChanged:Connect(function(h)
                 if not ST.godmodeLoop then return end
                 pcall(function()
-                    if hum.MaxHealth<100 then hum.MaxHealth=100 end
+                    if hum.MaxHealth<10000000 then hum.MaxHealth=10000000 end
                     if h<=0 or h<hum.MaxHealth then hum.Health=hum.MaxHealth end
+                    if h<=0 then pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) end
                 end)
             end)
         end
     end)
 end
-local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop if ST.godmodeLoop then bindGodHC() syncServerGod() ntf("Godmode","ON - client instant revive. Server ammo kill needs server.lua") else if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end syncServerGod() ntf("Godmode","OFF") end end,"godloop")
+local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop if ST.godmodeLoop then applyGodLocal() bindGodHC() syncServerGod() ntf("Godmode","ON - 10M HP + ForceField + instant revive (client-only)") else if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end clearGodLocal() syncServerGod() ntf("Godmode","OFF") end end,"godloop")
 table.insert(allToggles,tGML)
 local tSPH3=tog(tEx,"Spheres on Click",function() return ST.spheresOn end,function() ST.spheresOn=not ST.spheresOn ntf("Spheres",ST.spheresOn and "ON - LMB throws neon spheres" or "OFF") end,"spheres")
 table.insert(allToggles,tSPH3)
@@ -1653,13 +1775,33 @@ local function doGreenSteal()
             end
         end
     end)
+    local cloned=0
+    pcall(function()
+        local bp=LP:FindFirstChild("Backpack")
+        if not bp then return end
+        local vbp=t:FindFirstChild("Backpack")
+        local function grab(tool)
+            if not tool or not tool:IsA("Tool") or cloned>=3 then return end
+            pcall(function()
+                local cl=tool:Clone()
+                cl.Parent=bp
+                cloned=cloned+1
+            end)
+        end
+        if vbp then
+            for _,tool in pairs(vbp:GetChildren()) do grab(tool) end
+        end
+        if t.Character then
+            for _,tool in pairs(t.Character:GetChildren()) do grab(tool) end
+        end
+    end)
     local fired=0
-    local budget=14
+    local budget=16
     ST._stealRateT=ST._stealRateT or 0
     local function tryFire(r,args)
         if not r or fired>=budget then return end
         local now=tick()
-        if now-ST._stealRateT<0.07 then return end
+        if now-ST._stealRateT<0.06 then return end
         ST._stealRateT=now
         local ok2=false
         if r:IsA("RemoteFunction") then
@@ -1677,7 +1819,9 @@ local function doGreenSteal()
         local thief=findRemote("ThiefSystem.RemoteEvent")
         local compact={
             {t},{t.Name},{"steal",t},{"steal",t.Name},
-            {t,"steal"},{"pickpocket",t},{"rob",t.Name},{t.UserId}
+            {t,"steal"},{"pickpocket",t},{"rob",t.Name},{t.UserId},
+            {"steal",t.UserId},{"pickpocket",t.Name},{"take",t},
+            {"grab",t},{"loot",t},{t,"pickpocket"}
         }
         for _,args in ipairs(compact) do
             tryFire(inv,args)
@@ -1687,23 +1831,36 @@ local function doGreenSteal()
     end)
     pcall(function()
         local scanned=0
+        local keys={"steal","thief","pickpocket","rob","take","grab","loot","pick"}
         for _,parent in ipairs({RS,W}) do
             if fired>=budget then break end
             for _,d in pairs(parent:GetDescendants()) do
-                if fired>=budget or scanned>=6 then break end
+                if fired>=budget or scanned>=8 then break end
                 if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) then
                     local nm=d.Name:lower()
-                    if nm:find("steal") or nm:find("thief") or nm:find("pickpocket") or (nm:find("rob") and not nm:find("group")) then
+                    local hitk=false
+                    for _,k in ipairs(keys) do
+                        if nm:find(k,1,true) and not nm:find("group") and not nm:find("anticheat") then hitk=true break end
+                    end
+                    if hitk then
                         scanned=scanned+1
                         tryFire(d,{t})
                         tryFire(d,{t.Name})
                         tryFire(d,{"steal",t})
+                        tryFire(d,{"pickpocket",t.Name})
                     end
                 end
             end
         end
     end)
-    ntf("Steal",fired>0 and ("Sent "..fired.." request(s) on "..t.DisplayName.." (rate-limited) - needs server accept") or "No steal remotes / rate-limited",4)
+    local parts={}
+    if cloned>0 then table.insert(parts,"cloned "..cloned.." tool(s)") end
+    if fired>0 then table.insert(parts,fired.." remote(s)") end
+    if #parts>0 then
+        ntf("Steal","OK on "..t.DisplayName..": "..table.concat(parts,", "),4)
+    else
+        ntf("Steal","Nothing grabbed - no tools/remotes on "..t.DisplayName,4)
+    end
 end
 btn(tEx,"Steal in Greenzone (no gun)",function() doGreenSteal() end,"stealgreen")
 local tGS=tog(tEx,"Auto Steal Loop",function() return ST.autoSteal end,function() ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON - nearest every 0.6s") else ntf("Steal","Loop OFF") end end,"autosteal")
@@ -2038,7 +2195,7 @@ btn(tEx,"Dump all tool names",function()
     end)
 end,"dumptools")
 sep(tEx)
-lbl(tEx,">> MULTIPLAYER KILL (no server.lua)")
+lbl(tEx,">> MULTIPLAYER KILL")
 btn(tEx,"Kill Selected/Nearest (MP)",function()
     if cd() then killNearestOrSelected() end
 end,"killmp")
@@ -2201,6 +2358,47 @@ local tVS=tog(tMi,"Vehicle Speed",function() return ST.vehicleSpeedOn end,functi
 table.insert(allToggles,tVS)
 local tAL=tog(tMi,"ArrayList",function() return ST.arrayList end,function() ST.arrayList=not ST.arrayList ntf("ArrayList",ST.arrayList and "ON" or "OFF") end,"arraylist")
 table.insert(allToggles,tAL)
+local tInv=tog(tMi,"Invisible",function() return ST.invisible end,function()
+    ST.invisible=not ST.invisible
+    if ST.invisible then
+        applyInvisible()
+        fireInvisRemotes(true)
+        ntf("Invisible","ON - character hidden (client) + remotes sent")
+    else
+        fireInvisRemotes(false)
+        pcall(function()
+            local ch=LP.Character
+            if ch then
+                for _,d in pairs(ch:GetDescendants()) do
+                    if d:IsA("BasePart") and d.Name~="HumanoidRootPart" then
+                        d.Transparency=d.Name=="Head" and 0 or 0
+                        d.LocalTransparencyModifier=0
+                    elseif d:IsA("Decal") or d:IsA("Texture") then
+                        d.Transparency=0
+                    elseif d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") then
+                        d.Enabled=true
+                    elseif d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
+                        d.Enabled=true
+                    elseif d:IsA("Accessory") then
+                        local handle=d:FindFirstChild("Handle")
+                        if handle and handle:IsA("BasePart") then
+                            handle.Transparency=0
+                            handle.LocalTransparencyModifier=0
+                        end
+                    end
+                end
+                local head=ch:FindFirstChild("Head")
+                if head then
+                    for _,c in pairs(head:GetChildren()) do
+                        if c:IsA("BillboardGui") then c.Enabled=true end
+                    end
+                end
+            end
+        end)
+        ntf("Invisible","OFF")
+    end
+end,"invisible")
+table.insert(allToggles,tInv)
 btn(tMi,"Third Person",function() pcall(function() LP.CameraMinZoomDistance=10 LP.CameraMaxZoomDistance=10 end) end,"3rdperson")
 btn(tMi,"First Person",function() pcall(function() LP.CameraMinZoomDistance=0.5 LP.CameraMaxZoomDistance=0.5 end) end,"1stperson")
 btn(tMi,"Infinite Yield Load",function() pcall(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))() end) ntf("IY","Loading Infinite Yield...") end,"infyield")
@@ -2234,7 +2432,7 @@ btn(tSe,"Load Config",function() pcall(function() if readfile then local raw=rea
 btn(tSe,"Delete Config",function() pcall(function() if delfile then delfile("AxynthConfig.json") ntf("Config","Deleted!") end end) end,"delcfg")
 sep(tSe)
 lbl(tSe,">> UNHOOK / CLEANUP")
-btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false syncServerGod() ST.spheresOn=false ST.shotTracer=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.weaponDmgOn=false ST.weaponDmgMult=1 ST.vehicleSpeedOn=false stopOverhead(false) ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
+btn(tSe,"Unload Everything",function() pcall(function() ST.fly=false ST.noclip=false ST.clickTP=false ST.esp=false ST.spinner=false ST.autoClicker=false ST.infJump=false setFreeCam(false) setNight(false) setNoFog(false) ST.maceTP=false ST.botRecord=false ST.botPlay=false ST.botLoop=false ST.godmodeLoop=false clearGodLocal() syncServerGod() ST.invisible=false ST.spheresOn=false ST.shotTracer=false ST.autoSteal=false ST.speedHard=false ST.infStamina=false ST.magicBullet=false ST.weaponDmgOn=false ST.weaponDmgMult=1 ST.vehicleSpeedOn=false stopOverhead(false) ST.spectating=nil if ST._vehOrig then for seat,sp in pairs(ST._vehOrig) do pcall(function() if seat and seat.Parent then seat.MaxSpeed=sp end end) end ST._vehOrig=nil end ST.arrayList=false ST.aimEnabled=false ST.remoteSpyOn=false local myHum0=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum0 then myHum0.AutoRotate=true end table.clear(KBActive) if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil end if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil end if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end if _G._spyFrame then _G._spyFrame=nil end if _G._spyAdd then _G._spyAdd=nil end if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 h.JumpPower=50 h.PlatformStand=false h.AutoRotate=true end end W.Gravity=196.2 if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil end ST.waypoints={} for i=1,5 do if ST.wpParts and ST.wpParts[i] then pcall(function() ST.wpParts[i]:Destroy() end) ST.wpParts[i]=nil end end for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end end ST.espList={} if ST.esp2D then for uid,fr in pairs(ST.esp2D) do if fr then pcall(function() fr:Destroy() end) end end ST.esp2D={} end for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP") then pp.Character.AxESP:Destroy() end end if ST.savedCollide then ST.savedCollide={} end if ST.savedLighting then L.Brightness=ST.savedLighting.Brightness L.GlobalShadows=ST.savedLighting.GlobalShadows L.FogEnd=ST.savedLighting.FogEnd L.Ambient=ST.savedLighting.Ambient L.OutdoorAmbient=ST.savedLighting.OutdoorAmbient L.ClockTime=ST.savedLighting.ClockTime ST.savedLighting=nil end if ST.cursorTPPreview and ST.cursorTPPreview.Parent then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end if _G.AxArrayList and _G.AxArrayList.Parent then _G.AxArrayList:Destroy() _G.AxArrayList=nil end ntf("Cleanup","All features disabled!") end) end,"unload")
 print("[Axynth] All tabs OK")
 U.InputBegan:Connect(function(inp,gpe)
     if gpe then return end
@@ -2265,7 +2463,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     elseif id=="showfov" then ST.showFOV=true
                     elseif id=="aimwc" then ST.aimWallCheck=true
                     elseif id=="infjump" then ST.infJump=true ST.godmodeLoop=true syncServerGod()
-                    elseif id=="godloop" then ST.godmodeLoop=true syncServerGod()
+                    elseif id=="godloop" then ST.godmodeLoop=true applyGodLocal() bindGodHC() syncServerGod()
                     elseif id=="spheres" then ST.spheresOn=true
                     elseif id=="tracer" then ST.shotTracer=true
                     elseif id=="autosteal" then ST.autoSteal=true
@@ -2278,6 +2476,7 @@ U.InputBegan:Connect(function(inp,gpe)
                     elseif id=="macetp" then ST.maceTP=true
                     elseif id=="vehspeed" then ST.vehicleSpeedOn=true
                     elseif id=="arraylist" then ST.arrayList=true
+                    elseif id=="invisible" then ST.invisible=true applyInvisible() fireInvisRemotes(true)
                     elseif id=="clicktp" then ST.clickTP=true
                     end
                     for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
@@ -2296,7 +2495,7 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="showfov" then ST.showFOV=not ST.showFOV
             elseif id=="aimwc" then ST.aimWallCheck=not ST.aimWallCheck
             elseif id=="infjump" then ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true syncServerGod() ntf("InfJump","ON - Space + Godmode forced") end
-            elseif id=="godloop" then ST.godmodeLoop=not ST.godmodeLoop syncServerGod()
+            elseif id=="godloop" then ST.godmodeLoop=not ST.godmodeLoop if ST.godmodeLoop then applyGodLocal() bindGodHC() else if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end clearGodLocal() end syncServerGod()
             elseif id=="spheres" then ST.spheresOn=not ST.spheresOn if ST.spheresOn then ntf("Spheres","ON") else ntf("Spheres","OFF") end
             elseif id=="tracer" then ST.shotTracer=not ST.shotTracer if ST.shotTracer then ntf("Tracer","ON") else ntf("Tracer","OFF") end
             elseif id=="autosteal" then ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON") else ntf("Steal","Loop OFF") end
@@ -2309,6 +2508,7 @@ U.InputBegan:Connect(function(inp,gpe)
             elseif id=="macetp" then ST.maceTP=not ST.maceTP
             elseif id=="vehspeed" then ST.vehicleSpeedOn=not ST.vehicleSpeedOn if not ST.vehicleSpeedOn then pcall(function() if ST._vehOrig and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum and hum.Seated and hum.SeatPart and ST._vehOrig[hum.SeatPart] then hum.SeatPart.MaxSpeed=ST._vehOrig[hum.SeatPart] end end end) end
             elseif id=="arraylist" then ST.arrayList=not ST.arrayList
+            elseif id=="invisible" then ST.invisible=not ST.invisible if ST.invisible then applyInvisible() fireInvisRemotes(true) else fireInvisRemotes(false) end
             end
             end
             for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
@@ -2343,7 +2543,7 @@ U.InputEnded:Connect(function(inp)
                 elseif id=="showfov" then ST.showFOV=false if ST.aimFOVGui then ST.aimFOVGui:Destroy() ST.aimFOVGui=nil end
                 elseif id=="aimwc" then ST.aimWallCheck=false
                 elseif id=="infjump" then ST.infJump=false
-                elseif id=="godloop" then ST.godmodeLoop=false syncServerGod()
+                elseif id=="godloop" then ST.godmodeLoop=false if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end clearGodLocal() syncServerGod()
                 elseif id=="spheres" then ST.spheresOn=false
                 elseif id=="tracer" then ST.shotTracer=false
                 elseif id=="autosteal" then ST.autoSteal=false
@@ -2356,6 +2556,7 @@ U.InputEnded:Connect(function(inp)
                 elseif id=="macetp" then ST.maceTP=false
                 elseif id=="vehspeed" then ST.vehicleSpeedOn=false pcall(function() if ST._vehOrig and LP.Character then local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hum and hum.Seated and hum.SeatPart and ST._vehOrig[hum.SeatPart] then hum.SeatPart.MaxSpeed=ST._vehOrig[hum.SeatPart] end end end)
                 elseif id=="arraylist" then ST.arrayList=false
+                elseif id=="invisible" then ST.invisible=false fireInvisRemotes(false)
                 elseif id=="clicktp" then ST.clickTP=false if ST.cursorTPPreview then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end
                 end
                 for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
@@ -2568,7 +2769,7 @@ local function sphereKillAt(pos, forcedPl)
                 e.BlastRadius=6
                 e.Parent=W
             end)
-            ntf("Spheres","Hit "..hitPl.DisplayName.." - weapon kill sent (server.lua = instant)")
+            ntf("Spheres","Hit "..hitPl.DisplayName.." - MP weapon kill sent")
         end
     end)
 end
@@ -2655,7 +2856,7 @@ local function throwSpheres()
                 end)
             end)
         end
-        ntf("Spheres","Fired x4 - weapon kill on touch (server.lua = instant server death)")
+        ntf("Spheres","Fired x4 - kills on touch via weapon remotes")
     end)
 end
 MS.Button1Down:Connect(function()
@@ -2690,21 +2891,18 @@ R.RenderStepped:Connect(function()
     pcall(function()
         if not ST.godmodeLoop or not LP.Character then return end
         local now=tick()
+        applyGodLocal()
         local hum=LP.Character:FindFirstChildOfClass("Humanoid")
         if hum then
-            if hum.MaxHealth<100 then hum.MaxHealth=100 end
             if hum.Health<=0 then
                 hum.Health=hum.MaxHealth
                 pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
             elseif hum.Health<hum.MaxHealth then
                 hum.Health=hum.MaxHealth
             end
-            if hum.PlatformStand and now-(ST._godPsT or 0)>0.2 then
-                ST._godPsT=now
-                hum.PlatformStand=false
-            end
+            if hum.PlatformStand then hum.PlatformStand=false end
         end
-        if now-(ST._godScanT or 0)<0.25 then return end
+        if now-(ST._godScanT or 0)<0.08 then return end
         ST._godScanT=now
         local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
@@ -2712,13 +2910,17 @@ R.RenderStepped:Connect(function()
         for _,obj in pairs(W:GetChildren()) do
             if obj:IsA("BasePart") and obj~=hrp then
                 local nm=obj.Name
-                if nm=="AxSphere" or nm:lower():find("bullet",1,true) or nm:lower():find("projectile",1,true) then
-                    if (obj.Position-myPos).Magnitude<10 then
+                local low=nm:lower()
+                if nm=="AxSphere" or low:find("bullet",1,true) or low:find("projectile",1,true) or low:find("shell",1,true) or low:find("round",1,true) or low:find("ammo",1,true) then
+                    if (obj.Position-myPos).Magnitude<14 then
                         pcall(function() obj:Destroy() end)
                     end
                 end
             end
         end
+    end)
+    pcall(function()
+        if ST.invisible then applyInvisible() end
     end)
     pcall(function()
         if ST.infJump and not ST.freeCam and LP.Character and U:IsKeyDown(Enum.KeyCode.Space) then
@@ -3023,12 +3225,12 @@ R.RenderStepped:Connect(function()
     pcall(function()
         if ST.arrayList then
             if not _G.AxArrayList then local sg=Instance.new("ScreenGui") sg.Name="AxArrayList" sg.ResetOnSpawn=false sg.DisplayOrder=999 sg.IgnoreGuiInset=true pcall(function() sg.Parent=CG end) if not sg.Parent then sg.Parent=LP:WaitForChild("PlayerGui") end _G.AxArrayList=sg local f=Instance.new("Frame") f.Name="Container" f.Size=UDim2.new(0,180,0,20) f.Position=UDim2.new(1,-190,1,-30) f.BackgroundTransparency=1 f.Parent=sg local l=Instance.new("UIListLayout",f) l.SortOrder=Enum.SortOrder.LayoutOrder l.HorizontalAlignment=Enum.HorizontalAlignment.Right end
-            local c=_G.AxArrayList:FindFirstChild("Container") if c then local entries={} local function addE(name) table.insert(entries,name) end if ST.fly then addE("Fly") end if ST.noclip then addE("Noclip") end if ST.esp then addE("ESP") end if ST.infJump then addE("InfJump") end if ST.spinner then addE("Spinner") end if ST.autoClicker then addE("AutoClick") end if ST.godmodeLoop then addE("Godmode") end if ST.spheresOn then addE("Spheres") end if ST.autoSteal then addE("AutoSteal") end if ST.speedHard then addE("SpeedHard") end if ST.infStamina then addE("InfStam") end if ST.magicBullet then addE("MagicBul") end if ST.weaponDmgOn then addE("WpnDmg") end if ST.maceTP then addE("MaceTP") end if ST.freeCam then addE("FreeCam") end if ST.clickTP then addE("ClickTP") end if ST.bright then addE("Fullbright") end if ST.night then addE("Night") end if ST.noFog then addE("NoFog") end if ST.vehicleSpeedOn then addE("VehicleSpeed") end if ST.botPlay then addE("BotPlay") end if ST.botRecord then addE("BotRec") end local sig=table.concat(entries,"|") if ST._alSig~=sig then ST._alSig=sig for _,ch in pairs(c:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end for i,name in pairs(entries) do local ef=Instance.new("Frame") ef.Size=UDim2.new(0,160,0,22) ef.BackgroundColor3=Color3.fromRGB(0,0,0) ef.BackgroundTransparency=0.4 ef.BorderSizePixel=0 ef.LayoutOrder=i ef.Parent=c mkCorner(ef,4) local et=Instance.new("TextLabel") et.Size=UDim2.new(1,-8,1,0) et.Position=UDim2.new(0,4,0,0) et.BackgroundTransparency=1 et.Text=name et.TextColor3=TH.a et.TextSize=12 et.Font=Enum.Font.GothamBold et.TextXAlignment=Enum.TextXAlignment.Right et.Parent=ef end end end
+            local c=_G.AxArrayList:FindFirstChild("Container") if c then local entries={} local function addE(name) table.insert(entries,name) end if ST.fly then addE("Fly") end if ST.noclip then addE("Noclip") end if ST.esp then addE("ESP") end if ST.infJump then addE("InfJump") end if ST.spinner then addE("Spinner") end if ST.autoClicker then addE("AutoClick") end if ST.godmodeLoop then addE("Godmode") end if ST.invisible then addE("Invis") end if ST.spheresOn then addE("Spheres") end if ST.autoSteal then addE("AutoSteal") end if ST.speedHard then addE("SpeedHard") end if ST.infStamina then addE("InfStam") end if ST.magicBullet then addE("MagicBul") end if ST.weaponDmgOn then addE("WpnDmg") end if ST.maceTP then addE("MaceTP") end if ST.freeCam then addE("FreeCam") end if ST.clickTP then addE("ClickTP") end if ST.bright then addE("Fullbright") end if ST.night then addE("Night") end if ST.noFog then addE("NoFog") end if ST.vehicleSpeedOn then addE("VehicleSpeed") end if ST.botPlay then addE("BotPlay") end if ST.botRecord then addE("BotRec") end local sig=table.concat(entries,"|") if ST._alSig~=sig then ST._alSig=sig for _,ch in pairs(c:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end for i,name in pairs(entries) do local ef=Instance.new("Frame") ef.Size=UDim2.new(0,160,0,22) ef.BackgroundColor3=Color3.fromRGB(0,0,0) ef.BackgroundTransparency=0.4 ef.BorderSizePixel=0 ef.LayoutOrder=i ef.Parent=c mkCorner(ef,4) local et=Instance.new("TextLabel") et.Size=UDim2.new(1,-8,1,0) et.Position=UDim2.new(0,4,0,0) et.BackgroundTransparency=1 et.Text=name et.TextColor3=TH.a et.TextSize=12 et.Font=Enum.Font.GothamBold et.TextXAlignment=Enum.TextXAlignment.Right et.Parent=ef end end end
         elseif _G.AxArrayList then _G.AxArrayList:Destroy() _G.AxArrayList=nil end
     end)
 end)
 pcall(function() P.PlayerAdded:Connect(function(pp) pp.CharacterAdded:Connect(function(ch) task.wait(1) pcall(function() if ST.esp and pp~=LP then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=ch ST.espList[pp.UserId]=hl end end) end) end) end)
-pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=math.max(ST.speedPreset or 0,50) end end) end end) pcall(function() if ST.godmodeLoop then ST._srvGod=false if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then if hum.MaxHealth<100 then hum.MaxHealth=100 end hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) syncServerGod() bindGodHC() end end) end end) pcall(function() if ST.freeCam then task.delay(0.8,function() if not ST.freeCam then return end local hrp=ch:FindFirstChild("HumanoidRootPart") local hum=ch:FindFirstChildOfClass("Humanoid") if hrp then hrp.Anchored=true hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end if hum then hum.WalkSpeed=0 hum.AutoRotate=false end end) end end) end) end)
+pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=math.max(ST.speedPreset or 0,50) end end) end end) pcall(function() if ST.godmodeLoop then ST._srvGod=false if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end task.delay(0.3,function() if ch and LP.Character==ch then applyGodLocal() syncServerGod() bindGodHC() end end) end end) pcall(function() if ST.invisible then task.delay(0.3,function() applyInvisible() end) end end) pcall(function() if ST.freeCam then task.delay(0.8,function() if not ST.freeCam then return end local hrp=ch:FindFirstChild("HumanoidRootPart") local hum=ch:FindFirstChildOfClass("Humanoid") if hrp then hrp.Anchored=true hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end if hum then hum.WalkSpeed=0 hum.AutoRotate=false end end) end end) end) end)
 P.PlayerRemoving:Connect(function(pp) if ST.espList[pp.UserId] then ST.espList[pp.UserId]:Destroy() ST.espList[pp.UserId]=nil end if ST.esp2D and ST.esp2D[pp.UserId] then pcall(function() ST.esp2D[pp.UserId]:Destroy() end) ST.esp2D[pp.UserId]=nil end end)
 for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end end
 pcall(function() for _,g in pairs({CG,LP:WaitForChild("PlayerGui")}) do for _,v in pairs(g:GetDescendants()) do if v.Name=="AxESP_2D" then v:Destroy() end end end end)
