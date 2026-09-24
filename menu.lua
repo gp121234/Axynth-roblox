@@ -1861,6 +1861,127 @@ pDropBtn.MouseButton1Click:Connect(function()
 end)
 btn(tP,"Refresh Players",function() pDropBtn.Text="  Click to select..." ST.selectedPlayer=nil end,"plrrefresh")
 sep(tP)
+lbl(tP,">> FORCE JOB (Dropdown)")
+ST.selectedJob=nil
+local jDropBtn=Instance.new("TextButton") jDropBtn.Size=UDim2.new(1,-12,0,32) jDropBtn.Position=UDim2.new(0,6,0,0) jDropBtn.BackgroundColor3=TH.b jDropBtn.BorderSizePixel=0 jDropBtn.Text="  Select job..." jDropBtn.TextColor3=TH.t jDropBtn.TextSize=12 jDropBtn.Font=Enum.Font.GothamMedium jDropBtn.TextXAlignment=Enum.TextXAlignment.Left jDropBtn.Parent=tP mkCorner(jDropBtn,6) mkStroke(jDropBtn,TH.a,1)
+local jDropOpen=false local jDropdown=nil
+local function getTeamsList()
+    local list={}
+    pcall(function()
+        local teams=game:GetService("Teams"):GetTeams()
+        for _,tm in pairs(teams) do table.insert(list,tm) end
+    end)
+    if #list==0 then
+        pcall(function()
+            for _,tm in pairs(game:GetService("Teams"):GetChildren()) do if tm:IsA("Team") then table.insert(list,tm) end end
+        end)
+    end
+    if #list==0 then
+        -- fallback common Grand RP jobs
+        for _,nm in ipairs({"Police","Medic","Taxi","Mafia","Gang","Mechanic","Unemployed","Civilian","CREWMATE","EMPLOYEE"}) do
+            table.insert(list,{Name=nm, TeamColor=Color3.new(1,1,1)})
+        end
+    end
+    return list
+end
+jDropBtn.MouseButton1Click:Connect(function()
+    jDropOpen=not jDropOpen
+    if jDropOpen then
+        if jDropdown then pcall(function() jDropdown:Destroy() end) end
+        jDropdown=Instance.new("ScrollingFrame")
+        local bw=jDropBtn.AbsoluteSize.X if bw<40 then bw=300 end
+        jDropdown.Size=UDim2.fromOffset(bw,150) jDropdown.BackgroundColor3=TH.s jDropdown.BorderSizePixel=0 jDropdown.ScrollBarThickness=3 jDropdown.ScrollBarImageColor3=TH.a jDropdown.ZIndex=110 jDropdown.Active=true jDropdown.Parent=OVF
+        jDropdown.CanvasSize=UDim2.new(0,0,0,0) jDropdown.AutomaticCanvasSize=Enum.AutomaticSize.Y jDropdown.ScrollingDirection=Enum.ScrollingDirection.Y
+        mkCorner(jDropdown,6) mkStroke(jDropdown,TH.a,1) mkPadding(jDropdown,2,2,4,4)
+        local bp=jDropBtn.AbsolutePosition local op=OVF.AbsolutePosition
+        jDropdown.Position=UDim2.fromOffset(bp.X-op.X, bp.Y-op.Y+jDropBtn.AbsoluteSize.Y)
+        local y=4
+        local list=getTeamsList()
+        for _,tm in ipairs(list) do
+            local tname=tm.Name or tostring(tm)
+            local o=Instance.new("TextButton") o.Size=UDim2.new(1,-8,0,24) o.Position=UDim2.new(0,4,0,y) o.BackgroundColor3=TH.b o.BorderSizePixel=0 o.Text="  "..tname o.TextColor3=TH.t o.TextSize=11 o.Font=Enum.Font.Gotham o.TextXAlignment=Enum.TextXAlignment.Left o.Parent=jDropdown mkCorner(o,4)
+            o.MouseButton1Click:Connect(function()
+                ST.selectedJob=tname
+                ST.selectedJobObj=tm
+                jDropBtn.Text="  > "..tname
+                jDropOpen=false if jDropdown then jDropdown:Destroy() jDropdown=nil end
+                ntf("Job","Selected: "..tname,3)
+            end)
+            y=y+28
+        end
+    else
+        if jDropdown then jDropdown:Destroy() jDropdown=nil end
+    end
+end)
+local function doForceJob(targetPl, jobName)
+    if not jobName or jobName=="" then jobName=ST.selectedJob end
+    if not jobName or jobName=="" then ntf("Job","Select a job first",4) return end
+    local target=targetPl or LP
+    local fired=0
+    pcall(function()
+        local r=findRemote("Teams.ChangeJob") or findRemote("Teams.ChangeTeam") or findRemote("ChangeJob") or findRemote("ChangeTeam")
+        if r then
+            -- try Team object, name, color
+            local teamObj=nil
+            pcall(function()
+                for _,tm in pairs(game:GetService("Teams"):GetTeams()) do if tm.Name==jobName then teamObj=tm break end end
+                if not teamObj then for _,tm in pairs(game:GetService("Teams"):GetChildren()) do if tm.Name==jobName and tm:IsA("Team") then teamObj=tm break end end end
+            end)
+            if teamObj then
+                if grFire(r,{teamObj},"job") then fired=fired+1 end
+                if grFire(r,{teamObj.TeamColor},"job") then fired=fired+1 end
+            end
+            if grFire(r,{jobName},"job") then fired=fired+1 end
+            if grFire(r,{target,jobName},"job") then fired=fired+1 end
+            if grFire(r,{jobName,target},"job") then fired=fired+1 end
+            if target~=LP and grFire(r,{target},"job") then fired=fired+1 end
+        end
+        local jc=findRemote("JobCenter.JobCenter") or findRemote("JobCenter")
+        if jc then
+            if grFire(jc,{jobName},"job") then fired=fired+1 end
+            if grFire(jc,{target,jobName},"job") then fired=fired+1 end
+            if grFire(jc,{jobName,target},"job") then fired=fired+1 end
+        end
+        -- generic job remotes
+        for _,obj in pairs(RS:GetDescendants()) do
+            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                local nm=string.lower(obj.Name)
+                if nm:find("job",1,true) or nm:find("team",1,true) or nm:find("role",1,true) then
+                    if grFire(obj,{jobName},"job2") then fired=fired+1 end
+                    if grFire(obj,{target,jobName},"job2") then fired=fired+1 end
+                    if fired>6 then break end
+                end
+            end
+        end
+    end)
+    if fired>0 then
+        ntf("Job",(target==LP and "Self" or target.DisplayName).." -> "..jobName.." ("..fired.." remotes)",4)
+    else
+        -- fallback client TeamColor change (visible only to you, but at least UI)
+        pcall(function()
+            if target==LP and target.Character then
+                local hum=target.Character:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    -- try to find team color
+                    for _,tm in pairs(game:GetService("Teams"):GetTeams()) do
+                        if tm.Name==jobName then
+                            pcall(function() LP.Team=tm end)
+                            break
+                        end
+                    end
+                end
+            end
+        end)
+        ntf("Job","Tried "..jobName.." on "..(target==LP and "self" or target.DisplayName).." - check team",4)
+    end
+end
+btn(tP,"Force Job Self",function() doForceJob(LP, ST.selectedJob) end,"forcejobself")
+btn(tP,"Force Job Selected Player",function()
+    local t=ST.selectedPlayer
+    if not t then ntf("Job","Select a player first",4) return end
+    doForceJob(t, ST.selectedJob)
+end,"forcejobother")
+sep(tP)
 lbl(tP,">> PLAYER ACTIONS")
 btn(tP,"Goto Player",function() if ST.selectedPlayer and ST.selectedPlayer.Character and LP.Character then local t2=ST.selectedPlayer.Character:FindFirstChild("HumanoidRootPart") local m=LP.Character:FindFirstChild("HumanoidRootPart") if t2 and m then safeTeleport(t2.Position+Vector3.new(3,1,0)) end end end,"goto")
 sep(tP)
