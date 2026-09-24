@@ -1725,7 +1725,7 @@ sep(tP)
 lbl(tP,">> ESP SETTINGS")
 btn(tP,"Open ESP Settings / Palette",function()
     if ST.palSG then pcall(function() ST.palSG:Destroy() end) ST.palSG=nil return end
-    local SG4=Instance.new("ScreenGui") SG4.Name="AxPalette" SG4.ResetOnSpawn=false SG4.DisplayOrder=3 pcall(function() SG4.Parent=CG end) if not SG4.Parent then SG4.Parent=LP:WaitForChild("PlayerGui") end ST.palSG=SG4
+    local SG4=Instance.new("ScreenGui") SG4.Name="AxPalette" SG4.ResetOnSpawn=false SG4.DisplayOrder=1000 SG4.ZIndexBehavior=Enum.ZIndexBehavior.Sibling SG4.IgnoreGuiInset=true pcall(function() if gethui then SG4.Parent=gethui() end end) if not SG4.Parent then pcall(function() SG4.Parent=CG end) end if not SG4.Parent then SG4.Parent=LP:WaitForChild("PlayerGui") end ST.palSG=SG4
     local PF=Instance.new("Frame") PF.Size=UDim2.new(0,320,0,400) PF.Position=UDim2.new(0.5,-160,0.5,-200) PF.BackgroundColor3=TH.p PF.BorderSizePixel=0 PF.Active=true PF.Draggable=true PF.Parent=SG4 mkCorner(PF,12) mkStroke(PF,TH.a,2)
     local PT=Instance.new("Frame") PT.Size=UDim2.new(1,0,0,34) PT.BackgroundColor3=TH.s PT.BorderSizePixel=0 PT.Parent=PF mkCorner(PT,12)
     local PTL=Instance.new("TextLabel") PTL.Size=UDim2.new(1,-50,1,0) PTL.Position=UDim2.new(0,12,0,0) PTL.BackgroundTransparency=1 PTL.Text="ESP SETTINGS" PTL.TextColor3=TH.a PTL.TextSize=13 PTL.Font=Enum.Font.GothamBlack PTL.TextXAlignment=Enum.TextXAlignment.Left PTL.Parent=PT
@@ -2748,7 +2748,7 @@ end,"killall40")
 sep(tEx)
 lbl(tEx,">> REMOTE SCANNER")
 btn(tEx,"Open Remote Scanner",function() if _G.RemoteScanner then pcall(function() _G.RemoteScanner:Destroy() end) end
-    local SG2=Instance.new("ScreenGui") SG2.Name="RemoteScanner" SG2.ResetOnSpawn=false SG2.DisplayOrder=2 pcall(function() SG2.Parent=CG end) if not SG2.Parent then SG2.Parent=LP:WaitForChild("PlayerGui") end _G.RemoteScanner=SG2
+    local SG2=Instance.new("ScreenGui") SG2.Name="RemoteScanner" SG2.ResetOnSpawn=false SG2.DisplayOrder=1001 SG2.ZIndexBehavior=Enum.ZIndexBehavior.Sibling SG2.IgnoreGuiInset=true pcall(function() if gethui then SG2.Parent=gethui() end end) if not SG2.Parent then pcall(function() SG2.Parent=CG end) end if not SG2.Parent then SG2.Parent=LP:WaitForChild("PlayerGui") end _G.RemoteScanner=SG2
     local PF=Instance.new("Frame") PF.Size=UDim2.new(0,600,0,450) PF.Position=UDim2.new(0.5,-300,0.5,-225) PF.BackgroundColor3=TH.p PF.BorderSizePixel=0 PF.Active=true PF.Draggable=true PF.Parent=SG2 PF.BackgroundTransparency=1 mkCorner(PF,12) mkStroke(PF,TH.a,2)
     tw(PF,{BackgroundTransparency=0,Position=UDim2.new(0.5,-300,0.5,-225)},0.3)
     local PT=Instance.new("Frame") PT.Size=UDim2.new(1,0,0,36) PT.BackgroundColor3=TH.s PT.BorderSizePixel=0 PT.Parent=PF mkCorner(PT,12)
@@ -2774,7 +2774,7 @@ lbl(tEx,">> REMOTE SPY (LIVE LOG)")
 btn(tEx,"Open Remote Spy",function()
     if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil ST.remoteSpyOn=false return end
     ST.remoteSpyOn=true ST.remoteSpyPaused=false ST.remoteSpyLog={}
-    local SG3=Instance.new("ScreenGui") SG3.Name="RemoteSpy" SG3.ResetOnSpawn=false SG3.DisplayOrder=3 pcall(function() SG3.Parent=CG end) if not SG3.Parent then SG3.Parent=LP:WaitForChild("PlayerGui") end ST.spySG=SG3
+    local SG3=Instance.new("ScreenGui") SG3.Name="RemoteSpy" SG3.ResetOnSpawn=false SG3.DisplayOrder=1002 SG3.ZIndexBehavior=Enum.ZIndexBehavior.Sibling SG3.IgnoreGuiInset=true pcall(function() if gethui then SG3.Parent=gethui() end end) if not SG3.Parent then pcall(function() SG3.Parent=CG end) end if not SG3.Parent then SG3.Parent=LP:WaitForChild("PlayerGui") end ST.spySG=SG3
     local PF=Instance.new("Frame") PF.Size=UDim2.new(0,550,0,400) PF.Position=UDim2.new(0.5,-275,0.5,-200) PF.BackgroundColor3=TH.p PF.BorderSizePixel=0 PF.Active=true PF.Draggable=true PF.Parent=SG3 PF.BackgroundTransparency=0 mkCorner(PF,12) mkStroke(PF,Color3.fromRGB(255,160,0),2)
     local PT=Instance.new("Frame") PT.Size=UDim2.new(1,0,0,36) PT.BackgroundColor3=TH.s PT.BorderSizePixel=0 PT.Parent=PF mkCorner(PT,12)
     local PTL=Instance.new("TextLabel") PTL.Size=UDim2.new(1,-120,1,0) PTL.Position=UDim2.new(0,12,0,0) PTL.BackgroundTransparency=1 PTL.Text="REMOTE SPY" PTL.TextColor3=Color3.fromRGB(255,160,0) PTL.TextSize=14 PTL.Font=Enum.Font.GothamBlack PTL.TextXAlignment=Enum.TextXAlignment.Left PTL.Parent=PT
