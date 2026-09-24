@@ -14,6 +14,7 @@ local MS = LP:GetMouse()
 local CAM = W.CurrentCamera
 print("[Axynth] Services OK")
 local ST={}
+local findRemote
 -- ANTI-BAN SYSTEM v9 SAFE - single guarded namecall only
 local hookLog={}
 local blockedKeywords={"anticheat","anti","cheat","detect","ban","kick","report","flag","log","trace","monitor","watch","scan","validate","verify","check","suspicious","abnormal","illegal","unauthorized","modified","exploit","hack","teleport","speed","noclip","fly","cheatdetected","serverintegrity","integritycheck","remotespy","remoteblock","remotecheck","adminremote","admin"}
@@ -258,34 +259,60 @@ local function applyInvisible()
         end
     end)
 end
+local function grFire(r, args, rateKey)
+    if not r then return false end
+    local rk=rateKey or "gr"
+    ST["_rt"..rk]=ST["_rt"..rk] or 0
+    local now=tick()
+    if now-ST["_rt"..rk]<0.05 then return false end
+    ST["_rt"..rk]=now
+    local ok2=false
+    if r:IsA("RemoteFunction") then
+        ST._forceFire=true
+        ok2=pcall(function() r:InvokeServer(unpack(args)) end)
+        ST._forceFire=false
+    else
+        ST._forceFire=true
+        ok2=pcall(function() r:FireServer(unpack(args)) end)
+        ST._forceFire=false
+    end
+    return ok2 and true or false
+end
 local function fireInvisRemotes(on)
     pcall(function()
         local flag=on and true or false
-        local keys={"invis","invisible","cloak","ghost","hide","隐身"}
-        local argSets={
-            {flag},{on},{"toggle",flag},{"set",flag},
-            {"invisible",flag},{LP,flag},{LP.Name,flag},
-            {flag and "on" or "off"}
+        local sent=0
+        local prio={
+            "Inventory.Inventory",
+            "NoclipEvent",
+            "HDAdminHDClient.Signals.RequestCommand",
+            "HDAdminHDClient.Signals.ExecuteClientCommand",
+            "HDAdminHDClient.Signals.FireSignal",
+            "CreateMafia.RemoteEvent",
+            "Chat"
         }
-        local budget=8
-        ST._invRateT=ST._invRateT or 0
-        local function try(r,args)
-            if not r or budget<=0 then return end
-            local now=tick()
-            if now-ST._invRateT<0.06 then return end
-            ST._invRateT=now
-            local ok2=false
-            if r:IsA("RemoteFunction") then
-                ST._forceFire=true
-                ok2=pcall(function() r:InvokeServer(unpack(args)) end)
-                ST._forceFire=false
-            else
-                ST._forceFire=true
-                ok2=pcall(function() r:FireServer(unpack(args)) end)
-                ST._forceFire=false
+        local hdArgs={
+            {"invisible"},{"invis"},{":invisible"},{":invis"},
+            {"invisible",LP.Name},{LP.Name,"invisible"},
+            {"cmd","invisible"},{action="invisible"},
+            {"ghost"},{"cloak"},{"hide"}
+        }
+        local invArgs={
+            {flag},{"invisible",flag},{"cloak",flag},{"hide",flag},
+            {"set",flag},{LP,flag},{"visible",not flag},
+            {"transparency",flag and 1 or 0}
+        }
+        for _,path in ipairs(prio) do
+            local r=findRemote(path)
+            if r then
+                local sets=(path:find("HDAdmin") or path=="Chat") and hdArgs or invArgs
+                for _,args in ipairs(sets) do
+                    if grFire(r,args,"inv") then sent=sent+1 end
+                end
             end
-            if ok2 then budget=budget-1 end
         end
+        local keys={"invis","invisible","cloak","ghost","hide","visibility","transparency","status"}
+        local budget=10
         for _,parent in ipairs({RS,W}) do
             if budget<=0 then break end
             for _,d in pairs(parent:GetDescendants()) do
@@ -293,11 +320,44 @@ local function fireInvisRemotes(on)
                 if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
                     local nm=string.lower(d.Name)
                     for _,k in ipairs(keys) do
-                        if nm:find(k,1,true) and not nm:find("anticheat") then
-                            for _,args in ipairs(argSets) do try(d,args) end
+                        if nm:find(k,1,true) and not nm:find("anticheat") and not nm:find("admin") then
+                            if grFire(d,{flag},"inv") then budget=budget-1 sent=sent+1 end
+                            if grFire(d,{"invisible",flag},"inv") then budget=budget-1 sent=sent+1 end
                             break
                         end
                     end
+                end
+            end
+        end
+        ST._invisSent=sent
+    end)
+    pcall(function()
+        if not on then return end
+        local ch=LP.Character
+        if not ch then return end
+        for _,acc in pairs(ch:GetChildren()) do
+            if acc:IsA("Accessory") then
+                local handle=acc:FindFirstChild("Handle")
+                if handle then
+                    for _,m in pairs(handle:GetDescendants()) do
+                        if m:IsA("DataModelMesh") or m:IsA("SpecialMesh") or m:IsA("FileMesh") then
+                            pcall(function()
+                                if m.Scale and m.Scale.Magnitude>0 then
+                                    m:SetAttribute("AxOldScale", tostring(m.Scale))
+                                    m.Scale=Vector3.new(0.001,0.001,0.001)
+                                end
+                            end)
+                        end
+                    end
+                    pcall(function()
+                        local at=handle:FindFirstChildOfClass("Attachment")
+                        if not at then
+                            at=Instance.new("Attachment")
+                            at.Name="AxInvisAt"
+                            at.Parent=handle
+                        end
+                        at.Position=Vector3.new(0,10000,0)
+                    end)
                 end
             end
         end
@@ -1012,7 +1072,7 @@ pcall(function()
         end)
     end)
 end)
-local function findRemote(name)
+function findRemote(name)
     local cur=RS
     local okPath=true
     for part in string.gmatch(name,"[^%.]+") do
@@ -1727,7 +1787,45 @@ local function bindGodHC()
         end
     end)
 end
-local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop if ST.godmodeLoop then applyGodLocal() bindGodHC() syncServerGod() ntf("Godmode","ON - 10M HP + ForceField + instant revive (client-only)") else if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end clearGodLocal() syncServerGod() ntf("Godmode","OFF") end end,"godloop")
+local function fireGodRemotes(on)
+    pcall(function()
+        if not on then
+            local hd=findRemote("HDAdminHDClient.Signals.RequestCommand")
+            if hd then
+                grFire(hd,{"ungod"},"god")
+                grFire(hd,{":ungod"},"god")
+            end
+            local inv=findRemote("Inventory.Inventory")
+            if inv then
+                grFire(inv,{"heal"},"god")
+                grFire(inv,{100},"god")
+            end
+            return
+        end
+        local hd=findRemote("HDAdminHDClient.Signals.RequestCommand")
+        if hd then
+            local sets={
+                {"god"},{"godmode"},{":god"},{":godmode"},
+                {"god",LP.Name},{LP.Name,"god"},
+                {"cmd","god"}
+            }
+            for _,args in ipairs(sets) do grFire(hd,args,"god") end
+        end
+        local hd2=findRemote("HDAdminHDClient.Signals.ExecuteClientCommand")
+        if hd2 then
+            grFire(hd2,{"god"},"god")
+            grFire(hd2,{"godmode"},"god")
+        end
+        local inv=findRemote("Inventory.Inventory")
+        if inv then
+            grFire(inv,{"heal"},"god")
+            grFire(inv,{"godmode",true},"god")
+            grFire(inv,{"sethealth",10000000},"god")
+        end
+        syncServerGod()
+    end)
+end
+local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop if ST.godmodeLoop then applyGodLocal() bindGodHC() fireGodRemotes(true) ntf("Godmode","ON - 10M HP client + HDAdmin/Inventory god remotes") else if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end clearGodLocal() fireGodRemotes(false) ntf("Godmode","OFF") end end,"godloop")
 table.insert(allToggles,tGML)
 local tSPH3=tog(tEx,"Spheres on Click",function() return ST.spheresOn end,function() ST.spheresOn=not ST.spheresOn ntf("Spheres",ST.spheresOn and "ON - LMB throws neon spheres" or "OFF") end,"spheres")
 table.insert(allToggles,tSPH3)
@@ -1817,21 +1915,39 @@ local function doGreenSteal()
         local inv=findRemote("Inventory.Inventory")
         local arm=findRemote("Armory.RemoteEvent")
         local thief=findRemote("ThiefSystem.RemoteEvent")
+        local claim=findRemote("ClaimEvent")
+        local hd=findRemote("HDAdminHDClient.Signals.RequestCommand")
         local compact={
-            {t},{t.Name},{"steal",t},{"steal",t.Name},
-            {t,"steal"},{"pickpocket",t},{"rob",t.Name},{t.UserId},
-            {"steal",t.UserId},{"pickpocket",t.Name},{"take",t},
-            {"grab",t},{"loot",t},{t,"pickpocket"}
+            {t},{t.Name},{t.UserId},
+            {"steal",t},{"steal",t.Name},{"steal",t.UserId},
+            {t,"steal"},{t.Name,"steal"},
+            {"pickpocket",t},{"pickpocket",t.Name},
+            {"rob",t},{"rob",t.Name},{"rob",t.UserId},
+            {"take",t},{"grab",t},{"loot",t},
+            {"transfer",t},{t,"transfer"},
+            {"give",t},{t,"give"},
+            {"use",t},{t,"use"},
+            {"drop","stolen"},
+            {action="steal",target=t.UserId},
+            {action="pickpocket",target=t.Name}
         }
         for _,args in ipairs(compact) do
-            tryFire(inv,args)
+            if tryFire(inv,args) then fired=fired end
             tryFire(arm,args)
             tryFire(thief,args)
+            if claim then tryFire(claim,args) end
+        end
+        if hd then
+            local hds={
+                {"steal",t.Name},{"rob",t.Name},{":steal "..t.Name},
+                {"givetools",t.Name},{LP.Name,"steal",t.Name}
+            }
+            for _,args in ipairs(hds) do tryFire(hd,args) end
         end
     end)
     pcall(function()
         local scanned=0
-        local keys={"steal","thief","pickpocket","rob","take","grab","loot","pick"}
+        local keys={"steal","thief","pickpocket","rob","take","grab","loot","pick","transfer","claim"}
         for _,parent in ipairs({RS,W}) do
             if fired>=budget then break end
             for _,d in pairs(parent:GetDescendants()) do
@@ -1846,7 +1962,9 @@ local function doGreenSteal()
                         scanned=scanned+1
                         tryFire(d,{t})
                         tryFire(d,{t.Name})
+                        tryFire(d,{t.UserId})
                         tryFire(d,{"steal",t})
+                        tryFire(d,{"steal",t.Name})
                         tryFire(d,{"pickpocket",t.Name})
                     end
                 end
@@ -2177,6 +2295,25 @@ btn(tEx,"Refresh item list",function()
     for i=1,math.min(8,#all) do table.insert(sample,all[i].Name) end
     ntf("Give","Rescanned - "..n.." Tools. Sample: "..table.concat(sample,", "),6)
 end,"refitems")
+btn(tEx,"Dump ALL remotes (for Spy)",function()
+    local lines={}
+    pcall(function()
+        for _,parent in ipairs({RS,W}) do
+            for _,d in pairs(parent:GetDescendants()) do
+                if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                    table.insert(lines,(d:IsA("RemoteFunction") and "RF " or "RE ")..d:GetFullName())
+                end
+            end
+        end
+    end)
+    table.sort(lines)
+    local msg=table.concat(lines,"\n")
+    ntf("Remotes","#"..#lines.." remotes dumped. Full list -> clipboard + console",6)
+    print("[Axynth REMOTES]\n"..msg)
+    pcall(function()
+        if setclipboard then setclipboard(msg) end
+    end)
+end,"dumprems")
 btn(tEx,"Dump all tool names",function()
     ST._gameTools=nil
     ST._itemCat=nil
@@ -2363,7 +2500,8 @@ local tInv=tog(tMi,"Invisible",function() return ST.invisible end,function()
     if ST.invisible then
         applyInvisible()
         fireInvisRemotes(true)
-        ntf("Invisible","ON - character hidden (client) + remotes sent")
+        local nsent=ST._invisSent or 0
+        ntf("Invisible","ON - local hide + "..nsent.." remote(s). Others see you only if game cloak remote accepted",7)
     else
         fireInvisRemotes(false)
         pcall(function()
