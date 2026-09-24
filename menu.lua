@@ -1016,42 +1016,10 @@ local function applyOverhead(cam)
     if dt<=0 then dt=0.016 end
     if dt>0.09 then dt=0.09 end
     ovhLastT=now
-    local rmb=ST._camRMB or U:IsKeyDown(Enum.UserInputType.MouseButton2)
-    if rmb then
-        U.MouseBehavior=Enum.MouseBehavior.LockCenter
-        local dx,dy=0,0
-        pcall(function()
-            local md=U:GetMouseDelta()
-            if md then dx,dy=md.X,md.Y end
-        end)
-        if dx==0 and dy==0 and ovhPrevM then
-            local mp=U:GetMouseLocation()
-            dx=mp.X-ovhPrevM.X
-            dy=mp.Y-ovhPrevM.Y
-            ovhPrevM=mp
-        else
-            ovhPrevM=U:GetMouseLocation()
-        end
-        if dx>80 then dx=80 elseif dx<-80 then dx=-80 end
-        if dy>80 then dy=80 elseif dy<-80 then dy=-80 end
-        if dx~=0 or dy~=0 then
-            ST.ovhYaw=(ST.ovhYaw or 0)-dx*0.004
-            ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+dy*0.004,0.2,1.45)
-        end
-    else
-        if U.MouseBehavior~=Enum.MouseBehavior.Default then
-            U.MouseBehavior=Enum.MouseBehavior.Default
-        end
-        ovhPrevM=nil
+    if U.MouseBehavior~=Enum.MouseBehavior.Default then
+        U.MouseBehavior=Enum.MouseBehavior.Default
     end
-    local rotS=1.6*dt
-    if keyHeld(Enum.KeyCode.A) then ST.ovhYaw=(ST.ovhYaw or 0)+rotS end
-    if keyHeld(Enum.KeyCode.D) then ST.ovhYaw=(ST.ovhYaw or 0)-rotS end
-    if keyHeld(Enum.KeyCode.W) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+rotS*0.75,0.2,1.45) end
-    if keyHeld(Enum.KeyCode.S) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)-rotS*0.75,0.2,1.45) end
-    local dS=30*dt
-    if keyHeld(Enum.KeyCode.Space) then ST.ovhDist=math.min(80,(ST.ovhDist or 22)+dS) end
-    if keyHeld(Enum.KeyCode.LeftControl) then ST.ovhDist=math.max(8,(ST.ovhDist or 22)-dS) end
+    ovhPrevM=nil
     local yaw=ST.ovhYaw or 0
     local pitch=ST.ovhPitch or 1.1
     local dist=ST.ovhDist or 22
@@ -1726,7 +1694,7 @@ btn(tP,"Spectate: Overhead",function()
             local cam=W.CurrentCamera or CAM
             if cam then CAM=cam applyOverhead(cam) end
         end)
-        ntf("Spectate","Overhead ON - "..ST.spectating.DisplayName.." | hold RMB to look (Roblox style); WASD, Space/Ctrl dist")
+        ntf("Spectate","Overhead ON - auto lock on "..ST.spectating.DisplayName)
     end
 end,"specover")
 local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Enabled=CFG.ESPFillEnabled hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
