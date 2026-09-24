@@ -2120,13 +2120,26 @@ function doGreenSteal()
         end
     end)
     pcall(function()
+        -- real steal: try many arg combos so server actually transfers (not just duplicate)
         local inv=findRemote("Inventory.Inventory")
         if inv then
+            for _,a in ipairs({t, t.UserId, t.Name, t.Character}) do
+                if a then
+                    grFire(inv,{"steal",a},"steal")
+                    grFire(inv,{"pickpocket",a},"steal")
+                    grFire(inv,{"rob",a},"steal")
+                end
+            end
             grFire(inv,{"steal",t.UserId},"steal")
             grFire(inv,{"steal",t.Name},"steal")
         end
         local arm=findRemote("Armory.RemoteEvent")
-        if arm then grFire(arm,{"steal",t.Name},"steal") end
+        if arm then
+            for _,a in ipairs({t, t.UserId, t.Name}) do
+                if a then grFire(arm,{"steal",a},"steal") grFire(arm,{"rob",a},"steal") end
+            end
+            grFire(arm,{"steal",t.Name},"steal")
+        end
         local thief=findRemote("ThiefSystem.RemoteEvent")
         if thief then
             grFire(thief,{"steal",t},"steal")
