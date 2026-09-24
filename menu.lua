@@ -1,5 +1,4 @@
 print("[Axynth] Loading...")
-local ok, err = pcall(function()
 local P = game:GetService("Players")
 local U = game:GetService("UserInputService")
 local R = game:GetService("RunService")
@@ -3713,5 +3712,3 @@ P.PlayerRemoving:Connect(function(pp) if ST.espList[pp.UserId] then ST.espList[p
 for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end end
 pcall(function() for _,g in pairs({CG,LP:WaitForChild("PlayerGui")}) do for _,v in pairs(g:GetDescendants()) do if v.Name=="AxESP_2D" then v:Destroy() end end end end)
 print("[Axynth] MENU LOADED! Press RightShift!")
-end)
-if not ok then print("[Axynth] ERROR: "..tostring(err)) end
