@@ -208,18 +208,14 @@ pcall(function()
                 if hum then
                     if hum.MaxHealth<100 then hum.MaxHealth=100 end
                     hum.Health=hum.MaxHealth
-                    if not ST._godHC then
-                        ST._godHC=hum.HealthChanged:Connect(function(h)
-                            if not ST.godmodeLoop then return end
-                            local now=tick()
-                            if now-(ST._godHcT or 0)<0.1 then return end
-                            ST._godHcT=now
-                            pcall(function()
-                                if hum.MaxHealth<100 then hum.MaxHealth=100 end
-                                if h<=0 or h<hum.MaxHealth then hum.Health=hum.MaxHealth end
-                            end)
+                    if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end
+                    ST._godHC=hum.HealthChanged:Connect(function(h)
+                        if not ST.godmodeLoop then return end
+                        pcall(function()
+                            if hum.MaxHealth<100 then hum.MaxHealth=100 end
+                            if h<=0 or h<hum.MaxHealth then hum.Health=hum.MaxHealth end
                         end)
-                    end
+                    end)
                 end
             end)
         end
@@ -257,9 +253,7 @@ R.Heartbeat:Connect(function()
             local hum=LP.Character:FindFirstChildOfClass("Humanoid")
             if hum then
                 if hum.MaxHealth<100 then hum.MaxHealth=100 end
-                if hum.Health<=0 then
-                    hum.Health=hum.MaxHealth
-                elseif hum.Health<hum.MaxHealth and _frameCount%8==0 then
+                if hum.Health<=0 or hum.Health<hum.MaxHealth then
                     hum.Health=hum.MaxHealth
                 end
             end
@@ -470,6 +464,65 @@ local function setNoFog(on)
     end
 end
 local function setFrozen(f) pcall(function() if LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") local hum=LP.Character:FindFirstChildOfClass("Humanoid") if hrp and (not hum or not hum.Seated) then hrp.Anchored=f if f then hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end end end end) end
+local function safeTeleport(targetPos)
+    if not targetPos then return end
+    if not LP.Character then return end
+    local hrp=LP.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local startPos=hrp.Position
+    local dist=(targetPos-startPos).Magnitude
+    if dist<=120 then
+        pcall(function()
+            hrp.Velocity=Vector3.new(0,0,0)
+            hrp.RotVelocity=Vector3.new(0,0,0)
+            hrp.CFrame=CFrame.new(targetPos)
+        end)
+        return
+    end
+    if ST._tpBusy then return end
+    ST._tpBusy=true
+    task.spawn(function()
+        pcall(function()
+            local steps=math.min(math.ceil(dist/55),28)
+            for i=1,steps do
+                if not LP.Character then break end
+                local h=LP.Character:FindFirstChild("HumanoidRootPart")
+                if not h then break end
+                local alpha=i/steps
+                local p=startPos+(targetPos-startPos)*alpha
+                pcall(function()
+                    h.Velocity=Vector3.new(0,0,0)
+                    h.RotVelocity=Vector3.new(0,0,0)
+                    h.CFrame=CFrame.new(p)
+                end)
+                pcall(function()
+                    for _,part in pairs(LP.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide=false end
+                    end
+                end)
+                task.wait(0.05)
+            end
+            pcall(function()
+                local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                if h then
+                    h.Velocity=Vector3.new(0,0,0)
+                    h.RotVelocity=Vector3.new(0,0,0)
+                    h.CFrame=CFrame.new(targetPos)
+                end
+                if LP.Character and not ST.noclip then
+                    for _,part in pairs(LP.Character:GetDescendants()) do
+                        if part:IsA("BasePart") and ST.savedCollide[part]~=nil then
+                            part.CanCollide=ST.savedCollide[part]
+                        elseif part:IsA("BasePart") then
+                            part.CanCollide=true
+                        end
+                    end
+                end
+            end)
+        end)
+        ST._tpBusy=false
+    end)
+end
 local FC_KEYS={}
 local fcPrevM=nil
 local fcLastT=tick()
@@ -514,8 +567,8 @@ end
 local function setFreeCam(on)
     if on then
         if ST.freeCam then return end
-        stopOverhead(false)
         ST.freeCam=true
+        stopOverhead(false)
         table.clear(FC_KEYS)
         pcall(function()
             local ch=LP.Character
@@ -629,7 +682,7 @@ local function applyFreeCam(cam)
         pos=cam.CFrame.Position
         ST.freeCamPos=pos
     end
-    local rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2) or U:IsKeyDown(Enum.MouseButton2)
+    local rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2)
     local dx,dy=0,0
     local mp=U:GetMouseLocation()
     if rmb then
@@ -1235,8 +1288,8 @@ sep(tH)
 lbl(tH,">> TELEPORT")
 local tCTP=tog(tH,"Click TP",function() return ST.clickTP end,function() ST.clickTP=not ST.clickTP if ST.clickTP then if not ST.cursorTPPreview then local p=Instance.new("Part") p.Name="AxCTPPreview" p.Size=Vector3.new(3,0.2,3) p.Anchored=true p.CanCollide=false p.Material=Enum.Material.Neon p.Color=Color3.fromRGB(255,0,0) p.Transparency=0.5 p.Parent=W ST.cursorTPPreview=p end else if ST.cursorTPPreview then ST.cursorTPPreview:Destroy() ST.cursorTPPreview=nil end end ntf("ClickTP",ST.clickTP and "ON" or "OFF") end,"clicktp")
 table.insert(allToggles,tCTP)
-btn(tH,"TP Cursor",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,3,0)) ntf("TP","Teleported to cursor!") end end end,"tpcur")
-btn(tH,"TP Forward",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then h.CFrame=h.CFrame+CAM.CFrame.LookVector*100 end end end,"tpfwd")
+btn(tH,"TP Cursor",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then safeTeleport(MS.Hit.Position+Vector3.new(0,3,0)) ntf("TP","Teleported to cursor!") end end end,"tpcur")
+btn(tH,"TP Forward",function() if LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then safeTeleport(h.Position+CAM.CFrame.LookVector*100) end end end,"tpfwd")
 
 local tW=tF["world"]
 lbl(tW,">> WORLD")
@@ -1340,7 +1393,7 @@ end)
 btn(tP,"Refresh Players",function() pDropBtn.Text="  Click to select..." ST.selectedPlayer=nil end,"plrrefresh")
 sep(tP)
 lbl(tP,">> PLAYER ACTIONS")
-btn(tP,"Goto Player",function() if ST.selectedPlayer and ST.selectedPlayer.Character and LP.Character then local t2=ST.selectedPlayer.Character:FindFirstChild("HumanoidRootPart") local m=LP.Character:FindFirstChild("HumanoidRootPart") if t2 and m then m.CFrame=t2.CFrame+Vector3.new(3,0,0) end end end,"goto")
+btn(tP,"Goto Player",function() if ST.selectedPlayer and ST.selectedPlayer.Character and LP.Character then local t2=ST.selectedPlayer.Character:FindFirstChild("HumanoidRootPart") local m=LP.Character:FindFirstChild("HumanoidRootPart") if t2 and m then safeTeleport(t2.Position+Vector3.new(3,1,0)) end end end,"goto")
 sep(tP)
 lbl(tP,">> SPECTATE + ESP")
 btn(tP,"Spectate",function() if ST.selectedPlayer and ST.selectedPlayer.Character then local h=ST.selectedPlayer.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=ST.selectedPlayer end end end,"spec")
@@ -1445,7 +1498,7 @@ btn(tP,"MaceTP: Further",function() if not ST.maceTPOffset then ST.maceTPOffset=
 sep(tP)
 lbl(tP,">> MARKER SYSTEM")
 btn(tP,"Set Marker Here",function() pcall(function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then if ST.markerObj then ST.markerObj:Destroy() end local p=Instance.new("Part") p.Name="AxMarker" p.Size=Vector3.new(4,0.2,4) p.Anchored=true p.CanCollide=false p.Material=Enum.Material.Neon p.Color=Color3.fromRGB(0,150,255) p.Transparency=0.3 p.Position=LP.Character.HumanoidRootPart.Position-Vector3.new(0,3,0) p.Parent=W ST.markerObj=p local bb=Instance.new("BillboardGui") bb.Size=UDim2.new(0,100,0,40) bb.StudsOffset=Vector3.new(0,3,0) bb.AlwaysOnTop=true bb.Parent=p local tl=Instance.new("TextLabel") tl.Size=UDim2.new(1,0,1,0) tl.BackgroundTransparency=1 tl.Text="MARKER" tl.TextColor3=Color3.fromRGB(0,200,255) tl.TextSize=14 tl.Font=Enum.Font.GothamBold tl.Parent=bb ntf("Marker","Set!") end end) end,"setmarker")
-btn(tP,"TP to Marker",function() pcall(function() if ST.markerObj and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame=CFrame.new(ST.markerObj.Position+Vector3.new(0,3,0)) end end) end,"tpmarker")
+btn(tP,"TP to Marker",function() pcall(function() if ST.markerObj and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then safeTeleport(ST.markerObj.Position+Vector3.new(0,3,0)) end end) end,"tpmarker")
 btn(tP,"Clear Marker",function() pcall(function() if ST.markerObj then ST.markerObj:Destroy() ST.markerObj=nil ntf("Marker","Cleared!") end end) end,"clrmarker")
 
 sep(tP)
@@ -1481,7 +1534,7 @@ for i=1,5 do
     wpSelBtns[i]=b
 end
 btn(tP,"Set Selected WP",function() pcall(function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local id=ST.wpSelected ST.waypoints[id]=LP.Character.HumanoidRootPart.Position+Vector3.new(0,2,0) createWPVisual(id,ST.waypoints[id]) ntf("Waypoint","Set WP"..id.."!") end end) end,"setwp")
-btn(tP,"TP to Selected WP",function() pcall(function() local id=ST.wpSelected if ST.waypoints[id] and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame=CFrame.new(ST.waypoints[id]) end end) end,"tpwp")
+btn(tP,"TP to Selected WP",function() pcall(function() local id=ST.wpSelected if ST.waypoints[id] and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then safeTeleport(ST.waypoints[id]) end end) end,"tpwp")
 btn(tP,"Clear Selected WP",function() pcall(function() local id=ST.wpSelected ST.waypoints[id]=nil clearWPVisual(id) ntf("Waypoint","Cleared WP"..id.."!") end) end,"clrwp")
 btn(tP,"Clear All Waypoints",function() pcall(function() ST.waypoints={} for i=1,5 do clearWPVisual(i) end ntf("Waypoint","All cleared!") end) end,"clrwpall")
 local tEx=tF["exploit"]
@@ -1544,9 +1597,6 @@ local function bindGodHC()
         if hum and ST.godmodeLoop then
             ST._godHC=hum.HealthChanged:Connect(function(h)
                 if not ST.godmodeLoop then return end
-                local now=tick()
-                if now-(ST._godHcT or 0)<0.1 then return end
-                ST._godHcT=now
                 pcall(function()
                     if hum.MaxHealth<100 then hum.MaxHealth=100 end
                     if h<=0 or h<hum.MaxHealth then hum.Health=hum.MaxHealth end
@@ -1555,7 +1605,7 @@ local function bindGodHC()
         end
     end)
 end
-local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop if ST.godmodeLoop then bindGodHC() syncServerGod() ntf("Godmode","ON - blocks weapon spheres + server ammo") else if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end syncServerGod() ntf("Godmode","OFF") end end,"godloop")
+local tGML=tog(tEx,"Godmode Loop",function() return ST.godmodeLoop end,function() ST.godmodeLoop=not ST.godmodeLoop if ST.godmodeLoop then bindGodHC() syncServerGod() ntf("Godmode","ON - client instant revive. Server ammo kill needs server.lua") else if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end syncServerGod() ntf("Godmode","OFF") end end,"godloop")
 table.insert(allToggles,tGML)
 local tSPH3=tog(tEx,"Spheres on Click",function() return ST.spheresOn end,function() ST.spheresOn=not ST.spheresOn ntf("Spheres",ST.spheresOn and "ON - LMB throws neon spheres" or "OFF") end,"spheres")
 table.insert(allToggles,tSPH3)
@@ -1591,72 +1641,69 @@ local function doGreenSteal()
     local t=ST.selectedPlayer
     if not t or t==LP or not t.Character then t=nearestPl(15) end
     if not t then ntf("Steal","No player nearby / not selected",4) return end
-    local fired=0
-    local paths={
-        "ThiefSystem.RemoteEvent","ThiefSystem.Steal","ThiefSystem",
-        "StealEvent","Steal","PickpocketEvent","Pickpocket",
-        "RobEvent","RobPlayer","Rob","ThiefRob",
-        "Inventory.Steal","PlayerActions.Steal"
-    }
-    local argSets={
-        {t},{t.Name},{"steal",t},{"steal",t.Name},
-        {t,"steal"},{t.UserId},{t.Name,true},{"rob",t.Name},
-        {t.Character},{t.Character and t.Character.Name},
-        {"pickpocket",t},{"pickpocket",t.Name},
-        {LP,t},{t,LP},{"steal",t.Character},
-        {"ThiefSystem","steal",t},{t,"ThiefSystem"}
-    }
     pcall(function()
-        local inv=findRemote("Inventory.Inventory")
-        if inv then
-            forceFire(inv,"steal",t)
-            forceFire(inv,"steal",t.Name)
-            forceFire(inv,"pickpocket",t)
-            forceFire(inv,t,"steal")
-            forceFire(inv,"rob",t.Name)
-        end
-    end)
-    pcall(function()
-        local arm=findRemote("Armory.RemoteEvent")
-        if arm then
-            forceFire(arm,"steal",t)
-            forceFire(arm,t)
-        end
-    end)
-    for _,path in ipairs(paths) do
-        pcall(function()
-            local r=findRemote(path)
-            if r and r:IsA("RemoteEvent") then
-                for _,args in ipairs(argSets) do
-                    pcall(function() r:FireServer(unpack(args)) end)
-                end
-                fired=fired+1
-            elseif r and r:IsA("RemoteFunction") then
-                pcall(function() r:InvokeServer(t) end)
-                pcall(function() r:InvokeServer(t.Name) end)
-                fired=fired+1
+        local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        local th=t.Character and t.Character:FindFirstChild("HumanoidRootPart")
+        if my and th then
+            my.CFrame=CFrame.lookAt(my.Position,Vector3.new(th.Position.X,my.Position.Y,th.Position.Z))
+            local d=(my.Position-th.Position).Magnitude
+            if d>18 then
+                local toward=my.Position+(th.Position-my.Position).Unit*(d-4)
+                safeTeleport(toward)
             end
-        end)
+        end
+    end)
+    local fired=0
+    local budget=14
+    ST._stealRateT=ST._stealRateT or 0
+    local function tryFire(r,args)
+        if not r or fired>=budget then return end
+        local now=tick()
+        if now-ST._stealRateT<0.07 then return end
+        ST._stealRateT=now
+        local ok2=false
+        if r:IsA("RemoteFunction") then
+            ST._forceFire=true
+            ok2=pcall(function() r:InvokeServer(unpack(args)) end)
+            ST._forceFire=false
+        else
+            ok2=forceFire(r,unpack(args))
+        end
+        if ok2 then fired=fired+1 end
     end
     pcall(function()
+        local inv=findRemote("Inventory.Inventory")
+        local arm=findRemote("Armory.RemoteEvent")
+        local thief=findRemote("ThiefSystem.RemoteEvent")
+        local compact={
+            {t},{t.Name},{"steal",t},{"steal",t.Name},
+            {t,"steal"},{"pickpocket",t},{"rob",t.Name},{t.UserId}
+        }
+        for _,args in ipairs(compact) do
+            tryFire(inv,args)
+            tryFire(arm,args)
+            tryFire(thief,args)
+        end
+    end)
+    pcall(function()
+        local scanned=0
         for _,parent in ipairs({RS,W}) do
+            if fired>=budget then break end
             for _,d in pairs(parent:GetDescendants()) do
+                if fired>=budget or scanned>=6 then break end
                 if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) then
                     local nm=d.Name:lower()
-                    if nm:find("steal") or nm:find("thief") or nm:find("pickpocket") or nm:find("inventory") or (nm:find("rob") and not nm:find("group")) then
-                        pcall(function()
-                            if d:IsA("RemoteFunction") then forceInvoke(d,t) else forceFire(d,t) end
-                        end)
-                        pcall(function()
-                            if d:IsA("RemoteFunction") then forceInvoke(d,t.Name,"steal") else forceFire(d,t.Name,"steal") end
-                        end)
-                        fired=fired+1
+                    if nm:find("steal") or nm:find("thief") or nm:find("pickpocket") or (nm:find("rob") and not nm:find("group")) then
+                        scanned=scanned+1
+                        tryFire(d,{t})
+                        tryFire(d,{t.Name})
+                        tryFire(d,{"steal",t})
                     end
                 end
             end
         end
     end)
-    ntf("Steal",fired>0 and ("Tried "..fired.." path(s) on "..t.DisplayName.." - needs server accept") or "No steal remotes found",4)
+    ntf("Steal",fired>0 and ("Sent "..fired.." request(s) on "..t.DisplayName.." (rate-limited) - needs server accept") or "No steal remotes / rate-limited",4)
 end
 btn(tEx,"Steal in Greenzone (no gun)",function() doGreenSteal() end,"stealgreen")
 local tGS=tog(tEx,"Auto Steal Loop",function() return ST.autoSteal end,function() ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON - nearest every 0.6s") else ntf("Steal","Loop OFF") end end,"autosteal")
@@ -1724,71 +1771,180 @@ lbl(tEx,">> SPAWN / GIVE ITEMS")
 local function getGameToolList()
     if ST._gameTools then return ST._gameTools end
     local list={}
+    local seen={}
+    local function addTool(d)
+        if not d or seen[d] then return end
+        seen[d]=true
+        table.insert(list,d)
+    end
     local function scan(parent,deep)
         pcall(function()
+            if not parent then return end
             local items=deep and parent:GetDescendants() or parent:GetChildren()
             for _,d in ipairs(items) do
-                if d:IsA("Tool") then table.insert(list,d) end
+                if d:IsA("Tool") then addTool(d) end
             end
         end)
     end
     pcall(function() scan(game:GetService("StarterPack"),true) end)
     pcall(function() scan(game:GetService("StarterGear"),true) end)
     pcall(function() scan(RS,true) end)
-    pcall(function() scan(W,false) end)
+    pcall(function() scan(game:GetService("ReplicatedFirst"),true) end)
+    pcall(function() scan(W,true) end)
     pcall(function()
         local ss=game:GetService("ServerStorage")
         if ss then scan(ss,true) end
     end)
+    pcall(function()
+        local sss=game:GetService("ServerScriptService")
+        if sss then scan(sss,true) end
+    end)
+    pcall(function()
+        for _,pl in pairs(P:GetPlayers()) do
+            local ch=pl:FindFirstChild("Backpack")
+            if ch then scan(ch,true) end
+            if pl.Character then scan(pl.Character,true) end
+        end
+    end)
     ST._gameTools=list
     return list
 end
+local function matchToolName(name, q)
+    if not name or not q then return false end
+    local tn=string.lower(name)
+    if tn==q or tn:find(q,1,true) or q:find(tn,1,true) then return true end
+    for word in string.gmatch(q,"[^%s]+") do
+        if #word>=3 and tn:find(word,1,true) then return true end
+    end
+    return false
+end
+local function getItemCatalog()
+    if ST._itemCat then return ST._itemCat end
+    local names={}
+    local seen={}
+    local function add(n)
+        if not n or #n<2 or #n>50 then return end
+        local k=string.lower(n)
+        if seen[k] then return end
+        if k:find("remote") or k:find("event") or k:find("signal") or k:find("anticheat") then return end
+        seen[k]=true
+        table.insert(names,n)
+    end
+    pcall(function()
+        for _,tool in ipairs(getGameToolList()) do add(tool.Name) end
+    end)
+    pcall(function()
+        for _,d in pairs(RS:GetDescendants()) do
+            if d:IsA("StringValue") then add(d.Name) end
+            if d:IsA("Folder") or d:IsA("Model") then
+                local pn=string.lower(d.Name)
+                if pn:find("shop") or pn:find("item") or pn:find("store") or pn:find("catalog") or pn:find("weapon") or pn:find("armory") or pn:find("loot") then
+                    for _,c in pairs(d:GetChildren()) do
+                        if c:IsA("StringValue") or c:IsA("Tool") or c:IsA("Folder") or c:IsA("ModuleScript") then add(c.Name) end
+                    end
+                end
+            end
+        end
+    end)
+    ST._itemCat=names
+    return names
+end
 local function fireGiveRemotes(itemName)
-    local paths={
+    local lower=string.lower(itemName)
+    local aliases={itemName,lower}
+    local cat=getItemCatalog()
+    for _,cn in ipairs(cat) do
+        if matchToolName(cn,lower) and #aliases<6 then
+            table.insert(aliases,cn)
+        end
+    end
+    if lower:find("fal") and #aliases<8 then
+        table.insert(aliases,"fnfal")
+        table.insert(aliases,"FN_FAL")
+    end
+    if (lower:find("plant") or lower:find("weed")) and #aliases<8 then
+        table.insert(aliases,"weed")
+        table.insert(aliases,"cannabis")
+        table.insert(aliases,"plant")
+    end
+    local budget=20
+    ST._giveRateT=ST._giveRateT or 0
+    local function tryFire(r,args)
+        if not r or budget<=0 then return false end
+        local now=tick()
+        if now-ST._giveRateT<0.08 then return false end
+        ST._giveRateT=now
+        local ok2=false
+        if r:IsA("RemoteFunction") then
+            ST._forceFire=true
+            ok2=pcall(function() r:InvokeServer(unpack(args)) end)
+            ST._forceFire=false
+        else
+            ok2=forceFire(r,unpack(args))
+        end
+        if ok2 then budget=budget-1 end
+        return ok2
+    end
+    local inv=findRemote("Inventory.Inventory")
+    local arm=findRemote("Armory.RemoteEvent")
+    local buy=findRemote("SupermarketEvent.BuyItem")
+    local prio={
         "Inventory.Inventory","Armory.RemoteEvent","SupermarketEvent.BuyItem",
-        "GiveTool","GiveItem","SpawnItem","addItem","AddItem","GiveWeapon",
-        "Shop.Buy","Shop.Give","Loot.Give","Item.Give","DropItem"
+        "GiveTool","GiveItem","SpawnItem","addItem","GiveWeapon"
     }
-    for _,path in ipairs(paths) do
+    for _,alias in ipairs(aliases) do
+        local sets={
+            {alias},{"give",alias},{"add",alias,1},{"buy",alias},{LP,alias},{alias,1}
+        }
+        for _,args in ipairs(sets) do
+            tryFire(inv,args)
+            tryFire(arm,args)
+            tryFire(buy,args)
+        end
+    end
+    for _,path in ipairs(prio) do
+        if budget<=0 then break end
         pcall(function()
             local r=findRemote(path)
             if r then
-                if r:IsA("RemoteFunction") then
-                    forceInvoke(r,itemName)
-                    forceInvoke(r,"give",itemName)
-                    forceInvoke(r,LP,itemName)
-                else
-                    forceFire(r,itemName)
-                    forceFire(r,"give",itemName)
-                    forceFire(r,LP,itemName)
-                    forceFire(r,LP,itemName,1)
+                for _,alias in ipairs(aliases) do
+                    tryFire(r,{alias})
+                    tryFire(r,{"give",alias})
                 end
             end
         end)
     end
     pcall(function()
-        for _,d in pairs(RS:GetDescendants()) do
-            if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
-                local nm=string.lower(d.Name)
-                if (nm:find("give") or nm:find("spawnitem") or nm:find("additem") or nm:find("buyitem") or nm:find("equip")) and not nm:find("antiban") then
-                    pcall(function()
-                        if d:IsA("RemoteFunction") then forceInvoke(d,itemName) else forceFire(d,itemName) end
-                    end)
+        local scanned=0
+        for _,parent in ipairs({RS,W}) do
+            if budget<=0 or scanned>=4 then break end
+            for _,d in pairs(parent:GetDescendants()) do
+                if budget<=0 or scanned>=4 then break end
+                if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                    local nm=string.lower(d.Name)
+                    if (nm:find("give") or nm:find("spawn") or nm:find("additem") or nm:find("buyitem") or nm:find("armory")) and not nm:find("antiban") then
+                        scanned=scanned+1
+                        for _,alias in ipairs(aliases) do
+                            tryFire(d,{alias})
+                            tryFire(d,{"give",alias})
+                        end
+                    end
                 end
             end
         end
     end)
+    return 20-budget
 end
 local function giveGameItem(query)
     if not query or query=="" then ntf("Give","Enter item name",4) return end
     local q=string.lower(query)
     local bp=LP:FindFirstChild("Backpack")
     if not bp then ntf("Give","No backpack",4) return end
+    local all=getGameToolList()
     local given=0
     local names={}
-    for _,tool in ipairs(getGameToolList()) do
-        local tn=string.lower(tool.Name)
-        if tn:find(q) or q:find(tn) then
+    for _,tool in ipairs(all) do
+        if matchToolName(tool.Name,q) then
             pcall(function()
                 local cl=tool:Clone()
                 cl.Parent=bp
@@ -1798,15 +1954,35 @@ local function giveGameItem(query)
         end
         if given>=6 then break end
     end
-    fireGiveRemotes(query)
+    if given==0 then
+        ST._gameTools=nil
+        all=getGameToolList()
+        for _,tool in ipairs(all) do
+            if matchToolName(tool.Name,q) then
+                pcall(function()
+                    local cl=tool:Clone()
+                    cl.Parent=bp
+                    given=given+1
+                    table.insert(names,tool.Name)
+                end)
+            end
+            if given>=6 then break end
+        end
+    end
+    local firedN=0
+    pcall(function() firedN=fireGiveRemotes(query) or 0 end)
+    local sample={}
+    for i=1,math.min(6,#all) do table.insert(sample,all[i].Name) end
+    local catN=0
+    pcall(function() catN=#getItemCatalog() end)
     if given>0 then
         pcall(function()
             local last=bp:FindFirstChildOfClass("Tool")
             if last then LP.Character:EquipTool(last) end
         end)
-        ntf("Give","Cloned "..given.." tool(s): "..table.concat(names,", "),5)
+        ntf("Give","Cloned "..given..": "..table.concat(names,", "),5)
     else
-        ntf("Give","No matching Tool found - fired give remotes for '"..query.."'",5)
+        ntf("Give","0 Tool instances (cache "..#all..", catalog "..catN.."). Remotes sent: "..firedN..". If empty: Remote Spy on shop/armory buy. Sample: "..table.concat(sample,", "),8)
     end
 end
 local itemBox=Instance.new("TextBox")
@@ -1829,14 +2005,38 @@ itemBox.FocusLost:Connect(function(enter)
 end)
 btn(tEx,"Give typed item",function() giveGameItem(itemBox.Text) end,"giveitem")
 btn(tEx,"Give: FN FAL / rifle",function() giveGameItem("FN FAL") end,"givefal")
-btn(tEx,"Give: any gun/weapon",function() giveGameItem("gun") end,"givegun")
+btn(tEx,"Give: any gun/weapon",function() giveGameItem("weapon") end,"givegun")
 btn(tEx,"Give: food",function() giveGameItem("food") end,"givefood")
 btn(tEx,"Give: water",function() giveGameItem("water") end,"givewater")
 btn(tEx,"Give: vest / armor",function() giveGameItem("vest") end,"givevest")
 btn(tEx,"Give: milk",function() giveGameItem("milk") end,"givemilk")
-btn(tEx,"Give: plant / weed",function() giveGameItem("plant") end,"giveplant")
+btn(tEx,"Give: plant / weed",function() giveGameItem("weed") end,"giveplant")
 btn(tEx,"Give: miner item",function() giveGameItem("miner") end,"giveminer")
-btn(tEx,"Refresh item list",function() ST._gameTools=nil getGameToolList() ntf("Give","Rescanned - "..#getGameToolList().." tools found",4) end,"refitems")
+btn(tEx,"Refresh item list",function()
+    ST._gameTools=nil
+    local n=#getGameToolList()
+    local sample={}
+    local all=ST._gameTools or {}
+    for i=1,math.min(8,#all) do table.insert(sample,all[i].Name) end
+    ntf("Give","Rescanned - "..n.." Tools. Sample: "..table.concat(sample,", "),6)
+end,"refitems")
+btn(tEx,"Dump all tool names",function()
+    ST._gameTools=nil
+    ST._itemCat=nil
+    local all=getGameToolList()
+    local cat=getItemCatalog()
+    local names={}
+    local seen={}
+    for _,t in ipairs(all) do if not seen[t.Name] then seen[t.Name]=true table.insert(names,t.Name) end end
+    for _,n in ipairs(cat) do if not seen[n] then seen[n]=true table.insert(names,n) end end
+    table.sort(names)
+    local msg=table.concat(names,", ")
+    if #msg>180 then msg=string.sub(msg,1,180).."..." end
+    ntf("Give","Tools "..#all..", catalog "..#cat..": "..msg,8)
+    pcall(function()
+        if setclipboard and #names>0 then setclipboard(table.concat(names,", ")) ntf("Give","Full list copied to clipboard",4) end
+    end)
+end,"dumptools")
 sep(tEx)
 lbl(tEx,">> MULTIPLAYER KILL (no server.lua)")
 btn(tEx,"Kill Selected/Nearest (MP)",function()
@@ -2342,24 +2542,24 @@ local function drawShotTracer()
         weaponHitScan()
     end)
 end
-local function sphereKillAt(pos)
+local function sphereKillAt(pos, forcedPl)
     pcall(function()
-        local hitPl=nil
-        for _,pp in pairs(P:GetPlayers()) do
-            if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") then
-                local d=(pp.Character.HumanoidRootPart.Position-pos).Magnitude
-                if d<8 then hitPl=pp break end
+        local hitPl=forcedPl
+        if not hitPl or hitPl==LP or not hitPl.Character then
+            hitPl=nil
+            for _,pp in pairs(P:GetPlayers()) do
+                if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") then
+                    local d=(pp.Character.HumanoidRootPart.Position-pos).Magnitude
+                    if d<8 then hitPl=pp break end
+                end
             end
         end
-        if hitPl then
+        if hitPl and hitPl~=LP and hitPl.Character then
+            ensureWeaponEquipped()
             for i=1,3 do mpKillPlayer(hitPl, pos) end
             pcall(function()
                 if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
                 if AR then AR:FireServer("kill", hitPl.Name) end
-            end)
-            pcall(function()
-                local h=hitPl.Character:FindFirstChildOfClass("Humanoid")
-                if h and h.Health>0 then h.Health=math.max(0,h.Health-100000) end
             end)
             pcall(function()
                 local e=Instance.new("Explosion")
@@ -2368,7 +2568,7 @@ local function sphereKillAt(pos)
                 e.BlastRadius=6
                 e.Parent=W
             end)
-            ntf("Spheres","Hit "..hitPl.DisplayName.." - killing via game weapons")
+            ntf("Spheres","Hit "..hitPl.DisplayName.." - weapon kill sent (server.lua = instant)")
         end
     end)
 end
@@ -2376,6 +2576,7 @@ local function throwSpheres()
     pcall(function()
         if tick()-(ST._sphT or 0)<0.65 then return end
         ST._sphT=tick()
+        ensureWeaponEquipped()
         local alive=0
         for _,o in pairs(W:GetChildren()) do
             if o.Name=="AxSphere" then
@@ -2443,7 +2644,7 @@ local function throwSpheres()
                 dead=true
                 local ppos=ball.Position
                 pcall(function() ball:Destroy() end)
-                sphereKillAt(ppos)
+                sphereKillAt(ppos, pl)
             end)
             task.delay(1.4,function()
                 pcall(function()
@@ -2454,7 +2655,7 @@ local function throwSpheres()
                 end)
             end)
         end
-        ntf("Spheres","Fired x4 - lighter FX (FPS safe)")
+        ntf("Spheres","Fired x4 - weapon kill on touch (server.lua = instant server death)")
     end)
 end
 MS.Button1Down:Connect(function()
@@ -2462,7 +2663,7 @@ MS.Button1Down:Connect(function()
         if ST.shotTracer then drawShotTracer() end
         if ST.spheresOn then throwSpheres() end
     end
-    if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then h.CFrame=CFrame.new(MS.Hit.Position+Vector3.new(0,2,0)) end end
+    if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then safeTeleport(MS.Hit.Position+Vector3.new(0,2,0)) end end
 end)
 local lastInfJump=0
 local function vaultJumpUnlock(h)
@@ -2495,8 +2696,7 @@ R.RenderStepped:Connect(function()
             if hum.Health<=0 then
                 hum.Health=hum.MaxHealth
                 pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
-            elseif hum.Health<hum.MaxHealth and now-(ST._godHpT or 0)>0.15 then
-                ST._godHpT=now
+            elseif hum.Health<hum.MaxHealth then
                 hum.Health=hum.MaxHealth
             end
             if hum.PlatformStand and now-(ST._godPsT or 0)>0.2 then
@@ -2670,7 +2870,7 @@ R.RenderStepped:Connect(function()
     pcall(function() if ST.bright then L.Brightness=2 L.GlobalShadows=false L.Ambient=Color3.fromRGB(178,178,178) L.OutdoorAmbient=Color3.fromRGB(178,178,178) end end)
     pcall(function() if ST.noFog then L.FogEnd=999999 L.FogStart=0 local atm=L:FindFirstChildOfClass("Atmosphere") if atm then atm.Density=0 end end end)
     pcall(function()
-        if ST.maceTP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local myRoot=LP.Character.HumanoidRootPart local nearestDist=math.huge local nearestRoot=nil for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and pp.Character:FindFirstChildOfClass("Humanoid") then local hum2=pp.Character:FindFirstChildOfClass("Humanoid") if hum2.Health>0 then local d=(myRoot.Position-pp.Character.HumanoidRootPart.Position).Magnitude if d<nearestDist then nearestDist=d nearestRoot=pp.Character.HumanoidRootPart end end end end if nearestRoot then local off=ST.maceTPOffset or 3 myRoot.CFrame=nearestRoot.CFrame*CFrame.new(0,0,off) end end
+        if ST.maceTP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local myRoot=LP.Character.HumanoidRootPart local nearestDist=math.huge local nearestRoot=nil for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and pp.Character:FindFirstChildOfClass("Humanoid") then local hum2=pp.Character:FindFirstChildOfClass("Humanoid") if hum2.Health>0 then local d=(myRoot.Position-pp.Character.HumanoidRootPart.Position).Magnitude if d<nearestDist then nearestDist=d nearestRoot=pp.Character.HumanoidRootPart end end end end if nearestRoot then local off=ST.maceTPOffset or 3 local targetCF=nearestRoot.CFrame*CFrame.new(0,0,off) local d=(myRoot.Position-nearestRoot.Position).Magnitude if d>140 then if tick()-(ST._maceTpT or 0)>0.5 then ST._maceTpT=tick() safeTeleport(targetCF.Position) end else myRoot.CFrame=targetCF end end end
     end)
     pcall(function()
         if ST.botRecord and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then table.insert(ST.botFrames,{t=tick()-ST.botStart,cf=LP.Character.HumanoidRootPart.CFrame:clone()}) end
@@ -2828,7 +3028,7 @@ R.RenderStepped:Connect(function()
     end)
 end)
 pcall(function() P.PlayerAdded:Connect(function(pp) pp.CharacterAdded:Connect(function(ch) task.wait(1) pcall(function() if ST.esp and pp~=LP then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=Color3.new(1,1,1) hl.OutlineTransparency=0 hl.Parent=ch ST.espList[pp.UserId]=hl end end) end) end) end)
-pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=math.max(ST.speedPreset or 0,50) end end) end end) pcall(function() if ST.godmodeLoop then ST._srvGod=false task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then if hum.MaxHealth<100 then hum.MaxHealth=100 end hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) syncServerGod() end end) end end) pcall(function() if ST.freeCam then task.delay(0.8,function() if not ST.freeCam then return end local hrp=ch:FindFirstChild("HumanoidRootPart") local hum=ch:FindFirstChildOfClass("Humanoid") if hrp then hrp.Anchored=true hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end if hum then hum.WalkSpeed=0 hum.AutoRotate=false end end) end end) end) end)
+pcall(function() LP.CharacterAdded:Connect(function(ch) task.wait(1) ST.savedCollide={} pcall(function() if ST.spinner then task.delay(0.5,function() if ch and LP.Character==ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then local sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end end end) end end) pcall(function() if ST.speedHard then task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=math.max(ST.speedPreset or 0,50) end end) end end) pcall(function() if ST.godmodeLoop then ST._srvGod=false if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end task.delay(0.5,function() local hum=ch:FindFirstChildOfClass("Humanoid") if hum then if hum.MaxHealth<100 then hum.MaxHealth=100 end hum.Health=hum.MaxHealth pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end) syncServerGod() bindGodHC() end end) end end) pcall(function() if ST.freeCam then task.delay(0.8,function() if not ST.freeCam then return end local hrp=ch:FindFirstChild("HumanoidRootPart") local hum=ch:FindFirstChildOfClass("Humanoid") if hrp then hrp.Anchored=true hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end if hum then hum.WalkSpeed=0 hum.AutoRotate=false end end) end end) end) end)
 P.PlayerRemoving:Connect(function(pp) if ST.espList[pp.UserId] then ST.espList[pp.UserId]:Destroy() ST.espList[pp.UserId]=nil end if ST.esp2D and ST.esp2D[pp.UserId] then pcall(function() ST.esp2D[pp.UserId]:Destroy() end) ST.esp2D[pp.UserId]=nil end end)
 for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end end
 pcall(function() for _,g in pairs({CG,LP:WaitForChild("PlayerGui")}) do for _,v in pairs(g:GetDescendants()) do if v.Name=="AxESP_2D" then v:Destroy() end end end end)
