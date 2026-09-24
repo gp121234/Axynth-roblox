@@ -773,12 +773,10 @@ freezeLocalForCam=function()
         if hum then
             if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
             if ST._fcAS==nil then ST._fcAS=hum.AutoRotate end
-            hum.WalkSpeed=0
-            hum.AutoRotate=false
-            hum.PlatformStand=true
-            pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Jumping,false) end)
+            if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
+            if hum.AutoRotate then hum.AutoRotate=false end
         end
-        if hrp then
+        if hrp and not hrp.Anchored then
             hrp.Anchored=true
             hrp.Velocity=Vector3.new(0,0,0)
             hrp.RotVelocity=Vector3.new(0,0,0)
@@ -790,14 +788,14 @@ unfreezeLocalFromCam=function()
         local ch=LP.Character
         local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
         local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-        if hrp then
+        if hrp and hrp.Anchored then
             hrp.Anchored=false
             hrp.Velocity=Vector3.new(0,0,0)
             hrp.RotVelocity=Vector3.new(0,0,0)
         end
         if hum then
+            pcall(function() hum.PlatformStand=false end)
             pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Jumping,true) end)
-            hum.PlatformStand=false
             hum.WalkSpeed=ST.speedPreset or 16
             if ST.speedHard and hum.WalkSpeed<50 then hum.WalkSpeed=50 end
             if hum.WalkSpeed<=0 then hum.WalkSpeed=16 end
@@ -900,7 +898,22 @@ local function applyFreeCam(cam)
     if dt<=0 then dt=0.016 end
     if dt>0.09 then dt=0.09 end
     fcLastT=now
-    freezeLocalForCam()
+    pcall(function()
+        local ch=LP.Character
+        local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+        local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+        if hum then
+            if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
+            if ST._fcAS==nil then ST._fcAS=hum.AutoRotate end
+            if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
+            if hum.AutoRotate then hum.AutoRotate=false end
+        end
+        if hrp and not hrp.Anchored then
+            hrp.Anchored=true
+            hrp.Velocity=Vector3.new(0,0,0)
+            hrp.RotVelocity=Vector3.new(0,0,0)
+        end
+    end)
     local pos=ST.freeCamPos
     if not pos then
         pos=cam.CFrame.Position
@@ -946,8 +959,10 @@ local function applyFreeCam(cam)
         ST.freeCamPos=pos
     end
     local cf=CFrame.new(pos)*rot
-    cam.CFrame=cf
-    cam.Focus=cf
+    if pos.X==pos.X and pos.Y==pos.Y and pos.Z==pos.Z and yaw==yaw and pitch==pitch then
+        cam.CFrame=cf
+        cam.Focus=cf
+    end
 end
 local ovhPrevM=nil
 local ovhLastT=tick()
@@ -964,7 +979,22 @@ local function applyOverhead(cam)
     if not hrpT or not cam then return end
     if cam.CameraType~=Enum.CameraType.Scriptable then cam.CameraType=Enum.CameraType.Scriptable end
     ensureCamInputConns()
-    freezeLocalForCam()
+    pcall(function()
+        local ch=LP.Character
+        local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+        local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+        if hum then
+            if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
+            if ST._fcAS==nil then ST._fcAS=hum.AutoRotate end
+            if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
+            if hum.AutoRotate then hum.AutoRotate=false end
+        end
+        if hrp and not hrp.Anchored then
+            hrp.Anchored=true
+            hrp.Velocity=Vector3.new(0,0,0)
+            hrp.RotVelocity=Vector3.new(0,0,0)
+        end
+    end)
     if not ST.ovhInit then
         ST.ovhYaw=0
         ST.ovhPitch=1.1
@@ -1017,8 +1047,10 @@ local function applyOverhead(cam)
     local target=hrpT.Position+Vector3.new(0,2,0)
     local want=CFrame.lookAt(Vector3.new(cx,cy,cz),target)
     local alpha=math.clamp(dt*18,0,1)
-    cam.CFrame=cam.CFrame:Lerp(want,alpha)
-    cam.Focus=CFrame.new(target)
+    if cx==cx and cy==cy and cz==cz then
+        cam.CFrame=cam.CFrame:Lerp(want,alpha)
+        cam.Focus=CFrame.new(target)
+    end
 end
 local function isAimActive()
     if ST.aimHoldKey then return ST.aimKeyHeld end
@@ -1093,7 +1125,7 @@ local function applyAim(cam)
     if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
 end
 pcall(function()
-    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Last.Value+100,function()
+    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Camera.Value+100,function()
         pcall(function()
             local cam=W.CurrentCamera
             if not cam then return end
@@ -3213,7 +3245,7 @@ end)
 local lastInfJump=0
 local function vaultJumpUnlock(h)
     if not h then return end
-    if h.PlatformStand then h.PlatformStand=false end
+    if not ST.freeCam and not ST.spectateOverhead and h.PlatformStand then h.PlatformStand=false end
     if h.Health<=0 then h.Health=h.MaxHealth end
     pcall(function() h:ChangeState(Enum.HumanoidStateType.GettingUp) end)
     pcall(function() h:ChangeState(Enum.HumanoidStateType.Running) end)
@@ -3244,7 +3276,7 @@ R.RenderStepped:Connect(function()
             elseif hum.Health<hum.MaxHealth then
                 hum.Health=hum.MaxHealth
             end
-            if hum.PlatformStand then hum.PlatformStand=false end
+            if not ST.freeCam and not ST.spectateOverhead and hum.PlatformStand then hum.PlatformStand=false end
         end
         if now-(ST._godScanT or 0)<0.08 then return end
         ST._godScanT=now
@@ -3281,7 +3313,7 @@ R.RenderStepped:Connect(function()
             if hum then
                 if hum.MaxHealth<100 then hum.MaxHealth=100 end
                 hum.Health=hum.MaxHealth
-                if hum.PlatformStand then hum.PlatformStand=false end
+                if not ST.freeCam and not ST.spectateOverhead and hum.PlatformStand then hum.PlatformStand=false end
             end
         end
     end)
