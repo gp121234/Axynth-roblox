@@ -20,6 +20,7 @@ local unfreezeLocalFromCam
 local restoreLocalCamera
 local ensureCamInputConns
 local keyHeld
+local ovhPrevM
 -- ANTI-BAN SYSTEM v9 SAFE - single guarded namecall only
 local hookLog={}
 local blockedKeywords={"anticheat","anti","cheat","detect","ban","kick","report","flag","log","trace","monitor","watch","scan","validate","verify","check","suspicious","abnormal","illegal","unauthorized","modified","exploit","hack","teleport","speed","noclip","fly","cheatdetected","serverintegrity","integritycheck","remotespy","remoteblock","remotecheck","adminremote","admin"}
@@ -754,6 +755,8 @@ local function stopOverhead(notify)
     if was and not ST.freeCam then
         unfreezeLocalFromCam()
         restoreLocalCamera()
+        ovhPrevM=nil
+        pcall(function() U.MouseBehavior=Enum.MouseBehavior.Default end)
     else
         pcall(function()
             local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
@@ -855,6 +858,7 @@ local function setFreeCam(on)
             cam.CameraType=Enum.CameraType.Scriptable
             cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(rx,ry,0)
             U.MouseBehavior=Enum.MouseBehavior.Default
+            fcPrevM=U:GetMouseLocation()
         end)
         pcall(function()
             local CAS=game:GetService("ContextActionService")
@@ -871,12 +875,14 @@ local function setFreeCam(on)
                 return Enum.ContextActionResult.Sink
             end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift)
         end)
-        ntf("FreeCam","ON - WASD, hold RMB look, Shift fast, Space/Ctrl up/down")
+        ntf("FreeCam","ON - move mouse to look, WASD move, Shift fast, Space/Ctrl up/down")
     else
         local was=ST.freeCam
         ST.freeCam=false
         table.clear(FC_KEYS)
         ST._camRMB=false
+        fcPrevM=nil
+        pcall(function() U.MouseBehavior=Enum.MouseBehavior.Default end)
         pcall(function()
             game:GetService("ContextActionService"):UnbindAction("AxFreecamSink")
         end)
@@ -888,6 +894,24 @@ local function setFreeCam(on)
 end
 keyHeld=function(kc)
     return fcKey(kc) or U:IsKeyDown(kc)
+end
+local function freeLookDelta(mp)
+    local dx,dy=0,0
+    local vs=Vector2.new(1,1)
+    pcall(function()
+        local cam=W.CurrentCamera
+        if cam then vs=cam.ViewportSize end
+    end)
+    local px,py=mp.X,mp.Y
+    local w,h=vs.X,vs.Y
+    if w<100 then w=100 end
+    if h<100 then h=100 end
+    local e=24
+    if px<e then dx=dx-(e-px)*0.15 end
+    if px>w-e then dx=dx+(px-(w-e))*0.15 end
+    if py<e then dy=dy-(e-py)*0.15 end
+    if py>h-e then dy=dy+(py-(h-e))*0.15 end
+    return dx,dy
 end
 local function applyFreeCam(cam)
     if not ST.freeCam then return end
@@ -919,25 +943,27 @@ local function applyFreeCam(cam)
         pos=cam.CFrame.Position
         ST.freeCamPos=pos
     end
-    local rmb=ST._camRMB or U:IsKeyDown(Enum.UserInputType.MouseButton2)
+    if U.MouseBehavior~=Enum.MouseBehavior.Default then
+        U.MouseBehavior=Enum.MouseBehavior.Default
+    end
     local dx,dy=0,0
     local mp=U:GetMouseLocation()
-    if rmb then
-        U.MouseBehavior=Enum.MouseBehavior.LockCenter
+    if fcPrevM then
+        dx=mp.X-fcPrevM.X
+        dy=mp.Y-fcPrevM.Y
+    end
+    local edx,edy=freeLookDelta(mp)
+    dx=dx+edx
+    dy=dy+edy
+    if dx==0 and dy==0 then
         pcall(function()
             local md=U:GetMouseDelta()
-            if md then dx,dy=md.X,md.Y end
+            if md then dx=dx+md.X dy=dy+md.Y end
         end)
-        if (dx==0 and dy==0) and fcPrevM then
-            dx=mp.X-fcPrevM.X
-            dy=mp.Y-fcPrevM.Y
-        end
-    else
-        if U.MouseBehavior~=Enum.MouseBehavior.Default then
-            U.MouseBehavior=Enum.MouseBehavior.Default
-        end
     end
     fcPrevM=mp
+    if dx>60 then dx=60 elseif dx<-60 then dx=-60 end
+    if dy>60 then dy=60 elseif dy<-60 then dy=-60 end
     if dx~=0 or dy~=0 then
         ST.freeCamYaw=(ST.freeCamYaw or 0)-dx*0.0035
         ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-dy*0.0035,-1.45,1.45)
@@ -964,7 +990,7 @@ local function applyFreeCam(cam)
         cam.Focus=cf
     end
 end
-local ovhPrevM=nil
+ovhPrevM=nil
 local ovhLastT=tick()
 local function applyOverhead(cam)
     if not ST.spectateOverhead then return end
@@ -1006,26 +1032,27 @@ local function applyOverhead(cam)
     if dt<=0 then dt=0.016 end
     if dt>0.09 then dt=0.09 end
     ovhLastT=now
-    local rmb=ST._camRMB or U:IsKeyDown(Enum.UserInputType.MouseButton2)
+    if U.MouseBehavior~=Enum.MouseBehavior.Default then
+        U.MouseBehavior=Enum.MouseBehavior.Default
+    end
     local dx,dy=0,0
     local mp=U:GetMouseLocation()
-    if rmb then
-        U.MouseBehavior=Enum.MouseBehavior.LockCenter
+    if ovhPrevM then
+        dx=mp.X-ovhPrevM.X
+        dy=mp.Y-ovhPrevM.Y
+    end
+    local edx,edy=freeLookDelta(mp)
+    dx=dx+edx
+    dy=dy+edy
+    if dx==0 and dy==0 then
         pcall(function()
             local md=U:GetMouseDelta()
-            if md then dx,dy=md.X,md.Y end
+            if md then dx=dx+md.X dy=dy+md.Y end
         end)
-        if dx==0 and dy==0 and ovhPrevM then
-            dx=mp.X-ovhPrevM.X
-            dy=mp.Y-ovhPrevM.Y
-        end
-        ovhPrevM=mp
-    else
-        if U.MouseBehavior~=Enum.MouseBehavior.Default then
-            U.MouseBehavior=Enum.MouseBehavior.Default
-        end
-        ovhPrevM=nil
     end
+    ovhPrevM=mp
+    if dx>60 then dx=60 elseif dx<-60 then dx=-60 end
+    if dy>60 then dy=60 elseif dy<-60 then dy=-60 end
     if dx~=0 or dy~=0 then
         ST.ovhYaw=(ST.ovhYaw or 0)-dx*0.004
         ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+dy*0.004,0.2,1.45)
@@ -1691,6 +1718,8 @@ btn(tP,"Spectate: Overhead",function()
         table.clear(FC_KEYS)
         ensureCamInputConns()
         freezeLocalForCam()
+        ovhPrevM=U:GetMouseLocation()
+        pcall(function() U.MouseBehavior=Enum.MouseBehavior.Default end)
         pcall(function()
             local CAS=game:GetService("ContextActionService")
             CAS:UnbindAction("AxOvhSink")
@@ -1710,7 +1739,7 @@ btn(tP,"Spectate: Overhead",function()
             local cam=W.CurrentCamera or CAM
             if cam then CAM=cam applyOverhead(cam) end
         end)
-        ntf("Spectate","Overhead ON - "..ST.spectating.DisplayName.." | RMB look, WASD, Space/Ctrl dist")
+        ntf("Spectate","Overhead ON - "..ST.spectating.DisplayName.." | move mouse to look, WASD, Space/Ctrl dist")
     end
 end,"specover")
 local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Enabled=CFG.ESPFillEnabled hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
