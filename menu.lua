@@ -849,14 +849,17 @@ local function setFreeCam(on)
         pcall(function()
             local cam=W.CurrentCamera or CAM
             CAM=cam
-            local rx,ry=cam.CFrame:ToEulerAnglesYXZ()
-            ST.freeCamYaw=ry
-            ST.freeCamPitch=rx
-            ST.freeCamPos=cam.CFrame.Position
+            local cf=cam.CFrame
+            ST.freeCamPos=cf.Position
+            local look=cf.LookVector
+            local yaw=math.atan2(look.X,look.Z)
+            local pitch=math.asin(math.clamp(-look.Y,-1,1))
+            ST.freeCamYaw=yaw
+            ST.freeCamPitch=math.clamp(pitch,-1.45,1.45)
             fcLastT=tick()
-            fcPrevM=U:GetMouseLocation()
+            fcPrevM=nil
             cam.CameraType=Enum.CameraType.Scriptable
-            cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(rx,ry,0)
+            cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
             U.MouseBehavior=Enum.MouseBehavior.Default
         end)
         pcall(function()
@@ -874,7 +877,7 @@ local function setFreeCam(on)
                 return Enum.ContextActionResult.Sink
             end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift)
         end)
-        ntf("FreeCam","ON - WASD moves where camera faces; hold RMB to look (Roblox style); Shift fast, Space/Ctrl up/down")
+        ntf("FreeCam","ON - WASD free (no RMB needed); hold RMB to look around; where you look you go")
     else
         local was=ST.freeCam
         ST.freeCam=false
@@ -932,38 +935,29 @@ local function applyFreeCam(cam)
             local md=U:GetMouseDelta()
             if md then dx,dy=md.X,md.Y end
         end)
-        if dx==0 and dy==0 and fcPrevM then
-            local mp=U:GetMouseLocation()
-            dx=mp.X-fcPrevM.X
-            dy=mp.Y-fcPrevM.Y
-            fcPrevM=mp
-        else
-            fcPrevM=U:GetMouseLocation()
-        end
         if dx>80 then dx=80 elseif dx<-80 then dx=-80 end
         if dy>80 then dy=80 elseif dy<-80 then dy=-80 end
         if dx~=0 or dy~=0 then
-            ST.freeCamYaw=(ST.freeCamYaw or 0)-dx*0.004
-            ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-dy*0.004,-1.45,1.45)
+            ST.freeCamYaw=(ST.freeCamYaw or 0)-dx*0.003
+            ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-dy*0.003,-1.45,1.45)
         end
     else
         if U.MouseBehavior~=Enum.MouseBehavior.Default then
             U.MouseBehavior=Enum.MouseBehavior.Default
         end
-        fcPrevM=nil
     end
     local yaw=ST.freeCamYaw or 0
     local pitch=ST.freeCamPitch or 0
     local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
     local dir=Vector3.new(0,0,0)
     local base=60
-    if keyHeld(Enum.KeyCode.LeftShift) then base=180 end
-    if keyHeld(Enum.KeyCode.W) then dir=dir+rot.LookVector end
-    if keyHeld(Enum.KeyCode.S) then dir=dir-rot.LookVector end
-    if keyHeld(Enum.KeyCode.A) then dir=dir-rot.RightVector end
-    if keyHeld(Enum.KeyCode.D) then dir=dir+rot.RightVector end
-    if keyHeld(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
-    if keyHeld(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
+    if U:IsKeyDown(Enum.KeyCode.LeftShift) then base=180 end
+    if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+rot.LookVector end
+    if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-rot.LookVector end
+    if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-rot.RightVector end
+    if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+rot.RightVector end
+    if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
+    if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
     if dir.Magnitude>0 then
         pos=pos+dir.Unit*base*dt
         ST.freeCamPos=pos
