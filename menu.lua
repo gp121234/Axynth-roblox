@@ -15,6 +15,11 @@ local CAM = W.CurrentCamera
 print("[Axynth] Services OK")
 local ST={}
 local findRemote
+local freezeLocalForCam
+local unfreezeLocalFromCam
+local restoreLocalCamera
+local ensureCamInputConns
+local keyHeld
 -- ANTI-BAN SYSTEM v9 SAFE - single guarded namecall only
 local hookLog={}
 local blockedKeywords={"anticheat","anti","cheat","detect","ban","kick","report","flag","log","trace","monitor","watch","scan","validate","verify","check","suspicious","abnormal","illegal","unauthorized","modified","exploit","hack","teleport","speed","noclip","fly","cheatdetected","serverintegrity","integritycheck","remotespy","remoteblock","remotecheck","adminremote","admin"}
@@ -55,6 +60,8 @@ local whitelistRemotes={
     ["WeaponsSystem.Network.Damage"]=true,
     ["WeaponsSystem.Network.Hurt"]=true,
     ["WeaponsSystem.Network.WeaponReloadRequest"]=true,
+    ["WeaponsSystem.Network.WeaponActivated"]=true,
+    ["SupermarketEvent.Triggered"]=true,
     ["ClaimEvent"]=true,
 }
 local isUsingExploit=false
@@ -369,13 +376,28 @@ pcall(function()
         spoofLeaderstats()
         hideBanGUI()
         if ST.freeCam then
-            pcall(function()
-                local hrp=char:FindFirstChild("HumanoidRootPart")
-                local hum=char:FindFirstChildOfClass("Humanoid")
-                if hrp then hrp.Anchored=true hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end
-                if hum then hum.WalkSpeed=0 hum.JumpPower=0 hum.AutoRotate=false end
-                local cam=W.CurrentCamera or CAM
-                if cam then cam.CameraType=Enum.CameraType.Scriptable end
+            task.delay(0.3,function()
+                if not ST.freeCam then return end
+                freezeLocalForCam()
+                pcall(function()
+                    local cam=W.CurrentCamera or CAM
+                    CAM=cam
+                    if cam then
+                        cam.CameraType=Enum.CameraType.Scriptable
+                        if ST.freeCamPos then
+                            local yaw=ST.freeCamYaw or 0
+                            local pitch=ST.freeCamPitch or 0
+                            cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(pitch,yaw,0)
+                        end
+                    end
+                end)
+            end)
+        end
+        if ST.spectateOverhead and ST.spectating then
+            task.delay(0.3,function()
+                if not ST.spectateOverhead then return end
+                freezeLocalForCam()
+                ST.ovhInit=false
             end)
         end
         if ST.godmodeLoop then
@@ -583,7 +605,7 @@ end)
 local ntf
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
-ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,spheresOn=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,weaponDmgOn=true,weaponDmg=30,weaponDmgMult=1,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0,shotTracer=false,dmgPop=true}
+ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,spheresOn=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,weaponDmgOn=true,weaponDmg=30,weaponDmgMult=1,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMaxDist=350,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0,shotTracer=false,dmgPop=true}
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
 local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
@@ -709,64 +731,121 @@ local fcLastT=tick()
 local function fcKey(code)
     return FC_KEYS[code]==true
 end
+restoreLocalCamera=function()
+    U.MouseBehavior=Enum.MouseBehavior.Default
+    pcall(function()
+        local cam=W.CurrentCamera or CAM
+        CAM=cam
+        if cam then
+            local h=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if h then cam.CameraSubject=h end
+            cam.CameraType=Enum.CameraType.Custom
+        end
+    end)
+end
 local function stopOverhead(notify)
     local was=ST.spectateOverhead
     ST.spectateOverhead=false
     ST._ovhActive=false
-    if not ST.freeCam then
-        table.clear(FC_KEYS)
-        pcall(function()
-            game:GetService("ContextActionService"):UnbindAction("AxOvhSink")
-        end)
-    end
     pcall(function()
-        local ch=LP.Character
-        local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-        if hum then
-            if ST._ovhWalk~=nil then
+        game:GetService("ContextActionService"):UnbindAction("AxOvhSink")
+    end)
+    if not ST.freeCam then table.clear(FC_KEYS) end
+    if was and not ST.freeCam then
+        unfreezeLocalFromCam()
+        restoreLocalCamera()
+    else
+        pcall(function()
+            local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if hum and ST._ovhWalk~=nil then
                 hum.WalkSpeed=ST._ovhWalk
                 ST._ovhWalk=nil
             end
-            if hum.PlatformStand then hum.PlatformStand=false end
-        end
-    end)
-    if was and not ST.freeCam then
-        U.MouseBehavior=Enum.MouseBehavior.Default
-        pcall(function()
-            local cam=W.CurrentCamera or CAM
-            CAM=cam
-            if cam then
-                local h=ST.spectating and ST.spectating.Character and ST.spectating.Character:FindFirstChildOfClass("Humanoid")
-                if h then cam.CameraSubject=h end
-                cam.CameraType=Enum.CameraType.Custom
-            end
         end)
     end
-    if was and notify then ntf("Spectate","Overhead OFF") end
+    if was and notify then ntf("Spectate","Overhead OFF - camera on you") end
+end
+freezeLocalForCam=function()
+    pcall(function()
+        local ch=LP.Character
+        local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+        local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+        if hum then
+            if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
+            if ST._fcAS==nil then ST._fcAS=hum.AutoRotate end
+            hum.WalkSpeed=0
+            hum.AutoRotate=false
+            hum.PlatformStand=true
+            pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Jumping,false) end)
+        end
+        if hrp then
+            hrp.Anchored=true
+            hrp.Velocity=Vector3.new(0,0,0)
+            hrp.RotVelocity=Vector3.new(0,0,0)
+        end
+    end)
+end
+unfreezeLocalFromCam=function()
+    pcall(function()
+        local ch=LP.Character
+        local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+        local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+        if hrp then
+            hrp.Anchored=false
+            hrp.Velocity=Vector3.new(0,0,0)
+            hrp.RotVelocity=Vector3.new(0,0,0)
+        end
+        if hum then
+            pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Jumping,true) end)
+            hum.PlatformStand=false
+            hum.WalkSpeed=ST.speedPreset or 16
+            if ST.speedHard and hum.WalkSpeed<50 then hum.WalkSpeed=50 end
+            if hum.WalkSpeed<=0 then hum.WalkSpeed=16 end
+            if ST.jumpPreset and ST.jumpPreset>0 then
+                if hum.UseJumpPower then hum.JumpPower=ST.jumpPreset else hum.JumpHeight=math.max(5,math.floor(ST.jumpPreset*0.14+0.5)) end
+            end
+            hum.AutoRotate=ST._fcAS~=false
+        end
+        ST._fcWalk=nil ST._fcAS=nil
+    end)
+end
+ensureCamInputConns=function()
+    if ST._fcInConns then return end
+    ST._fcInConns=true
+    pcall(function()
+        U.InputBegan:Connect(function(inp,gpe)
+            if gpe then return end
+            if not ST.freeCam and not ST.spectateOverhead then return end
+            if inp.KeyCode and inp.KeyCode~=Enum.KeyCode.Unknown then
+                FC_KEYS[inp.KeyCode]=true
+            end
+        end)
+        U.InputEnded:Connect(function(inp)
+            if inp.KeyCode and inp.KeyCode~=Enum.KeyCode.Unknown then
+                FC_KEYS[inp.KeyCode]=nil
+            end
+        end)
+        U.InputBegan:Connect(function(inp)
+            if inp.UserInputType==Enum.UserInputType.MouseButton2 then
+                if ST.freeCam or ST.spectateOverhead then ST._camRMB=true end
+            end
+        end)
+        U.InputEnded:Connect(function(inp)
+            if inp.UserInputType==Enum.UserInputType.MouseButton2 then
+                ST._camRMB=false
+            end
+        end)
+    end)
 end
 local function setFreeCam(on)
     if on then
         if ST.freeCam then return end
-        ST.freeCam=true
         stopOverhead(false)
+        ST.freeCam=true
         table.clear(FC_KEYS)
+        ensureCamInputConns()
+        freezeLocalForCam()
         pcall(function()
-            local ch=LP.Character
-            local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-            local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-            if hum then
-                if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
-                if ST._fcJump==nil then ST._fcJump=hum.JumpPower end
-                if not ST._fcAS then ST._fcAS=hum.AutoRotate end
-                hum.WalkSpeed=0
-                hum.AutoRotate=false
-            end
-            if hrp then
-                ST.freeCamAnchor=true
-                hrp.Anchored=true
-                hrp.Velocity=Vector3.new(0,0,0)
-                hrp.RotVelocity=Vector3.new(0,0,0)
-            end
             local cam=W.CurrentCamera or CAM
             CAM=cam
             local rx,ry=cam.CFrame:ToEulerAnglesYXZ()
@@ -778,102 +857,72 @@ local function setFreeCam(on)
             cam.CameraType=Enum.CameraType.Scriptable
             cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(rx,ry,0)
             U.MouseBehavior=Enum.MouseBehavior.Default
-            pcall(function()
-                local CAS=game:GetService("ContextActionService")
-                CAS:UnbindAction("AxFreecamSink")
-                CAS:BindActionAtPriority("AxFreecamSink",function(_,st)
-                    if st==Enum.UserInputState.Begin then
-                        local kc=_
-                        if typeof(kc)=="EnumItem" then FC_KEYS[kc]=true end
-                    elseif st==Enum.UserInputState.End or st==Enum.UserInputState.Cancel then
-                        local kc=_
-                        if typeof(kc)=="EnumItem" then FC_KEYS[kc]=nil end
-                    end
-                    return Enum.ContextActionResult.Sink
-                end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift,Enum.KeyCode.One,Enum.KeyCode.Two,Enum.KeyCode.Three,Enum.KeyCode.Q,Enum.KeyCode.E)
-            end)
-            if not ST._fcInConns then
-                ST._fcInConns=true
-                pcall(function()
-                    U.InputBegan:Connect(function(inp)
-                        if not ST.freeCam and not ST.spectateOverhead then return end
-                        if inp.KeyCode~=Enum.KeyCode.Unknown then FC_KEYS[inp.KeyCode]=true end
-                    end)
-                    U.InputEnded:Connect(function(inp)
-                        if inp.KeyCode~=Enum.KeyCode.Unknown then FC_KEYS[inp.KeyCode]=nil end
-                    end)
-                end)
-            end
         end)
-        ntf("FreeCam","ON - WASD move, hold RMB look, Shift=fast, Space/Ctrl up/down")
+        pcall(function()
+            local CAS=game:GetService("ContextActionService")
+            CAS:UnbindAction("AxFreecamSink")
+            CAS:BindActionAtPriority("AxFreecamSink",function(an,st,io)
+                local kc=io and io.KeyCode
+                if typeof(kc)=="EnumItem" and kc~=Enum.KeyCode.Unknown then
+                    if st==Enum.UserInputState.Begin then
+                        FC_KEYS[kc]=true
+                    elseif st==Enum.UserInputState.End or st==Enum.UserInputState.Cancel then
+                        FC_KEYS[kc]=nil
+                    end
+                end
+                return Enum.ContextActionResult.Sink
+            end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift)
+        end)
+        ntf("FreeCam","ON - WASD, hold RMB look, Shift fast, Space/Ctrl up/down")
     else
         local was=ST.freeCam
         ST.freeCam=false
         table.clear(FC_KEYS)
+        ST._camRMB=false
         pcall(function()
             game:GetService("ContextActionService"):UnbindAction("AxFreecamSink")
-            local ch=LP.Character
-            local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-            local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-            if hrp then hrp.Anchored=false hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end
-            if hum then
-                hum.WalkSpeed=ST._fcWalk or (ST.speedHard and math.max(ST.speedPreset or 0,50) or (ST.speedPreset or 0))
-                if hum.WalkSpeed<=0 then hum.WalkSpeed=16 end
-                if ST.jumpPreset and ST.jumpPreset>0 then
-                    if hum.UseJumpPower then hum.JumpPower=ST.jumpPreset else hum.JumpHeight=math.max(5,math.floor(ST.jumpPreset*0.14+0.5)) end
-                end
-                hum.AutoRotate=ST._fcAS~=false
-                hum.PlatformStand=false
-                local cam=W.CurrentCamera or CAM
-                CAM=cam
-                cam.CameraSubject=hum
-                cam.CameraType=Enum.CameraType.Custom
-            end
-            U.MouseBehavior=Enum.MouseBehavior.Default
         end)
-        ST._fcWalk=nil ST._fcJump=nil ST._fcAS=nil ST.freeCamAnchor=nil ST.freeCamPos=nil fcPrevM=nil
+        unfreezeLocalFromCam()
+        if not ST.spectateOverhead then restoreLocalCamera() end
+        ST.freeCamPos=nil fcPrevM=nil ST.freeCamAnchor=nil
         if was then ntf("FreeCam","OFF") end
     end
+end
+keyHeld=function(kc)
+    return fcKey(kc) or U:IsKeyDown(kc)
 end
 local function applyFreeCam(cam)
     if not ST.freeCam then return end
     if not cam then return end
-    cam.CameraType=Enum.CameraType.Scriptable
+    if cam.CameraType~=Enum.CameraType.Scriptable then cam.CameraType=Enum.CameraType.Scriptable end
     local now=tick()
     local dt=now-(fcLastT or now)
     if dt<=0 then dt=0.016 end
-    if dt>0.1 then dt=0.1 end
+    if dt>0.09 then dt=0.09 end
     fcLastT=now
-    local ch=LP.Character
-    local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-    local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-    if hum then
-        if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
-        if hum.AutoRotate then hum.AutoRotate=false end
-        if hum.PlatformStand then hum.PlatformStand=false end
-    end
-    if hrp then
-        if not hrp.Anchored then hrp.Anchored=true end
-        if hrp.Velocity.Magnitude>0.01 then hrp.Velocity=Vector3.new(0,0,0) end
-        if hrp.RotVelocity.Magnitude>0.01 then hrp.RotVelocity=Vector3.new(0,0,0) end
-    end
+    freezeLocalForCam()
     local pos=ST.freeCamPos
     if not pos then
         pos=cam.CFrame.Position
         ST.freeCamPos=pos
     end
-    local rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2)
+    local rmb=ST._camRMB or U:IsKeyDown(Enum.UserInputType.MouseButton2)
     local dx,dy=0,0
     local mp=U:GetMouseLocation()
     if rmb then
         U.MouseBehavior=Enum.MouseBehavior.LockCenter
-        local md=U:GetMouseDelta()
-        if md then dx,dy=md.X,md.Y end
+        pcall(function()
+            local md=U:GetMouseDelta()
+            if md then dx,dy=md.X,md.Y end
+        end)
         if (dx==0 and dy==0) and fcPrevM then
-            dx=mp.X-fcPrevM.X dy=mp.Y-fcPrevM.Y
+            dx=mp.X-fcPrevM.X
+            dy=mp.Y-fcPrevM.Y
         end
     else
-        U.MouseBehavior=Enum.MouseBehavior.Default
+        if U.MouseBehavior~=Enum.MouseBehavior.Default then
+            U.MouseBehavior=Enum.MouseBehavior.Default
+        end
     end
     fcPrevM=mp
     if dx~=0 or dy~=0 then
@@ -884,14 +933,14 @@ local function applyFreeCam(cam)
     local pitch=ST.freeCamPitch or 0
     local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
     local dir=Vector3.new(0,0,0)
-    local base=55
-    if fcKey(Enum.KeyCode.LeftShift) or U:IsKeyDown(Enum.KeyCode.LeftShift) then base=160 end
-    if fcKey(Enum.KeyCode.W) or U:IsKeyDown(Enum.KeyCode.W) then dir=dir+rot.LookVector end
-    if fcKey(Enum.KeyCode.S) or U:IsKeyDown(Enum.KeyCode.S) then dir=dir-rot.LookVector end
-    if fcKey(Enum.KeyCode.A) or U:IsKeyDown(Enum.KeyCode.A) then dir=dir-rot.RightVector end
-    if fcKey(Enum.KeyCode.D) or U:IsKeyDown(Enum.KeyCode.D) then dir=dir+rot.RightVector end
-    if fcKey(Enum.KeyCode.Space) or U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
-    if fcKey(Enum.KeyCode.LeftControl) or U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
+    local base=60
+    if keyHeld(Enum.KeyCode.LeftShift) then base=180 end
+    if keyHeld(Enum.KeyCode.W) then dir=dir+rot.LookVector end
+    if keyHeld(Enum.KeyCode.S) then dir=dir-rot.LookVector end
+    if keyHeld(Enum.KeyCode.A) then dir=dir-rot.RightVector end
+    if keyHeld(Enum.KeyCode.D) then dir=dir+rot.RightVector end
+    if keyHeld(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
+    if keyHeld(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
     if dir.Magnitude>0 then
         pos=pos+dir.Unit*base*dt
         ST.freeCamPos=pos
@@ -899,20 +948,23 @@ local function applyFreeCam(cam)
     local cf=CFrame.new(pos)*rot
     cam.CFrame=cf
     cam.Focus=cf
-    if cam.CameraType~=Enum.CameraType.Scriptable then cam.CameraType=Enum.CameraType.Scriptable end
 end
 local ovhPrevM=nil
 local ovhLastT=tick()
 local function applyOverhead(cam)
     if not ST.spectateOverhead then return end
-    if not ST.spectating or not ST.spectating.Character or not ST.spectating.Character:FindFirstChild("HumanoidRootPart") then
+    if not ST.spectating or not ST.spectating.Parent then
         stopOverhead(false)
         ntf("Spectate","Target lost - overhead stopped",4)
         return
     end
-    local hrpT=ST.spectating.Character:FindFirstChild("HumanoidRootPart")
+    local chT=ST.spectating.Character
+    if not chT then return end
+    local hrpT=chT:FindFirstChild("HumanoidRootPart") or chT:FindFirstChild("Head")
     if not hrpT or not cam then return end
-    cam.CameraType=Enum.CameraType.Scriptable
+    if cam.CameraType~=Enum.CameraType.Scriptable then cam.CameraType=Enum.CameraType.Scriptable end
+    ensureCamInputConns()
+    freezeLocalForCam()
     if not ST.ovhInit then
         ST.ovhYaw=0
         ST.ovhPitch=1.1
@@ -922,34 +974,40 @@ local function applyOverhead(cam)
     local now=tick()
     local dt=now-(ovhLastT or now)
     if dt<=0 then dt=0.016 end
-    if dt>0.1 then dt=0.1 end
+    if dt>0.09 then dt=0.09 end
     ovhLastT=now
-    local rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2)
+    local rmb=ST._camRMB or U:IsKeyDown(Enum.UserInputType.MouseButton2)
     local dx,dy=0,0
     local mp=U:GetMouseLocation()
     if rmb then
         U.MouseBehavior=Enum.MouseBehavior.LockCenter
-        local md=U:GetMouseDelta()
-        if md then dx,dy=md.X,md.Y end
+        pcall(function()
+            local md=U:GetMouseDelta()
+            if md then dx,dy=md.X,md.Y end
+        end)
         if dx==0 and dy==0 and ovhPrevM then
-            dx=mp.X-ovhPrevM.X dy=mp.Y-ovhPrevM.Y
+            dx=mp.X-ovhPrevM.X
+            dy=mp.Y-ovhPrevM.Y
         end
-    elseif U.MouseBehavior~=Enum.MouseBehavior.Default then
-        U.MouseBehavior=Enum.MouseBehavior.Default
+        ovhPrevM=mp
+    else
+        if U.MouseBehavior~=Enum.MouseBehavior.Default then
+            U.MouseBehavior=Enum.MouseBehavior.Default
+        end
+        ovhPrevM=nil
     end
-    if rmb then ovhPrevM=mp else ovhPrevM=nil end
     if dx~=0 or dy~=0 then
         ST.ovhYaw=(ST.ovhYaw or 0)-dx*0.004
-        ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+dy*0.004,0.15,1.5)
+        ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+dy*0.004,0.2,1.45)
     end
-    local rotS=1.8*dt
-    if fcKey(Enum.KeyCode.A) or U:IsKeyDown(Enum.KeyCode.A) then ST.ovhYaw=(ST.ovhYaw or 0)+rotS end
-    if fcKey(Enum.KeyCode.D) or U:IsKeyDown(Enum.KeyCode.D) then ST.ovhYaw=(ST.ovhYaw or 0)-rotS end
-    if fcKey(Enum.KeyCode.W) or U:IsKeyDown(Enum.KeyCode.W) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+rotS*0.75,0.15,1.5) end
-    if fcKey(Enum.KeyCode.S) or U:IsKeyDown(Enum.KeyCode.S) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)-rotS*0.75,0.15,1.5) end
-    local dS=28*dt
-    if fcKey(Enum.KeyCode.Space) or U:IsKeyDown(Enum.KeyCode.Space) then ST.ovhDist=math.max(8,(ST.ovhDist or 22)+dS) end
-    if fcKey(Enum.KeyCode.LeftControl) or U:IsKeyDown(Enum.KeyCode.LeftControl) then ST.ovhDist=math.min(80,(ST.ovhDist or 22)-dS) end
+    local rotS=1.6*dt
+    if keyHeld(Enum.KeyCode.A) then ST.ovhYaw=(ST.ovhYaw or 0)+rotS end
+    if keyHeld(Enum.KeyCode.D) then ST.ovhYaw=(ST.ovhYaw or 0)-rotS end
+    if keyHeld(Enum.KeyCode.W) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+rotS*0.75,0.2,1.45) end
+    if keyHeld(Enum.KeyCode.S) then ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)-rotS*0.75,0.2,1.45) end
+    local dS=30*dt
+    if keyHeld(Enum.KeyCode.Space) then ST.ovhDist=math.min(80,(ST.ovhDist or 22)+dS) end
+    if keyHeld(Enum.KeyCode.LeftControl) then ST.ovhDist=math.max(8,(ST.ovhDist or 22)-dS) end
     local yaw=ST.ovhYaw or 0
     local pitch=ST.ovhPitch or 1.1
     local dist=ST.ovhDist or 22
@@ -957,108 +1015,85 @@ local function applyOverhead(cam)
     local cy=hrpT.Position.Y+dist*math.sin(pitch)
     local cz=hrpT.Position.Z+dist*math.cos(pitch)*math.cos(yaw)
     local target=hrpT.Position+Vector3.new(0,2,0)
-    local cf=CFrame.lookAt(Vector3.new(cx,cy,cz),target)
-    cam.CFrame=cf
+    local want=CFrame.lookAt(Vector3.new(cx,cy,cz),target)
+    local alpha=math.clamp(dt*18,0,1)
+    cam.CFrame=cam.CFrame:Lerp(want,alpha)
     cam.Focus=CFrame.new(target)
 end
 local function isAimActive()
     if ST.aimHoldKey then return ST.aimKeyHeld end
     return ST.aimEnabled or ST.aimKeyHeld
 end
+local function aimWallOk(camPos, pl, tgtPos)
+    if not ST.aimWallCheck then return true end
+    local cacheKey=pl.UserId
+    local now=tick()
+    local cache=ST._aimWallC and ST._aimWallC[cacheKey]
+    if cache and now-cache.t<0.15 then return cache.ok end
+    local ok=true
+    pcall(function()
+        local params=RaycastParams.new()
+        params.FilterType=Enum.RaycastFilterType.Exclude
+        local filt={LP.Character}
+        if pl.Character then
+            for _,v in pairs(pl.Character:GetDescendants()) do table.insert(filt,v) end
+        end
+        params.FilterDescendantsInstances=filt
+        ok=(W:Raycast(camPos,tgtPos-camPos,params)==nil)
+    end)
+    ST._aimWallC=ST._aimWallC or {}
+    ST._aimWallC[cacheKey]={t=now,ok=ok}
+    return ok
+end
 local function applyAim(cam)
     if ST.freeCam or ST.spectateOverhead then return end
-    if not isAimActive() then return end
+    if not isAimActive() then
+        if ST.aimTarget then
+            ST.aimTarget=nil
+            ST._aimWallC=nil
+            local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
+        end
+        return
+    end
     if not (LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character:FindFirstChildOfClass("Humanoid")) then return end
-    cam.CameraType=Enum.CameraType.Scriptable
     local camPos=cam.CFrame.Position
-    local mpA=U:GetMouseLocation()
+    local myPos=LP.Character.HumanoidRootPart.Position
     local vp=cam.ViewportSize
     local screenCenter=Vector2.new(vp.X*0.5,vp.Y*0.5)
-    local center=mpA
-    local bestTarget=nil local bestDist=math.max(ST.aimFOV, 400)
+    local center=U:GetMouseLocation()
+    local fov=ST.aimFOV or 250
+    local maxDist=ST.aimMaxDist or 350
+    local bestTarget=nil
+    local bestScore=math.huge
     local cur=ST.aimTarget
-    local curOk=false
-    if cur and cur.Character and cur.Character:FindFirstChild(ST.aimTargetPart) and cur.Character:FindFirstChildOfClass("Humanoid") then
-        local h=cur.Character:FindFirstChildOfClass("Humanoid")
-        if h.Health>0 and not (ST.aimTeamCheck and cur.Team==LP.Team) then
-            local tgtPos=cur.Character[ST.aimTargetPart].Position
-            local wallOK=true
-            if ST.aimWallCheck then
-                local cacheKey=cur.UserId
-                local now=tick()
-                local c=ST._aimWallC and ST._aimWallC[cacheKey]
-                if c and now-c.t<0.15 then
-                    wallOK=c.ok
-                else
-                    local params=RaycastParams.new()
-                    params.FilterType=Enum.RaycastFilterType.Exclude
-                    local filt={LP.Character}
-                    for _,v in pairs(cur.Character:GetDescendants()) do table.insert(filt,v) end
-                    params.FilterDescendantsInstances=filt
-                    wallOK=(W:Raycast(camPos,tgtPos-camPos,params)==nil)
-                    ST._aimWallC=ST._aimWallC or {}
-                    ST._aimWallC[cacheKey]={t=now,ok=wallOK}
-                end
-            end
-            if wallOK then
-                local sp2,onscreen=cam:WorldToViewportPoint(tgtPos)
-                if onscreen then
-                    local p2=Vector2.new(sp2.X,sp2.Y)
-                    local dMouse=(p2-center).Magnitude
-                    local dCenter=(p2-screenCenter).Magnitude
-                    curOk=true bestTarget=cur bestDist=math.min(dMouse,dCenter)
-                end
-            end
-        end
+    for _,pp in pairs(P:GetPlayers()) do
+        if pp==LP then continue end
+        local ch=pp.Character
+        if not ch then continue end
+        local part=ch:FindFirstChild(ST.aimTargetPart) or ch:FindFirstChild("HumanoidRootPart")
+        local hum=ch:FindFirstChildOfClass("Humanoid")
+        if not part or not hum or hum.Health<=0 then continue end
+        if ST.aimTeamCheck and pp.Team==LP.Team then continue end
+        local tgtPos=part.Position
+        local worldDist=(myPos-tgtPos).Magnitude
+        if worldDist>maxDist then continue end
+        if not aimWallOk(camPos,pp,tgtPos) then continue end
+        local sp2,onscreen=cam:WorldToViewportPoint(tgtPos)
+        if not onscreen then continue end
+        local p2=Vector2.new(sp2.X,sp2.Y)
+        local dScreen=math.min((p2-center).Magnitude,(p2-screenCenter).Magnitude)
+        if dScreen>fov then continue end
+        local score=dScreen+worldDist*0.15
+        if pp==cur then score=score-20 end
+        if score<bestScore then bestScore=score bestTarget=pp end
     end
-    if not curOk then
-        for _,pp in pairs(P:GetPlayers()) do
-            if pp~=LP and pp~=cur and pp.Character and pp.Character:FindFirstChild(ST.aimTargetPart) and pp.Character:FindFirstChildOfClass("Humanoid") then
-                if pp.Character:FindFirstChildOfClass("Humanoid").Health>0 then
-                    if ST.aimTeamCheck and pp.Team==LP.Team then continue end
-                    local tgtPos=pp.Character[ST.aimTargetPart].Position
-                    if ST.aimWallCheck then
-                        local params=RaycastParams.new()
-                        params.FilterType=Enum.RaycastFilterType.Exclude
-                        local filt={LP.Character}
-                        for _,v in pairs(pp.Character:GetDescendants()) do table.insert(filt,v) end
-                        params.FilterDescendantsInstances=filt
-                        if W:Raycast(camPos,tgtPos-camPos,params) then continue end
-                    end
-                    local sp2,onscreen=cam:WorldToViewportPoint(tgtPos)
-                    if onscreen then
-                        local p2=Vector2.new(sp2.X,sp2.Y)
-                        local d=math.min((p2-center).Magnitude,(p2-screenCenter).Magnitude)
-                        if d<bestDist then bestDist=d bestTarget=pp end
-                    end
-                end
-            end
-        end
-    end
-    if bestTarget and bestTarget.Character and bestTarget.Character:FindFirstChild(ST.aimTargetPart) then
-        ST.aimTarget=bestTarget
-        local tgtPos=bestTarget.Character[ST.aimTargetPart].Position
-        local lookDir=CFrame.lookAt(camPos,tgtPos)
-        cam.CFrame=cam.CFrame:Lerp(lookDir,0.85)
-        cam.Focus=CFrame.new(tgtPos)
-        local myHRP=LP.Character:FindFirstChild("HumanoidRootPart")
-        local myHum=LP.Character:FindFirstChildOfClass("Humanoid")
-        if myHRP and myHum then
-            if myHum.AutoRotate then myHum.AutoRotate=false end
-            local flat=Vector3.new(tgtPos.X-myHRP.Position.X,0,tgtPos.Z-myHRP.Position.Z)
-            if flat.Magnitude>0.5 then
-                local faceCF=CFrame.lookAt(myHRP.Position,myHRP.Position+flat)
-                myHRP.CFrame=myHRP.CFrame:Lerp(faceCF,0.35)
-            end
-        end
-    else
-        ST.aimTarget=nil
-        local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-        if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
-    end
+    ST.aimTarget=bestTarget
+    local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+    if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
 end
 pcall(function()
-    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Last.Value+10,function()
+    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Last.Value+100,function()
         pcall(function()
             local cam=W.CurrentCamera
             if not cam then return end
@@ -1215,6 +1250,8 @@ local function ensureWeaponEquipped()
     end)
     return ok
 end
+local fireGameVolley
+local hitRemotesCache=nil
 local function mpKillPlayer(victim, hitPos)
     if not victim or victim==LP or not victim.Character then return end
     ensureWeaponEquipped()
@@ -1227,85 +1264,72 @@ local function mpKillPlayer(victim, hitPos)
         if dir.Magnitude<1 then dir=Vector3.new(0,0,-1) end
         local rf=findRemote("WeaponsSystem.Network.WeaponFired")
         if rf then
-            for i=1,8 do forceFire(rf, origin, hitPos) end
-            forceFire(rf, origin, dir.Unit)
-            forceFire(rf, hitPos)
-            forceFire(rf, origin, hitPos, part)
+            grFire(rf,{origin,hitPos},"kill")
+            grFire(rf,{origin,hitPos,part},"kill")
+            grFire(rf,{hitPos,part},"kill")
         end
-        local hitRemotes={}
-        local seen={}
-        local function addRem(r)
-            if not r then return end
-            for _,e in ipairs(hitRemotes) do if e==r then return end end
-            table.insert(hitRemotes,r)
-        end
-        local names={
-            "WeaponsSystem.Network.WeaponHit",
-            "WeaponsSystem.Network.Hit",
-            "WeaponsSystem.Network.WeaponHitConfirm",
-            "WeaponsSystem.Network.Damage",
-            "WeaponsSystem.Network.Hurt",
-            "WeaponsSystem.Network.Kill",
-            "WeaponsSystem.Network.Eliminate",
-            "KillRemote",
-            "KillEvent",
-            "PlayerKill",
-            "DamagePlayer",
-            "TakeDamage"
-        }
-        for _,nm in ipairs(names) do
-            addRem(findRemote(nm))
-        end
-        local keys={"weaponhit","weapondamage","network.hit","kill","eliminate","takedamage","damageplayer","playerdamage","hurt"}
-        pcall(function()
-            for _,parent in ipairs({RS,W,game:GetService("ReplicatedFirst")}) do
-                for _,d in pairs(parent:GetDescendants()) do
-                    if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) and not seen[d] then
-                        local low=string.lower(d.Name)
-                        for _,k in ipairs(keys) do
-                            if string.find(low,k,1,true) then
-                                seen[d]=true
-                                addRem(d)
-                                break
+        if not hitRemotesCache then
+            local hitRemotes={}
+            local seen={}
+            local function addRem(r)
+                if not r then return end
+                for _,e in ipairs(hitRemotes) do if e==r then return end end
+                table.insert(hitRemotes,r)
+            end
+            local names={
+                "WeaponsSystem.Network.WeaponHit",
+                "WeaponsSystem.Network.Hit",
+                "WeaponsSystem.Network.WeaponHitConfirm",
+                "WeaponsSystem.Network.Damage",
+                "WeaponsSystem.Network.Hurt",
+                "WeaponsSystem.Network.Kill",
+                "WeaponsSystem.Network.Eliminate",
+                "KillRemote",
+                "KillEvent",
+                "PlayerKill",
+                "DamagePlayer",
+                "TakeDamage"
+            }
+            for _,nm in ipairs(names) do
+                addRem(findRemote(nm))
+            end
+            local keys={"weaponhit","weapondamage","network.hit","kill","eliminate","takedamage","damageplayer","playerdamage","hurt"}
+            pcall(function()
+                for _,parent in ipairs({RS,W}) do
+                    for _,d in pairs(parent:GetDescendants()) do
+                        if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) and not seen[d] then
+                            local low=string.lower(d.Name)
+                            for _,k in ipairs(keys) do
+                                if string.find(low,k,1,true) then
+                                    seen[d]=true
+                                    addRem(d)
+                                    break
+                                end
                             end
                         end
                     end
                 end
-            end
-        end)
+            end)
+            hitRemotesCache=hitRemotes
+        end
         local dmg=999999
-        for _,r in ipairs(hitRemotes) do
-            local argSets={
-                {hitPos},
-                {hitPos,part},
-                {hitPos,part,dmg},
-                {hitPos,dmg},
-                {victim,hitPos},
-                {victim,hitPos,dmg},
-                {victim,part,hitPos,dmg},
-                {victim.Name,hitPos},
-                {victim.Name,hitPos,part},
-                {victim.Name,hitPos,part,dmg},
-                {victim.Name,dmg},
-                {victim.UserId,hitPos},
-                {victim.UserId,hitPos,dmg},
-                {victim.UserId,dmg},
-                {origin,hitPos},
-                {origin,dir.Unit,hitPos},
-                {origin,dir.Unit,part,hitPos,dmg},
-                {part,hitPos,dmg},
-                {part,dmg},
-                {victim,dmg},
-                {victim},
-                {victim.Name}
-            }
+        local argSets={
+            {hitPos,part,dmg},
+            {victim,hitPos,part,dmg},
+            {victim.Name,hitPos,part,dmg},
+            {victim.UserId,hitPos,dmg},
+            {origin,hitPos},
+            {origin,dir.Unit,part,hitPos,dmg},
+            {part,hitPos,dmg},
+            {victim,dmg}
+        }
+        local budgetH=8
+        for _,r in ipairs(hitRemotesCache) do
             for _,args in ipairs(argSets) do
-                if r:IsA("RemoteFunction") then
-                    forceInvoke(r, unpack(args))
-                else
-                    forceFire(r, unpack(args))
-                end
+                if budgetH<=0 then break end
+                if grFire(r,args,"kill") then budgetH=budgetH-1 end
             end
+            if budgetH<=0 then break end
         end
         if hrp then
             fireGameVolley(origin, hrp.Position)
@@ -1332,18 +1356,18 @@ local function killNearestOrSelected()
     if not hrp then return end
     local hadWeapon=ensureWeaponEquipped()
     local pos=hrp.Position
-    for i=1,3 do mpKillPlayer(target,pos) end
+    mpKillPlayer(target,pos)
     pcall(function()
         if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
         if AR then AR:FireServer("kill", target.Name) end
     end)
     pcall(function()
-        local h=target.Character:FindFirstChildOfClass("Humanoid")
-        if h and h.Health>0 then h.Health=math.max(0,h.Health-100000) end
+        local thief=findRemote("ThiefSystem.RemoteEvent")
+        if thief then forceFire(thief,{"kill",target}) end
     end)
     ntf("Kill","Sent MP kill to "..target.DisplayName.." ("..(hadWeapon and "weapon equipped" or "no weapon - remotes only")..")")
 end
-local function fireGameVolley(origin, target)
+fireGameVolley=function(origin, target)
     pcall(function()
         local rf=findRemote("WeaponsSystem.Network.WeaponFired")
         if rf then
@@ -1455,7 +1479,23 @@ sep(tH)
 lbl(tH,">> FLY + NOCLIP")
 local tFly=tog(tH,"Fly",function() return ST.fly end,function() ST.fly=not ST.fly if ST.fly then ST.godmodeLoop=true syncServerGod() end if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end end ntf("Fly",ST.fly and "ON - WASD+Space/Ctrl + Godmode" or "OFF") end,"fly")
 table.insert(allToggles,tFly)
-local tNoclip=tog(tH,"Noclip",function() return ST.noclip end,function() ST.noclip=not ST.noclip if not ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") and ST.savedCollide[p2]~=nil then p2.CanCollide=ST.savedCollide[p2] end end ST.savedCollide={} end end,"noclip")
+local tNoclip=tog(tH,"Noclip",function() return ST.noclip end,function()
+    ST.noclip=not ST.noclip
+    pcall(function()
+        local r=findRemote("NoclipEvent")
+        if r then
+            grFire(r,{ST.noclip},"noclip")
+            grFire(r,{LP,ST.noclip},"noclip")
+        end
+    end)
+    if not ST.noclip and LP.Character then
+        for _,p2 in pairs(LP.Character:GetDescendants()) do
+            if p2:IsA("BasePart") and ST.savedCollide[p2]~=nil then p2.CanCollide=ST.savedCollide[p2] end
+        end
+        ST.savedCollide={}
+    end
+    ntf("Noclip",ST.noclip and "ON" or "OFF")
+end,"noclip")
 table.insert(allToggles,tNoclip)
 local tFC=tog(tH,"Free Cam",function() return ST.freeCam end,function() setFreeCam(not ST.freeCam) end,"freecam")
 table.insert(allToggles,tFC)
@@ -1577,7 +1617,21 @@ btn(tP,"Goto Player",function() if ST.selectedPlayer and ST.selectedPlayer.Chara
 sep(tP)
 lbl(tP,">> SPECTATE + ESP")
 btn(tP,"Spectate",function() if ST.selectedPlayer and ST.selectedPlayer.Character then local h=ST.selectedPlayer.Character:FindFirstChildOfClass("Humanoid") if h then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom ST.spectating=ST.selectedPlayer end end end,"spec")
-btn(tP,"Stop Spectate",function() stopOverhead(false) ST.spectating=nil ntf("Spectate","Stopped") end,"stopspec")
+btn(tP,"Stop Spectate",function()
+    local wasOvh=ST.spectateOverhead
+    stopOverhead(false)
+    ST.spectating=nil
+    ST.spectateOverhead=false
+    ST._ovhActive=false
+    pcall(function()
+        game:GetService("ContextActionService"):UnbindAction("AxOvhSink")
+    end)
+    if not ST.freeCam then
+        unfreezeLocalFromCam()
+        restoreLocalCamera()
+    end
+    ntf("Spectate",wasOvh and "Overhead stopped - camera on you" or "Spectate stopped - camera on you")
+end,"stopspec")
 btn(tP,"Spectate: Next Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local nextI=idx+1 if nextI>#plrs then nextI=1 end local np=plrs[nextI] if np~=LP and np.Character then local h=np.Character:FindFirstChildOfClass("Humanoid") if h then if not ST.spectateOverhead then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom end ST.spectating=np ST.ovhInit=false ntf("Spectate","Following: "..np.DisplayName) end end end,"specnext")
 btn(tP,"Spectate: Prev Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local prevI=idx-1 if prevI<1 then prevI=#plrs end local pp2=plrs[prevI] if pp2~=LP and pp2.Character then local h=pp2.Character:FindFirstChildOfClass("Humanoid") if h then if not ST.spectateOverhead then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom end ST.spectating=pp2 ST.ovhInit=false ntf("Spectate","Following: "..pp2.DisplayName) end end end,"specprev")
 btn(tP,"Spectate: Overhead",function()
@@ -1603,32 +1657,28 @@ btn(tP,"Spectate: Overhead",function()
         ovhLastT=tick()
         ovhPrevM=nil
         table.clear(FC_KEYS)
+        ensureCamInputConns()
+        freezeLocalForCam()
         pcall(function()
             local CAS=game:GetService("ContextActionService")
             CAS:UnbindAction("AxOvhSink")
-            CAS:BindActionAtPriority("AxOvhSink",function(_,st)
-                if st==Enum.UserInputState.Begin then
-                    local kc=_
-                    if typeof(kc)=="EnumItem" then FC_KEYS[kc]=true end
-                elseif st==Enum.UserInputState.End or st==Enum.UserInputState.Cancel then
-                    local kc=_
-                    if typeof(kc)=="EnumItem" then FC_KEYS[kc]=nil end
+            CAS:BindActionAtPriority("AxOvhSink",function(an,st,io)
+                local kc=io and io.KeyCode
+                if typeof(kc)=="EnumItem" and kc~=Enum.KeyCode.Unknown then
+                    if st==Enum.UserInputState.Begin then
+                        FC_KEYS[kc]=true
+                    elseif st==Enum.UserInputState.End or st==Enum.UserInputState.Cancel then
+                        FC_KEYS[kc]=nil
+                    end
                 end
                 return Enum.ContextActionResult.Sink
             end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift)
         end)
         pcall(function()
-            local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-            if hum then
-                if ST._ovhWalk==nil then ST._ovhWalk=hum.WalkSpeed end
-                hum.WalkSpeed=0
-            end
-        end)
-        pcall(function()
             local cam=W.CurrentCamera or CAM
             if cam then CAM=cam applyOverhead(cam) end
         end)
-        ntf("Spectate","Overhead ON on "..ST.spectating.DisplayName.." - RMB look, WASD, Space/Ctrl dist")
+        ntf("Spectate","Overhead ON - "..ST.spectating.DisplayName.." | RMB look, WASD, Space/Ctrl dist")
     end
 end,"specover")
 local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Enabled=CFG.ESPFillEnabled hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
@@ -1805,9 +1855,7 @@ local function fireGodRemotes(on)
         local hd=findRemote("HDAdminHDClient.Signals.RequestCommand")
         if hd then
             local sets={
-                {"god"},{"godmode"},{":god"},{":godmode"},
-                {"god",LP.Name},{LP.Name,"god"},
-                {"cmd","god"}
+                {"god"},{":god"},{"godmode"}
             }
             for _,args in ipairs(sets) do grFire(hd,args,"god") end
         end
@@ -1855,6 +1903,140 @@ local function nearestPl(maxD)
     end
     return best
 end
+local GR_WEAPONS={"FN FAL","M4A5","Police Glock","BulletWeapon","BowWeapon"}
+local GR_ITEMS={"Bandage","Bread","Cheeseburger","Water","LockPick","Broom","Bronze Pickaxe","Gold","Pill"}
+local function cloneToolFull(tool, destBp)
+    if not tool or not tool:IsA("Tool") or not destBp then return false end
+    local okC=false
+    pcall(function()
+        local cl=tool:Clone()
+        cl.Name=tool.Name
+        for _,d in pairs(cl:GetDescendants()) do
+            if d:IsA("BasePart") then d.Anchored=false end
+            if d:IsA("Script") and d.Disabled then d.Disabled=false end
+        end
+        local h=cl:FindFirstChild("Handle")
+        if not h then
+            h=Instance.new("Part")
+            h.Name="Handle"
+            h.Size=Vector3.new(0.4,1,0.4)
+            h.CanCollide=false
+            h.Parent=cl
+        end
+        cl.Parent=destBp
+        okC=true
+    end)
+    return okC
+end
+local function fireWeaponActivated()
+    pcall(function()
+        local r=findRemote("WeaponsSystem.Network.WeaponActivated")
+        if not r then return end
+        local tool=LP.Character and LP.Character:FindFirstChildOfClass("Tool")
+        local nm=tool and tool.Name or "FN FAL"
+        grFire(r,{nm},"wact")
+        grFire(r,{nm,true},"wact")
+        grFire(r,{tool},"wact")
+    end)
+end
+local function giveGRItem(name, kind)
+    local n=0
+    pcall(function()
+        local arm=findRemote("Armory.RemoteEvent")
+        local inv=findRemote("Inventory.Inventory")
+        local sm=findRemote("SupermarketEvent.Triggered") or findRemote("SupermarketEvent.BuyItem")
+        local jc=findRemote("JobCenter.JobCenter")
+        local rk="give"..(kind or "w")
+        if kind=="weapon" or kind==nil then
+            if arm then
+                if grFire(arm,{"buy",name},rk) then n=n+1 end
+                grFire(arm,{name},"give")
+                grFire(arm,{"give",name},"give")
+            end
+            if inv then
+                grFire(inv,{"add",name},"give")
+                grFire(inv,{name},"give")
+            end
+        else
+            if sm then
+                if grFire(sm,{"buy",name},"give") then n=n+1 end
+                grFire(sm,name,"give")
+            end
+            if inv then
+                grFire(inv,{"add",name},"give")
+                grFire(inv,{name},"give")
+            end
+            if jc then grFire(jc,name,"give") end
+        end
+    end)
+    pcall(function()
+        local bp=LP:FindFirstChild("Backpack")
+        if not bp then return end
+        ST._toolCache=ST._toolCache or {}
+        local function findTemplate(nm)
+            if ST._toolCache[nm] and ST._toolCache[nm].Parent then return ST._toolCache[nm] end
+            local lower=string.lower(nm)
+            local exact=nil
+            local partial=nil
+            local function consider(obj)
+                if not obj or not obj:IsA("Tool") then return end
+                local on=string.lower(obj.Name)
+                if on==lower then exact=obj
+                elseif not partial and string.find(on,lower,1,true) then partial=obj end
+            end
+            local roots={}
+            pcall(function() table.insert(roots,game:GetService("StarterPack")) end)
+            pcall(function() table.insert(roots,game:GetService("StarterGear")) end)
+            pcall(function() table.insert(roots,RS) end)
+            pcall(function() table.insert(roots,W) end)
+            pcall(function() local ss=game:GetService("ServerStorage") if ss then table.insert(roots,ss) end end)
+            pcall(function() local sa=game:GetService("ServerScriptService") if sa then table.insert(roots,sa) end end)
+            for _,src in ipairs(roots) do
+                pcall(function()
+                    for _,obj in pairs(src:GetDescendants()) do
+                        consider(obj)
+                        if exact then break end
+                    end
+                end)
+                if exact then break end
+            end
+            if not exact then
+                pcall(function()
+                    for _,pl in pairs(P:GetPlayers()) do
+                        if pl~=LP then
+                            local pb=pl:FindFirstChild("Backpack")
+                            if pb then
+                                for _,obj in pairs(pb:GetChildren()) do consider(obj) end
+                            end
+                            if pl.Character then
+                                for _,obj in pairs(pl.Character:GetChildren()) do consider(obj) end
+                            end
+                        end
+                        if exact then break end
+                    end
+                end)
+            end
+            local found=exact or partial
+            if found then ST._toolCache[nm]=found end
+            return found
+        end
+        local tpl=findTemplate(name)
+        if tpl then
+            if cloneToolFull(tpl, bp) then n=n+1 end
+        else
+            local t=Instance.new("Tool")
+            t.Name=name
+            local h=Instance.new("Part")
+            h.Name="Handle"
+            h.Size=Vector3.new(0.4,1,0.4)
+            h.CanCollide=false
+            h.Parent=t
+            t.Parent=bp
+            n=n+1
+        end
+    end)
+    return n
+end
 local function doGreenSteal()
     if not cd() then return end
     equipAnyTool()
@@ -1865,11 +2047,9 @@ local function doGreenSteal()
         local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
         local th=t.Character and t.Character:FindFirstChild("HumanoidRootPart")
         if my and th then
-            my.CFrame=CFrame.lookAt(my.Position,Vector3.new(th.Position.X,my.Position.Y,th.Position.Z))
             local d=(my.Position-th.Position).Magnitude
-            if d>18 then
-                local toward=my.Position+(th.Position-my.Position).Unit*(d-4)
-                safeTeleport(toward)
+            if d>12 and d<80 then
+                my.CFrame=CFrame.lookAt(my.Position,Vector3.new(th.Position.X,my.Position.Y,th.Position.Z))
             end
         end
     end)
@@ -1879,12 +2059,8 @@ local function doGreenSteal()
         if not bp then return end
         local vbp=t:FindFirstChild("Backpack")
         local function grab(tool)
-            if not tool or not tool:IsA("Tool") or cloned>=3 then return end
-            pcall(function()
-                local cl=tool:Clone()
-                cl.Parent=bp
-                cloned=cloned+1
-            end)
+            if not tool or not tool:IsA("Tool") or cloned>=5 then return end
+            if cloneToolFull(tool, bp) then cloned=cloned+1 end
         end
         if vbp then
             for _,tool in pairs(vbp:GetChildren()) do grab(tool) end
@@ -1892,66 +2068,68 @@ local function doGreenSteal()
         if t.Character then
             for _,tool in pairs(t.Character:GetChildren()) do grab(tool) end
         end
+        if cloned>0 then
+            task.delay(0.2, function()
+                pcall(function()
+                    local tools=bp:GetChildren()
+                    for i=#tools,1,-1 do
+                        local tool=tools[i]
+                        if tool:IsA("Tool") then
+                            pcall(function() LP.Character:EquipTool(tool) end)
+                            break
+                        end
+                    end
+                end)
+                fireWeaponActivated()
+            end)
+        end
+    end)
+    pcall(function()
+        local inv=findRemote("Inventory.Inventory")
+        if inv then
+            grFire(inv,{"steal",t.UserId},"steal")
+            grFire(inv,{"steal",t.Name},"steal")
+        end
+        local arm=findRemote("Armory.RemoteEvent")
+        if arm then grFire(arm,{"steal",t.Name},"steal") end
+        local thief=findRemote("ThiefSystem.RemoteEvent")
+        if thief then
+            grFire(thief,{"steal",t},"steal")
+            grFire(thief,{"steal",t.Name},"steal")
+        end
     end)
     local fired=0
-    local budget=16
-    ST._stealRateT=ST._stealRateT or 0
+    local budget=6
     local function tryFire(r,args)
         if not r or fired>=budget then return end
-        local now=tick()
-        if now-ST._stealRateT<0.06 then return end
-        ST._stealRateT=now
-        local ok2=false
-        if r:IsA("RemoteFunction") then
-            ST._forceFire=true
-            ok2=pcall(function() r:InvokeServer(unpack(args)) end)
-            ST._forceFire=false
-        else
-            ok2=forceFire(r,unpack(args))
-        end
-        if ok2 then fired=fired+1 end
+        if grFire(r,args,"steal") then fired=fired+1 end
     end
     pcall(function()
         local inv=findRemote("Inventory.Inventory")
         local arm=findRemote("Armory.RemoteEvent")
         local thief=findRemote("ThiefSystem.RemoteEvent")
         local claim=findRemote("ClaimEvent")
-        local hd=findRemote("HDAdminHDClient.Signals.RequestCommand")
-        local compact={
-            {t},{t.Name},{t.UserId},
-            {"steal",t},{"steal",t.Name},{"steal",t.UserId},
-            {t,"steal"},{t.Name,"steal"},
-            {"pickpocket",t},{"pickpocket",t.Name},
-            {"rob",t},{"rob",t.Name},{"rob",t.UserId},
-            {"take",t},{"grab",t},{"loot",t},
-            {"transfer",t},{t,"transfer"},
-            {"give",t},{t,"give"},
-            {"use",t},{t,"use"},
-            {"drop","stolen"},
-            {action="steal",target=t.UserId},
-            {action="pickpocket",target=t.Name}
+        local sets={
+            {"steal",t.UserId},
+            {"steal",t.Name},
+            {"rob",t.Name},
+            {"pickpocket",t.Name},
+            {"transfer",t.UserId,LP.UserId}
         }
-        for _,args in ipairs(compact) do
-            if tryFire(inv,args) then fired=fired end
+        for _,args in ipairs(sets) do
+            tryFire(inv,args)
             tryFire(arm,args)
             tryFire(thief,args)
             if claim then tryFire(claim,args) end
         end
-        if hd then
-            local hds={
-                {"steal",t.Name},{"rob",t.Name},{":steal "..t.Name},
-                {"givetools",t.Name},{LP.Name,"steal",t.Name}
-            }
-            for _,args in ipairs(hds) do tryFire(hd,args) end
-        end
     end)
     pcall(function()
         local scanned=0
-        local keys={"steal","thief","pickpocket","rob","take","grab","loot","pick","transfer","claim"}
-        for _,parent in ipairs({RS,W}) do
+        local keys={"steal","thief","pickpocket","rob","transfer","claim"}
+        for _,parent in ipairs({RS}) do
             if fired>=budget then break end
             for _,d in pairs(parent:GetDescendants()) do
-                if fired>=budget or scanned>=8 then break end
+                if fired>=budget or scanned>=4 then break end
                 if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) then
                     local nm=d.Name:lower()
                     local hitk=false
@@ -1960,10 +2138,7 @@ local function doGreenSteal()
                     end
                     if hitk then
                         scanned=scanned+1
-                        tryFire(d,{t})
-                        tryFire(d,{t.Name})
-                        tryFire(d,{t.UserId})
-                        tryFire(d,{"steal",t})
+                        tryFire(d,{"steal",t.UserId})
                         tryFire(d,{"steal",t.Name})
                         tryFire(d,{"pickpocket",t.Name})
                     end
@@ -1972,15 +2147,47 @@ local function doGreenSteal()
         end
     end)
     local parts={}
-    if cloned>0 then table.insert(parts,"cloned "..cloned.." tool(s)") end
+    if cloned>0 then table.insert(parts,cloned.." tool(s) cloned+equipped") end
     if fired>0 then table.insert(parts,fired.." remote(s)") end
     if #parts>0 then
-        ntf("Steal","OK on "..t.DisplayName..": "..table.concat(parts,", "),4)
+        ntf("Steal","OK on "..t.DisplayName..": "..table.concat(parts,", ").." - WeaponActivated sent",5)
     else
-        ntf("Steal","Nothing grabbed - no tools/remotes on "..t.DisplayName,4)
+        ntf("Steal","No tools on "..t.DisplayName.." - firing Armory/Inventory steal",4)
+        giveGRItem("FN FAL","weapon")
     end
 end
 btn(tEx,"Steal in Greenzone (no gun)",function() doGreenSteal() end,"stealgreen")
+sep(tEx)
+lbl(tEx,">> GIVE WORKING ITEMS (Armory/Inventory/Shop)")
+btn(tEx,"Give FN FAL (working)",function()
+    if not cd() then return end
+    local n=giveGRItem("FN FAL","weapon")
+    fireWeaponActivated()
+    ntf("Give","FN FAL x"..n.." - Armory+Inventory+clone+WeaponActivated",4)
+end,"gfnfal")
+btn(tEx,"Give M4A5 (working)",function()
+    if not cd() then return end
+    local n=giveGRItem("M4A5","weapon")
+    fireWeaponActivated()
+    ntf("Give","M4A5 x"..n.." sent",4)
+end,"gm4a5")
+btn(tEx,"Give Police Glock",function()
+    if not cd() then return end
+    local n=giveGRItem("Police Glock","weapon")
+    fireWeaponActivated()
+    ntf("Give","Police Glock x"..n.." sent",4)
+end,"gglock")
+btn(tEx,"Give Food+Medkit pack",function()
+    if not cd() then return end
+    local total=0
+    for _,it in ipairs(GR_ITEMS) do total=total+giveGRItem(it,"item") end
+    ntf("Give","Items pack: "..total.." added (Bandage/Bread/Water/etc)",5)
+end,"gpack")
+btn(tEx,"Give LockPick",function()
+    if not cd() then return end
+    local n=giveGRItem("LockPick","item")
+    ntf("Give","LockPick x"..n,4)
+end,"glockpick")
 local tGS=tog(tEx,"Auto Steal Loop",function() return ST.autoSteal end,function() ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON - nearest every 0.6s") else ntf("Steal","Loop OFF") end end,"autosteal")
 table.insert(allToggles,tGS)
 sep(tEx)
@@ -2348,7 +2555,7 @@ btn(tEx,"Kill All in Range 40 (MP)",function()
             local d=(pp.Character.HumanoidRootPart.Position-my.Position).Magnitude
             if d<=40 then
                 local pos=pp.Character.HumanoidRootPart.Position
-                for i=1,3 do mpKillPlayer(pp,pos) end
+                mpKillPlayer(pp,pos)
                 pcall(function()
                     if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
                     if AR then AR:FireServer("kill", pp.Name) end
@@ -2358,6 +2565,7 @@ btn(tEx,"Kill All in Range 40 (MP)",function()
                     if h and h.Health<=0 then deaths=deaths+1 end
                 end)
                 nkill=nkill+1
+                task.wait(0.05)
             end
         end
     end
@@ -2423,7 +2631,7 @@ end,"openspy")
 btn(tEx,"Clear Spy Log",function() ST.remoteSpyLog={} if _G._spyFrame then for _,ch in pairs(_G._spyFrame:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end end ntf("Spy","Cleared!") end,"clrspry")
 sep(tEx)
 lbl(tEx,">> AIMBOT")
-local tAim=tog(tEx,"Aimbot (Silent)",function() return ST.aimEnabled end,function() ST.aimEnabled=not ST.aimEnabled if ST.aimEnabled then ntf("Aimbot","ON - Silent Aim") else ntf("Aimbot","OFF") local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum then myHum.AutoRotate=true end end end,"aimbot")
+local tAim=tog(tEx,"Aimbot (Silent)",function() return ST.aimEnabled end,function() ST.aimEnabled=not ST.aimEnabled if ST.aimEnabled then ntf("Aimbot","ON - Silent (no cam move, FOV lock)") else ntf("Aimbot","OFF") ST.aimTarget=nil ST._aimWallC=nil local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if myHum then myHum.AutoRotate=true end end end,"aimbot")
 table.insert(allToggles,tAim)
 local tAimHold=tog(tEx,"Hold to Aim",function() return ST.aimHoldKey end,function() ST.aimHoldKey=not ST.aimHoldKey if not ST.aimHoldKey then ST.aimKeyHeld=false KBActive.aimhold=nil else if not KB.aimhold then KB.aimhold=Enum.UserInputType.MouseButton2 KBMode.aimhold="hold" end if not KB.aimbot or KBMode.aimbot~="hold" then KBMode.aimhold="hold" end ntf("Aimbot","Hold ON - hold "..getKeyDisplay(KB.aimhold).." to aim (default RMB)") end refreshKBBtns() end,"aimhold")
 table.insert(allToggles,tAimHold)
@@ -2478,7 +2686,8 @@ aimDropBtn.MouseButton1Click:Connect(function()
         aimDropList.CanvasSize=UDim2.new(0,0,0,y+4)
     else if aimDropList then aimDropList:Destroy() aimDropList=nil end end
 end)
-makeSlider(tEx,"FOV",20,500,function() return ST.aimFOV end,function(v) ST.aimFOV=math.floor(v) if ST.aimFOVGui then local c=ST.aimFOVGui:FindFirstChild("Circle") if c then c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2) end end end)
+makeSlider(tEx,"FOV",20,500,function() return ST.aimFOV end,function(v) ST.aimFOV=math.floor(v) if ST.aimFOVGui then local c=ST.aimFOVGui:FindFirstChild("Circle") if c then c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2) end end end)
+makeSlider(tEx,"Max Dist",50,1000,function() return ST.aimMaxDist end,function(v) ST.aimMaxDist=math.floor(v) end)
 local tAimTC=tog(tEx,"Team Check",function() return ST.aimTeamCheck end,function() ST.aimTeamCheck=not ST.aimTeamCheck ntf("Aimbot","TeamCheck: "..(ST.aimTeamCheck and "ON" or "OFF")) end,"aimtc")
 table.insert(allToggles,tAimTC)
 local tAimWC=tog(tEx,"Wall Check",function() return ST.aimWallCheck end,function() ST.aimWallCheck=not ST.aimWallCheck ntf("Aimbot","WallCheck: "..(ST.aimWallCheck and "ON (skip through walls)" or "OFF")) end,"aimwc")
@@ -2753,7 +2962,8 @@ local function dealWeaponDamage(victim, hitPos)
         local origin=my and my.Position or hitPos
         local rf=findRemote("WeaponsSystem.Network.WeaponFired")
         if rf then
-            for i=1,math.min(mult,6) do forceFire(rf, origin, hitPos) end
+            grFire(rf,{origin,hitPos},"dmg")
+            if mult>=2 then grFire(rf,{origin,hitPos},"dmg") end
         end
     end)
     pcall(function()
@@ -2764,14 +2974,9 @@ local function dealWeaponDamage(victim, hitPos)
         }
         for _,r in ipairs(hits) do
             if r then
-                for i=1,mult do
-                    local jp=hitPos+Vector3.new(math.random(-20,20)/20,math.random(-20,20)/20,math.random(-20,20)/20)
-                    forceFire(r, jp)
-                    forceFire(r, jp, part)
-                    forceFire(r, jp, part, amt)
-                    forceFire(r, victim, jp, amt)
-                    forceFire(r, victim.Name, jp, part, amt)
-                end
+                local jp=hitPos
+                grFire(r,{jp,part,amt},"dmg")
+                grFire(r,{victim,jp,part,amt},"dmg")
             end
         end
     end)
@@ -2895,7 +3100,7 @@ local function sphereKillAt(pos, forcedPl)
         end
         if hitPl and hitPl~=LP and hitPl.Character then
             ensureWeaponEquipped()
-            for i=1,3 do mpKillPlayer(hitPl, pos) end
+            mpKillPlayer(hitPl, pos)
             pcall(function()
                 if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
                 if AR then AR:FireServer("kill", hitPl.Name) end
@@ -3001,6 +3206,7 @@ MS.Button1Down:Connect(function()
     if not ST.menuOpen then
         if ST.shotTracer then drawShotTracer() end
         if ST.spheresOn then throwSpheres() end
+        if isAimActive() and ST.aimTarget then weaponHitScan() end
     end
     if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then safeTeleport(MS.Hit.Position+Vector3.new(0,2,0)) end end
 end)
@@ -3014,7 +3220,7 @@ local function vaultJumpUnlock(h)
     pcall(function() h:ChangeState(Enum.HumanoidStateType.Jumping) end)
 end
 U.JumpRequest:Connect(function()
-    if ST.infJump and not ST.freeCam and LP.Character and tick()-lastInfJump>0.05 then
+    if ST.infJump and not ST.freeCam and not ST.spectateOverhead and LP.Character and tick()-lastInfJump>0.05 then
         lastInfJump=tick()
         pcall(function()
             vaultJumpUnlock(LP.Character:FindFirstChildOfClass("Humanoid"))
@@ -3024,7 +3230,7 @@ end)
 print("[Axynth] Events OK")
 R.RenderStepped:Connect(function()
     pcall(function()
-        if ST.fly and not ST.freeCam and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then local dir=Vector3.new(0,0,0) local sp=ST.flySpeed if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=sp*3 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if dir.Magnitude>0 then dir=dir.Unit h.Velocity=Vector3.new(0,0,0) h.RotVelocity=Vector3.new(0,0,0) h.CFrame=h.CFrame+dir*sp/60 else h.Velocity=Vector3.new(0,0,0) end end end
+        if ST.fly and not ST.freeCam and not ST.spectateOverhead and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then local dir=Vector3.new(0,0,0) local sp=ST.flySpeed if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=sp*3 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if dir.Magnitude>0 then dir=dir.Unit h.Velocity=Vector3.new(0,0,0) h.RotVelocity=Vector3.new(0,0,0) h.CFrame=h.CFrame+dir*sp/60 else h.Velocity=Vector3.new(0,0,0) end end end
     end)
     pcall(function()
         if not ST.godmodeLoop or not LP.Character then return end
@@ -3061,7 +3267,7 @@ R.RenderStepped:Connect(function()
         if ST.invisible then applyInvisible() end
     end)
     pcall(function()
-        if ST.infJump and not ST.freeCam and LP.Character and U:IsKeyDown(Enum.KeyCode.Space) then
+        if ST.infJump and not ST.freeCam and not ST.spectateOverhead and LP.Character and U:IsKeyDown(Enum.KeyCode.Space) then
             local hum=LP.Character:FindFirstChildOfClass("Humanoid")
             if hum and tick()-lastInfJump>0.08 then
                 lastInfJump=tick()
@@ -3149,7 +3355,7 @@ R.RenderStepped:Connect(function()
         end
     end)
     pcall(function()
-        if ST.autoSteal and tick()-(ST._stealT or 0)>0.6 then
+        if ST.autoSteal and not ST.freeCam and not ST.spectateOverhead and tick()-(ST._stealT or 0)>0.6 then
             ST._stealT=tick()
             doGreenSteal()
         end
@@ -3199,18 +3405,38 @@ R.RenderStepped:Connect(function()
                 if seat.MaxSpeed~=target then
                     seat.MaxSpeed=target
                 end
+                pcall(function()
+                    if seat.Heat~=nil and seat.Heat<1 then seat.Heat=1 end
+                end)
+                pcall(function()
+                    local model=seat:FindFirstAncestorOfClass("Model")
+                    if model then
+                        for _,ch in pairs(model:GetDescendants()) do
+                            if ch:IsA("VehicleSeat") and ch~=seat then
+                                if ST._vehOrig[ch]==nil and ch.MaxSpeed>0 then ST._vehOrig[ch]=ch.MaxSpeed end
+                                if ch.MaxSpeed~=target then ch.MaxSpeed=target end
+                            end
+                            if ch:IsA("LinearVelocity") and ch.MaxForce then
+                                ch.MaxForce=math.max(ch.MaxForce, 1e6)
+                            end
+                            if ch:IsA("BodyVelocity") and ch.MaxForce then
+                                ch.MaxForce=Vector3.new(1e6,1e6,1e6)
+                            end
+                        end
+                    end
+                end)
             end
         end
     end)
     pcall(function()
-        if ST.spinner and LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then local sv=hrp:FindFirstChild("AxSpin") if not sv then sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) end end
+        if ST.spinner and not ST.freeCam and not ST.spectateOverhead and LP.Character then local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then local sv=hrp:FindFirstChild("AxSpin") if not sv then sv=Instance.new("BodyAngularVelocity") sv.Name="AxSpin" sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) sv.P=10000 sv.Parent=hrp end sv.AngularVelocity=Vector3.new(0,ST.spinnerSpeed,0) sv.MaxTorque=Vector3.new(0,math.huge,0) end end
     end)
     pcall(function() if ST.autoClicker then mouse1click() end end)
     pcall(function() if ST.night then L.ClockTime=0 L.Brightness=0 end end)
     pcall(function() if ST.bright then L.Brightness=2 L.GlobalShadows=false L.Ambient=Color3.fromRGB(178,178,178) L.OutdoorAmbient=Color3.fromRGB(178,178,178) end end)
     pcall(function() if ST.noFog then L.FogEnd=999999 L.FogStart=0 local atm=L:FindFirstChildOfClass("Atmosphere") if atm then atm.Density=0 end end end)
     pcall(function()
-        if ST.maceTP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local myRoot=LP.Character.HumanoidRootPart local nearestDist=math.huge local nearestRoot=nil for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and pp.Character:FindFirstChildOfClass("Humanoid") then local hum2=pp.Character:FindFirstChildOfClass("Humanoid") if hum2.Health>0 then local d=(myRoot.Position-pp.Character.HumanoidRootPart.Position).Magnitude if d<nearestDist then nearestDist=d nearestRoot=pp.Character.HumanoidRootPart end end end end if nearestRoot then local off=ST.maceTPOffset or 3 local targetCF=nearestRoot.CFrame*CFrame.new(0,0,off) local d=(myRoot.Position-nearestRoot.Position).Magnitude if d>140 then if tick()-(ST._maceTpT or 0)>0.5 then ST._maceTpT=tick() safeTeleport(targetCF.Position) end else myRoot.CFrame=targetCF end end end
+        if not ST.freeCam and not ST.spectateOverhead and ST.maceTP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local myRoot=LP.Character.HumanoidRootPart local nearestDist=math.huge local nearestRoot=nil for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and pp.Character:FindFirstChildOfClass("Humanoid") then local hum2=pp.Character:FindFirstChildOfClass("Humanoid") if hum2.Health>0 then local d=(myRoot.Position-pp.Character.HumanoidRootPart.Position).Magnitude if d<nearestDist then nearestDist=d nearestRoot=pp.Character.HumanoidRootPart end end end end if nearestRoot then local off=ST.maceTPOffset or 3 local targetCF=nearestRoot.CFrame*CFrame.new(0,0,off) local d=(myRoot.Position-nearestRoot.Position).Magnitude if d>140 then if tick()-(ST._maceTpT or 0)>0.5 then ST._maceTpT=tick() safeTeleport(targetCF.Position) end else myRoot.CFrame=targetCF end end end
     end)
     pcall(function()
         if ST.botRecord and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then table.insert(ST.botFrames,{t=tick()-ST.botStart,cf=LP.Character.HumanoidRootPart.CFrame:clone()}) end
@@ -3234,8 +3460,7 @@ R.RenderStepped:Connect(function()
             local circ=ST.aimFOVGui:FindFirstChild("Circle")
             if circ then
                 circ.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2)
-                local mp=U:GetMouseLocation()
-                circ.Position=UDim2.new(0,mp.X,0,mp.Y)
+                circ.Position=UDim2.new(0.5,0,0.5,0)
             end
         elseif ST.aimFOVGui then
             ST.aimFOVGui:Destroy()
