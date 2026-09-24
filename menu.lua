@@ -606,7 +606,7 @@ end)
 local ntf
 local lastAction=0
 local function cd() local now=tick() if now-lastAction<3 then ntf("Cooldown","Wait "..string.format("%.1f",3-(now-lastAction)).."s") return false end lastAction=now return true end
-ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,spheresOn=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,weaponDmgOn=true,weaponDmg=30,weaponDmgMult=1,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMaxDist=350,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0,shotTracer=false,dmgPop=true}
+ST = {menuOpen=false,fly=false,noclip=false,clickTP=false,esp=false,spectating=nil,selectedPlayer=nil,flySpeed=50,night=false,bright=false,noFog=false,invisible=false,espList={},spinner=false,autoClicker=false,infJump=false,savedCollide={},flyBypass=true,godmodeLoop=false,spheresOn=false,speedHard=false,vehicleSpeedOn=false,maceTP=false,infStamina=false,magicBullet=false,weaponDmgOn=false,weaponDmg=30,weaponDmgMult=1,cursorTPPreview=nil,waypoints={},botRecord=false,botPlay=false,botLoop=false,botFrames={},botStart=0,arrayList=false,markerObj=nil,savedLighting=nil,savedGravity=196.2,spinnerSpeed=25,remoteSpyOn=false,remoteSpyPaused=false,remoteSpyLog={},spySG=nil,aimEnabled=false,aimFOV=250,aimMaxDist=350,aimMode="silent",aimTargetPart="Head",aimTeamCheck=true,aimHoldKey=false,aimKeyHeld=false,aimFOVGui=nil,aimTarget=nil,showFOV=false,    aimWallCheck=true,vehBoost=80,vehApplyT=0,spectateOverhead=false,ovhOff=Vector3.new(0,25,0),ovhYaw=0,ovhPitch=-1.4,ovhInit=false,speedPreset=0,jumpPreset=0,shotTracer=false,dmgPop=true}
 local CFG = {ESPColor=Color3.fromRGB(255,0,0),ESPOutlineColor=Color3.new(1,1,1),ESPFillAlpha=0.5,ESPOutlineEnabled=true,ESPFillEnabled=true,ESPShowName=true,ESPShowHealth=true,ESPShowDistance=true,ESPShowTracer=false,ESPTracerColor=Color3.fromRGB(255,0,0),ESPTextColor=Color3.new(1,1,1),ESPThickness=2,ESP2D=false,ESPMaxDist=5000,AimEnabled=false,AimFOV=120,AimMode="silent",AimTargetPart="Head",AimTeamCheck=true}
 local TH = {p=Color3.fromRGB(15,15,15),s=Color3.fromRGB(22,22,22),b=Color3.fromRGB(30,30,30),bh=Color3.fromRGB(45,45,45),t=Color3.fromRGB(230,230,230),a=Color3.fromRGB(255,255,255),g=Color3.fromRGB(80,255,120),r=Color3.fromRGB(255,80,80)}
 local KB = {}
@@ -1837,6 +1837,10 @@ local function doFullHeal()
         end)
     end
     pcall(function()
+        local ek=findRemote("Hospital.EKAB")
+        if ek then grFire(ek,{LP},"heal") grFire(ek,{LP.Position},"heal") grFire(ek,{},"heal") fired=fired+3 end
+    end)
+    pcall(function()
         for _,d in pairs(RS:GetDescendants()) do
             if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) then
                 local nm=string.lower(d.Name)
@@ -1945,17 +1949,15 @@ local function cloneToolFull(tool, destBp)
         local cl=tool:Clone()
         cl.Name=tool.Name
         for _,d in pairs(cl:GetDescendants()) do
-            if d:IsA("BasePart") then d.Anchored=false end
-            if d:IsA("Script") and d.Disabled then d.Disabled=false end
+            if d:IsA("BasePart") then d.Anchored=false d.CanCollide=false pcall(function() d.Massless=true end) end
+            if d:IsA("LocalScript") or d:IsA("Script") then pcall(function() d.Disabled=false end) end
         end
         local h=cl:FindFirstChild("Handle")
         if not h then
-            h=Instance.new("Part")
-            h.Name="Handle"
-            h.Size=Vector3.new(0.4,1,0.4)
-            h.CanCollide=false
-            h.Parent=cl
+            for _,v in pairs(cl:GetChildren()) do if v:IsA("BasePart") then v.Name="Handle" h=v break end end
         end
+        if not h then cl:Destroy() return end
+        pcall(function() cl.CanBeDropped=true cl.ManualActivationOnly=false end)
         cl.Parent=destBp
         okC=true
     end)
@@ -2057,15 +2059,10 @@ local function giveGRItem(name, kind)
         if tpl then
             if cloneToolFull(tpl, bp) then n=n+1 end
         else
-            local t=Instance.new("Tool")
-            t.Name=name
-            local h=Instance.new("Part")
-            h.Name="Handle"
-            h.Size=Vector3.new(0.4,1,0.4)
-            h.CanCollide=false
-            h.Parent=t
-            t.Parent=bp
-            n=n+1
+            pcall(function()
+                local alt=findTemplate(string.lower(name))
+                if alt and cloneToolFull(alt, bp) then n=n+1 end
+            end)
         end
     end)
     return n
@@ -2189,6 +2186,84 @@ local function doGreenSteal()
         giveGRItem("FN FAL","weapon")
     end
 end
+-- Steal Outfit & Ped visible (HumanoidDescription, no server.lua)
+ST._origDesc=nil
+local function saveMyOutfit()
+    if ST._origDesc then return end
+    pcall(function()
+        local ch=LP.Character
+        local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        local desc=nil
+        pcall(function() desc=hum:GetAppliedDescription() end)
+        if not desc then pcall(function() desc=P:GetHumanoidDescriptionFromUserId(LP.UserId) end) end
+        if desc then ST._origDesc=desc end
+    end)
+end
+local function applyOutfitFromPlayer(target)
+    if not target or not target.Character then return false end
+    local thum=target.Character:FindFirstChildOfClass("Humanoid")
+    local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+    if not thum or not myHum then return false end
+    saveMyOutfit()
+    local ok=false
+    pcall(function()
+        local desc=nil
+        pcall(function() desc=thum:GetAppliedDescription() end)
+        if not desc then pcall(function() desc=P:GetHumanoidDescriptionFromUserId(target.UserId) end) end
+        if desc then
+            local nd=Instance.new("HumanoidDescription")
+            for _,pr in ipairs({"Head","Torso","LeftArm","RightArm","LeftLeg","RightLeg","Face","Pants","Shirt","GraphicTShirt","HatAccessories","HairAccessories","FaceAccessories","NeckAccessories","ShoulderAccessories","FrontAccessories","BackAccessories","WaistAccessories","BodyTypeScale","HeightScale","WidthScale","HeadScale","ProportionScale","DepthScale","HeadColor","TorsoColor","LeftArmColor","RightArmColor","LeftLegColor","RightLegColor"}) do
+                pcall(function() local v=desc[pr] if v~=nil then nd[pr]=v end end)
+            end
+            myHum:ApplyDescription(nd)
+            ok=true
+        end
+    end)
+    if not ok then
+        pcall(function()
+            for _,v in pairs(LP.Character:GetChildren()) do if v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") then v:Destroy() end end
+            for _,v in pairs(target.Character:GetChildren()) do if v:IsA("Shirt") or v:IsA("Pants") or v:IsA("ShirtGraphic") then pcall(function() v:Clone().Parent=LP.Character end) end end
+            ok=true
+        end)
+    end
+    return ok
+end
+local function doStealOutfit()
+    if not cd() then return end
+    local t=ST.selectedPlayer
+    if not t or t==LP or not t.Character then t=nearestPl(25) end
+    if not t then ntf("Outfit","No player nearby",4) return end
+    if applyOutfitFromPlayer(t) then ntf("Outfit","Stole outfit from "..t.DisplayName.." (visible)!",5) else ntf("Outfit","Failed",4) end
+end
+local function doStealPed()
+    if not cd() then return end
+    local t=ST.selectedPlayer
+    if not t or t==LP or not t.Character then t=nearestPl(25) end
+    if not t then ntf("Ped","No player nearby",4) return end
+    saveMyOutfit()
+    local ok=false
+    pcall(function()
+        local thum=t.Character:FindFirstChildOfClass("Humanoid")
+        local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if thum and myHum then
+            local desc=nil
+            pcall(function() desc=thum:GetAppliedDescription() end)
+            if not desc then pcall(function() desc=P:GetHumanoidDescriptionFromUserId(t.UserId) end) end
+            if desc then myHum:ApplyDescription(desc) ok=true end
+        end
+    end)
+    if not ok then ok=applyOutfitFromPlayer(t) end
+    if ok then ntf("Ped","Stole ped from "..t.DisplayName.." (visible)!",5) else ntf("Ped","Failed",4) end
+end
+local function doRestoreOutfit()
+    if not ST._origDesc then ntf("Outfit","No saved outfit",4) return end
+    pcall(function()
+        local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if myHum then myHum:ApplyDescription(ST._origDesc) ntf("Outfit","Restored (visible)",4) end
+    end)
+end
+
 btn(tEx,"Steal in Greenzone (no gun)",function() doGreenSteal() end,"stealgreen")
 sep(tEx)
 lbl(tEx,">> GIVE WORKING ITEMS (Armory/Inventory/Shop)")
@@ -2224,12 +2299,17 @@ end,"glockpick")
 local tGS=tog(tEx,"Auto Steal Loop",function() return ST.autoSteal end,function() ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON - nearest every 0.6s") else ntf("Steal","Loop OFF") end end,"autosteal")
 table.insert(allToggles,tGS)
 sep(tEx)
+lbl(tEx,">> STEAL OUTFIT & PED (Visible - no server.lua)")
+btn(tEx,"Steal Outfit (Selected/Nearest)",function() doStealOutfit() end,"stealoutfit")
+btn(tEx,"Steal Ped - Full Clone",function() doStealPed() end,"stealped")
+btn(tEx,"Restore My Outfit",function() doRestoreOutfit() end,"restoreoutfit")
+sep(tEx)
 lbl(tEx,">> VISIBLE REMOTE EFFECTS")
-btn(tEx,"Fire Weapon (Effects)",function() pcall(function() local r=findRemote("WeaponsSystem.Network.WeaponFired") if r then r:FireServer() ntf("Weapon","Fired!") end end) end,"weapfire")
-btn(tEx,"Toggle Police Siren",function() pcall(function() local r=findRemote("ToggleSirenEvent") if r then r:FireServer(true) ntf("Siren","Toggled (true)!") end end) end,"siren")
+btn(tEx,"Fire Weapon (Visible)",function() if not cd() then return end equipAnyTool() local cam=W.CurrentCamera or CAM local pos=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character.HumanoidRootPart.Position or Vector3.new(0,0,0) local dir=cam and cam.CFrame.LookVector*100 or Vector3.new(0,0,100) local hit=MS.Hit and MS.Hit.Position or pos+dir pcall(function() local r=findRemote("WeaponsSystem.Network.WeaponFired") if r then grFire(r,{pos,hit},"wfire") grFire(r,{pos,dir},"wfire") end local ra=findRemote("WeaponsSystem.Network.WeaponActivated") if ra then grFire(ra,{"FN FAL"},"wfire") end ntf("Weapon","Fired visible!",4) end) end,"weapfire")
+btn(tEx,"Toggle Police Siren",function() pcall(function() local r=findRemote("ToggleSirenEvent") if r then grFire(r,{true},"siren") ntf("Siren","Toggled visible!",4) end end) end,"siren")
 btn(tEx,"Spam Siren x5",function() if cd() then pcall(function() local r=findRemote("ToggleSirenEvent") if r then for i=1,5 do r:FireServer(true) task.wait(0.1) end ntf("Siren","Spam x5!") end end) end end,"siren5")
 btn(tEx,"Siren Off",function() pcall(function() local r=findRemote("ToggleSirenEvent") if r then r:FireServer(false) ntf("Siren","Off!") end end) end,"sirenoff")
-btn(tEx,"Weapon Hit (Fake)",function() pcall(function() local r=findRemote("WeaponsSystem.Network.Hit") if r then local ch=LP.Character if ch then local hrp=ch:FindFirstChild("HumanoidRootPart") if hrp then r:FireServer(hrp.Position) ntf("Weapon","Hit sent!") end end end end) end,"weaphit")
+btn(tEx,"Weapon Hit (Visible)",function() if not cd() then return end local t=ST.selectedPlayer or nearestPl(40) if not t or not t.Character then ntf("Weapon","No target",4) return end local part=t.Character:FindFirstChild("Head") or t.Character:FindFirstChild("HumanoidRootPart") if not part then return end equipAnyTool() pcall(function() local r=findRemote("WeaponsSystem.Network.WeaponHit") or findRemote("WeaponsSystem.Network.Hit") if r then grFire(r,{part.Position},"whit") grFire(r,{t,part},"whit") end ntf("Weapon","Hit "..t.DisplayName.." visible!",4) end) end,"weaphit")
 sep(tEx)
 lbl(tEx,">> MAGIC BULLET")
 local tMB=tog(tEx,"Magic Bullet",function() return ST.magicBullet end,function() ST.magicBullet=not ST.magicBullet ntf("MagicBullet",ST.magicBullet and "ON - Bullets hit through walls!" or "OFF") end,"magbul")
