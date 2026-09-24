@@ -2064,10 +2064,32 @@ function giveGRItem(name, kind)
         if tpl then
             if cloneToolFull(tpl, bp) then n=n+1 end
         else
-            pcall(function()
-                local alt=findTemplate(string.lower(name))
-                if alt and cloneToolFull(alt, bp) then n=n+1 end
-            end)
+            local alt=nil
+            pcall(function() alt=findTemplate(string.lower(name)) end)
+            if alt and cloneToolFull(alt, bp) then
+                n=n+1
+            else
+                -- fallback visible placeholder so it at least appears in inventory (equippable)
+                pcall(function()
+                    local t=Instance.new("Tool")
+                    t.Name=name
+                    t.CanBeDropped=true
+                    t.RequiresHandle=true
+                    t.ManualActivationOnly=false
+                    local h=Instance.new("Part")
+                    h.Name="Handle"
+                    h.Size=Vector3.new(0.5,0.7,0.4)
+                    h.CanCollide=false
+                    h.Massless=true
+                    local m=Instance.new("SpecialMesh")
+                    m.MeshType=Enum.MeshType.Brick
+                    m.Scale=Vector3.new(0.4,0.4,0.4)
+                    m.Parent=h
+                    h.Parent=t
+                    t.Parent=bp
+                    n=n+1
+                end)
+            end
         end
     end)
     return n
@@ -2321,6 +2343,34 @@ lbl(tEx,">> STEAL OUTFIT & PED (Visible - no server.lua)")
 btn(tEx,"Steal Outfit (Selected/Nearest)",function() doStealOutfit() end,"stealoutfit")
 btn(tEx,"Steal Ped - Full Clone",function() doStealPed() end,"stealped")
 btn(tEx,"Restore My Outfit",function() doRestoreOutfit() end,"restoreoutfit")
+sep(tEx)
+lbl(tEx,">> RENAME")
+local renameBox=Instance.new("TextBox") renameBox.Size=UDim2.new(1,-12,0,28) renameBox.Position=UDim2.new(0,6,0,0) renameBox.BackgroundColor3=TH.b renameBox.BorderSizePixel=0 renameBox.PlaceholderText="New name..." renameBox.PlaceholderColor3=Color3.fromRGB(100,100,120) renameBox.Text="" renameBox.TextColor3=TH.t renameBox.TextSize=12 renameBox.Font=Enum.Font.Gotham renameBox.Parent=tEx mkCorner(renameBox,6)
+btn(tEx,"Rename Self (Visible)",function()
+    local n=renameBox.Text if n=="" then ntf("Rename","Enter name",4) return end
+    local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+    if hum then hum.DisplayName=n ntf("Rename","Self -> "..n.." (visible)",4) end
+end,"renameself")
+btn(tEx,"Rename Other (Client)",function()
+    local n=renameBox.Text if n=="" then ntf("Rename","Enter name",4) return end
+    local t=ST.selectedPlayer or nearestPl(25)
+    if not t or not t.Character then ntf("Rename","No target",4) return end
+    local hum=t.Character:FindFirstChildOfClass("Humanoid")
+    if hum then hum.DisplayName=n ntf("Rename",t.DisplayName.." -> "..n.." (client)",4) end
+end,"renameother")
+btn(tEx,"Reset Names",function()
+    pcall(function()
+        local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if hum and ST._origName then hum.DisplayName=ST._origName end
+        for _,pl in pairs(P:GetPlayers()) do
+            if pl.Character then
+                local h=pl.Character:FindFirstChildOfClass("Humanoid")
+                if h then h.DisplayName=pl.DisplayName end
+            end
+        end
+        ntf("Rename","Reset",4)
+    end)
+end,"resetnames")
 sep(tEx)
 lbl(tEx,">> VISIBLE REMOTE EFFECTS")
 btn(tEx,"Fire Weapon (Visible)",function() if not cd() then return end equipAnyTool() local cam=W.CurrentCamera or CAM local pos=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character.HumanoidRootPart.Position or Vector3.new(0,0,0) local dir=cam and cam.CFrame.LookVector*100 or Vector3.new(0,0,100) local hit=MS.Hit and MS.Hit.Position or pos+dir pcall(function() local r=findRemote("WeaponsSystem.Network.WeaponFired") if r then grFire(r,{pos,hit},"wfire") grFire(r,{pos,dir},"wfire") end local ra=findRemote("WeaponsSystem.Network.WeaponActivated") if ra then grFire(ra,{"FN FAL"},"wfire") end ntf("Weapon","Fired visible!",4) end) end,"weapfire")
@@ -2617,14 +2667,7 @@ itemBox.FocusLost:Connect(function(enter)
     if enter then giveGameItem(itemBox.Text) end
 end)
 btn(tEx,"Give typed item",function() giveGameItem(itemBox.Text) end,"giveitem")
-btn(tEx,"Give: FN FAL / rifle",function() giveGameItem("FN FAL") end,"givefal")
-btn(tEx,"Give: any gun/weapon",function() giveGameItem("weapon") end,"givegun")
-btn(tEx,"Give: food",function() giveGameItem("food") end,"givefood")
-btn(tEx,"Give: water",function() giveGameItem("water") end,"givewater")
-btn(tEx,"Give: vest / armor",function() giveGameItem("vest") end,"givevest")
-btn(tEx,"Give: milk",function() giveGameItem("milk") end,"givemilk")
-btn(tEx,"Give: plant / weed",function() giveGameItem("weed") end,"giveplant")
-btn(tEx,"Give: miner item",function() giveGameItem("miner") end,"giveminer")
+-- duplicate give buttons removed (use GIVE WORKING ITEMS above)
 btn(tEx,"Refresh item list",function()
     ST._gameTools=nil
     local n=#getGameToolList()
