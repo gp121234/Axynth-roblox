@@ -2102,15 +2102,30 @@ function giveGRItem(name, kind)
                 got=true
             end)
         end
-        -- auto-equip the newly given tool so it appears in hand (fix "can't take out")
+        -- keep in inventory + auto-equip (so it stays and can be re-equipped)
         if got then
+            -- keep a copy in Backpack so it stays after unequip
             pcall(function()
-                task.delay(0.2, function()
+                local keep=nil
+                for _,v in pairs(bp:GetChildren()) do
+                    if v:IsA("Tool") and v.Name:lower()==string.lower(name) then keep=v:Clone() break end
+                end
+                if not keep then
+                    for _,v in pairs(bp:GetChildren()) do if v:IsA("Tool") then keep=v:Clone() break end end
+                end
+                if keep then
+                    for _,d in pairs(keep:GetDescendants()) do
+                        if d:IsA("LocalScript") or d:IsA("Script") then pcall(function() d.Disabled=true end) end
+                    end
+                    keep.Parent=bp
+                end
+            end)
+            pcall(function()
+                task.delay(0.25, function()
                     pcall(function()
                         if LP.Character and not LP.Character:FindFirstChildOfClass("Tool") then
                             local hum=LP.Character:FindFirstChildOfClass("Humanoid")
                             if hum then
-                                -- find the tool we just gave (last one)
                                 local toEquip=nil
                                 for _,v in pairs(bp:GetChildren()) do
                                     if v:IsA("Tool") and v.Name:lower()==string.lower(name) then toEquip=v break end
@@ -2118,8 +2133,21 @@ function giveGRItem(name, kind)
                                 if not toEquip then
                                     for _,v in pairs(bp:GetChildren()) do if v:IsA("Tool") then toEquip=v break end end
                                 end
-                                if toEquip then hum:EquipTool(toEquip) if not LP.Character:FindFirstChild(toEquip.Name) then pcall(function() toEquip.Parent=LP.Character end) end end
+                                if toEquip then
+                                    hum:EquipTool(toEquip)
+                                    if not LP.Character:FindFirstChild(toEquip.Name) then
+                                        pcall(function() toEquip.Parent=LP.Character end)
+                                    end
+                                end
                             end
+                        end
+                    end)
+                    -- also try Inventory equip remote for custom inventory
+                    pcall(function()
+                        local inv=findRemote("Inventory.Inventory")
+                        if inv then
+                            grFire(inv,{"equip",name},"equip")
+                            grFire(inv,{"use",name},"equip")
                         end
                     end)
                 end)
