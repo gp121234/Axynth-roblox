@@ -2202,7 +2202,7 @@ function giveGRItem(name, kind)
         local rk="give"..(kind or "w")
         if kind=="weapon" or kind==nil then
             if arm then
-                if grFire(arm,{"buy",name},rk) then n=n+1 end
+                grFire(arm,{"buy",name},rk)
                 grFire(arm,{name},"give")
                 grFire(arm,{"give",name},"give")
             end
@@ -2212,7 +2212,7 @@ function giveGRItem(name, kind)
             end
         else
             if sm then
-                if grFire(sm,{"buy",name},"give") then n=n+1 end
+                grFire(sm,{"buy",name},"give")
                 grFire(sm,name,"give")
             end
             if inv then
