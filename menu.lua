@@ -815,7 +815,6 @@ ensureCamInputConns=function()
     ST._fcInConns=true
     pcall(function()
         U.InputBegan:Connect(function(inp,gpe)
-            if gpe then return end
             if not ST.freeCam and not ST.spectateOverhead then return end
             if inp.KeyCode and inp.KeyCode~=Enum.KeyCode.Unknown then
                 FC_KEYS[inp.KeyCode]=true
@@ -874,12 +873,29 @@ local function setFreeCam(on)
             cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(0,ST.freeCamYaw,0)*CFrame.Angles(ST.freeCamPitch,0,0)
             U.MouseBehavior=Enum.MouseBehavior.Default
         end)
+        -- capture WASD/Space/Ctrl/Shift even when game would normally handle them (gpe)
+        pcall(function()
+            local CAS=game:GetService("ContextActionService")
+            CAS:UnbindAction("AxFreecamSink")
+            CAS:BindActionAtPriority("AxFreecamSink",function(an,st,io)
+                local kc=io and io.KeyCode
+                if typeof(kc)=="EnumItem" and kc~=Enum.KeyCode.Unknown then
+                    if st==Enum.UserInputState.Begin then
+                        FC_KEYS[kc]=true
+                    elseif st==Enum.UserInputState.End or st==Enum.UserInputState.Cancel then
+                        FC_KEYS[kc]=nil
+                    end
+                end
+                return Enum.ContextActionResult.Sink
+            end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift)
+        end)
         ntf("FreeCam","ON - WASD to move (no RMB), hold RMB to look, Shift fast, Space/Ctrl up/down")
     else
         local was=ST.freeCam
         ST.freeCam=false
         ST._camRMB=false
         pcall(function() U.MouseBehavior=Enum.MouseBehavior.Default end)
+        pcall(function() game:GetService("ContextActionService"):UnbindAction("AxFreecamSink") end)
         unfreezeLocalFromCam()
         if not ST.spectateOverhead then restoreLocalCamera() end
         ST.freeCamPos=nil
