@@ -982,11 +982,10 @@ local function applyFreeCam(cam)
         ST.freeCamPos=pos
     end
     local cf=CFrame.new(pos)*rot
-    -- NaN guard
+    -- NaN guard (only CFrame, no Focus to avoid game's WeaponsSystem nil error)
     if pos.X==pos.X and pos.Y==pos.Y and pos.Z==pos.Z then
         pcall(function()
             cam.CFrame=cf
-            cam.Focus=cf
         end)
     end
 end
@@ -1046,8 +1045,9 @@ local function applyOverhead(cam)
     local want=CFrame.lookAt(Vector3.new(cx,cy,cz),target)
     local alpha=math.clamp(dt*18,0,1)
     if cx==cx and cy==cy and cz==cz then
-        cam.CFrame=cam.CFrame:Lerp(want,alpha)
-        cam.Focus=CFrame.new(target)
+        pcall(function()
+            cam.CFrame=cam.CFrame:Lerp(want,alpha)
+        end)
     end
 end
 local function isAimActive()
