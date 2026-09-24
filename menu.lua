@@ -927,7 +927,11 @@ local function applyFreeCam(cam)
         pos=cam.CFrame.Position
         ST.freeCamPos=pos
     end
-    local rmb=ST._camRMB or U:IsKeyDown(Enum.UserInputType.MouseButton2)
+    local rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2)
+    if ST._camRMB~=nil then
+        if ST._camRMB then rmb=true end
+        if not rmb then ST._camRMB=false end
+    end
     if rmb then
         U.MouseBehavior=Enum.MouseBehavior.LockCenter
         local dx,dy=0,0
@@ -935,29 +939,27 @@ local function applyFreeCam(cam)
             local md=U:GetMouseDelta()
             if md then dx,dy=md.X,md.Y end
         end)
-        if dx>80 then dx=80 elseif dx<-80 then dx=-80 end
-        if dy>80 then dy=80 elseif dy<-80 then dy=-80 end
+        if dx>60 then dx=60 elseif dx<-60 then dx=-60 end
+        if dy>60 then dy=60 elseif dy<-60 then dy=-60 end
         if dx~=0 or dy~=0 then
-            ST.freeCamYaw=(ST.freeCamYaw or 0)-dx*0.003
-            ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-dy*0.003,-1.45,1.45)
+            ST.freeCamYaw=(ST.freeCamYaw or 0)-dx*0.0035
+            ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-dy*0.0035,-1.45,1.45)
         end
     else
-        if U.MouseBehavior~=Enum.MouseBehavior.Default then
-            U.MouseBehavior=Enum.MouseBehavior.Default
-        end
+        U.MouseBehavior=Enum.MouseBehavior.Default
     end
     local yaw=ST.freeCamYaw or 0
     local pitch=ST.freeCamPitch or 0
     local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
     local dir=Vector3.new(0,0,0)
     local base=60
-    if U:IsKeyDown(Enum.KeyCode.LeftShift) then base=180 end
-    if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+rot.LookVector end
-    if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-rot.LookVector end
-    if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-rot.RightVector end
-    if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+rot.RightVector end
-    if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
-    if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
+    if keyHeld(Enum.KeyCode.LeftShift) then base=180 end
+    if keyHeld(Enum.KeyCode.W) then dir=dir+rot.LookVector end
+    if keyHeld(Enum.KeyCode.S) then dir=dir-rot.LookVector end
+    if keyHeld(Enum.KeyCode.A) then dir=dir-rot.RightVector end
+    if keyHeld(Enum.KeyCode.D) then dir=dir+rot.RightVector end
+    if keyHeld(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
+    if keyHeld(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
     if dir.Magnitude>0 then
         pos=pos+dir.Unit*base*dt
         ST.freeCamPos=pos
