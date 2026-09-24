@@ -623,6 +623,15 @@ local function mkPadding(p,t,b,l,r2) local pd=Instance.new("UIPadding",p) pd.Pad
 local function sep(p) local f=Instance.new("Frame") f.Size=UDim2.new(1,-12,0,1) f.Position=UDim2.new(0,6,0,0) f.BackgroundColor3=Color3.fromRGB(50,50,75) f.BorderSizePixel=0 f.Parent=p end
 local function lbl(p,t) local l=Instance.new("TextLabel") l.Size=UDim2.new(1,-12,0,22) l.Position=UDim2.new(0,6,0,0) l.BackgroundTransparency=1 l.Text=t l.TextColor3=TH.a l.TextSize=11 l.Font=Enum.Font.GothamBold l.TextXAlignment=Enum.TextXAlignment.Left l.Parent=p return l end
 ntf=function(t,x,d) pcall(function() S:SetCore("SendNotification",{Title=t,Text=x,Duration=d or 3}) end) end
+local function getDisplayName(pl)
+    if not pl then return "Unknown" end
+    if ST._renamedOthers and ST._renamedOthers[pl.UserId] then return ST._renamedOthers[pl.UserId] end
+    if pl.Character then
+        local hum=pl.Character:FindFirstChildOfClass("Humanoid")
+        if hum and hum.DisplayName and hum.DisplayName~="" then return hum.DisplayName end
+    end
+    return pl.DisplayName or pl.Name
+end
 local function getKeyDisplay(key) if not key then return "NONE" end local s=tostring(key) s=s:gsub("Enum.KeyCode%.","") s=s:gsub("Enum.UserInputType%.MouseButton2","RMB") s=s:gsub("Enum.UserInputType%.MouseButton1","LMB") s=s:gsub("Enum.UserInputType%.MouseButton3","MMB") s=s:gsub("Enum.UserInputType%.","") return s end
 local function refreshKBBtns() for id,kb in pairs(kbBtns) do if kb and kb.Parent then kb.Text=getKeyDisplay(KB[id]) kb.TextColor3=(KBMode[id]=="hold") and Color3.fromRGB(255,200,80) or TH.a end end end
 local function cycleKBMode(id) KBMode[id]=(KBMode[id]=="hold") and "toggle" or "hold" refreshKBBtns() ntf("Keybind",(KBMode[id]=="hold") and "Mode: HOLD (while key down)" or "Mode: TOGGLE (press once)") end
@@ -773,6 +782,7 @@ freezeLocalForCam=function()
         local ch=LP.Character
         local hum=ch and ch:FindFirstChildOfClass("Humanoid")
         local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+        if hum and hum.Seated then return end
         if hum then
             if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
             if ST._fcAS==nil then ST._fcAS=hum.AutoRotate end
@@ -1616,7 +1626,7 @@ pDropBtn.MouseButton1Click:Connect(function()
                 o.Position=UDim2.new(0,4,0,y)
                 o.BackgroundColor3=TH.b
                 o.BorderSizePixel=0
-                o.Text="  "..pp.DisplayName
+                o.Text="  "..getDisplayName(pp)
                 o.TextColor3=TH.t
                 o.TextXAlignment=Enum.TextXAlignment.Left
                 o.TextSize=12
@@ -1627,7 +1637,7 @@ pDropBtn.MouseButton1Click:Connect(function()
                 y=y+28
                 o.MouseEnter:Connect(function() o.BackgroundColor3=TH.bh end)
                 o.MouseLeave:Connect(function() o.BackgroundColor3=TH.b end)
-                o.MouseButton1Click:Connect(function() ST.selectedPlayer=pp pDropBtn.Text="  > "..pp.DisplayName pDropOpen=false if pDropdown then pDropdown:Destroy() pDropdown=nil end end)
+                o.MouseButton1Click:Connect(function() ST.selectedPlayer=pp pDropBtn.Text="  > "..getDisplayName(pp) pDropOpen=false if pDropdown then pDropdown:Destroy() pDropdown=nil end end)
             end
         end
         if y<=4 then
@@ -2061,35 +2071,59 @@ function giveGRItem(name, kind)
             return found
         end
         local tpl=findTemplate(name)
-        if tpl then
-            if cloneToolFull(tpl, bp) then n=n+1 end
-        else
+        local got=false
+        if tpl and cloneToolFull(tpl, bp) then n=n+1 got=true end
+        if not got then
             local alt=nil
             pcall(function() alt=findTemplate(string.lower(name)) end)
-            if alt and cloneToolFull(alt, bp) then
+            if alt and cloneToolFull(alt, bp) then n=n+1 got=true end
+        end
+        if not got then
+            -- fallback visible placeholder so it at least appears and can be equipped
+            pcall(function()
+                local t=Instance.new("Tool")
+                t.Name=name
+                t.CanBeDropped=true
+                t.RequiresHandle=true
+                t.ManualActivationOnly=false
+                t.Enabled=true
+                local h=Instance.new("Part")
+                h.Name="Handle"
+                h.Size=Vector3.new(0.5,0.7,0.4)
+                h.CanCollide=false
+                h.Massless=true
+                local m=Instance.new("SpecialMesh")
+                m.MeshType=Enum.MeshType.Brick
+                m.Scale=Vector3.new(0.4,0.4,0.4)
+                m.Parent=h
+                h.Parent=t
+                t.Parent=bp
                 n=n+1
-            else
-                -- fallback visible placeholder so it at least appears in inventory (equippable)
-                pcall(function()
-                    local t=Instance.new("Tool")
-                    t.Name=name
-                    t.CanBeDropped=true
-                    t.RequiresHandle=true
-                    t.ManualActivationOnly=false
-                    local h=Instance.new("Part")
-                    h.Name="Handle"
-                    h.Size=Vector3.new(0.5,0.7,0.4)
-                    h.CanCollide=false
-                    h.Massless=true
-                    local m=Instance.new("SpecialMesh")
-                    m.MeshType=Enum.MeshType.Brick
-                    m.Scale=Vector3.new(0.4,0.4,0.4)
-                    m.Parent=h
-                    h.Parent=t
-                    t.Parent=bp
-                    n=n+1
+                got=true
+            end)
+        end
+        -- auto-equip the newly given tool so it appears in hand (fix "can't take out")
+        if got then
+            pcall(function()
+                task.delay(0.2, function()
+                    pcall(function()
+                        if LP.Character and not LP.Character:FindFirstChildOfClass("Tool") then
+                            local hum=LP.Character:FindFirstChildOfClass("Humanoid")
+                            if hum then
+                                -- find the tool we just gave (last one)
+                                local toEquip=nil
+                                for _,v in pairs(bp:GetChildren()) do
+                                    if v:IsA("Tool") and v.Name:lower()==string.lower(name) then toEquip=v break end
+                                end
+                                if not toEquip then
+                                    for _,v in pairs(bp:GetChildren()) do if v:IsA("Tool") then toEquip=v break end end
+                                end
+                                if toEquip then hum:EquipTool(toEquip) end
+                            end
+                        end
+                    end)
                 end)
-            end
+            end)
         end
     end)
     return n
@@ -3738,7 +3772,7 @@ R.RenderStepped:Connect(function()
                     local dL=bb:FindFirstChild("DL")
                     if nL then
                         local txt=""
-                        if CFG.ESPShowName then txt=txt..pp.DisplayName end
+                        if CFG.ESPShowName then txt=txt..getDisplayName(pp) end
                         nL.Text=txt
                         nL.TextColor3=CFG.ESPTextColor
                         nL.Visible=CFG.ESPShowName
