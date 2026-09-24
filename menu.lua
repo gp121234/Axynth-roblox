@@ -3798,6 +3798,20 @@ R.RenderStepped:Connect(function()
                         hl.FillTransparency=CFG.ESPFillEnabled and CFG.ESPFillAlpha or 1
                         hl.OutlineColor=CFG.ESPOutlineColor
                         hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1
+                        hl.Enabled=CFG.ESPFillEnabled or CFG.ESPOutlineEnabled
+                        ST.espList[pp.UserId]=hl
+                    else
+                        hl=Instance.new("Highlight")
+                        hl.Name="AxESP"
+                        hl.Adornee=pp.Character
+                        hl.FillColor=CFG.ESPColor
+                        hl.FillTransparency=CFG.ESPFillAlpha
+                        hl.OutlineColor=CFG.ESPOutlineColor
+                        hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1
+                        hl.Enabled=CFG.ESPFillEnabled or CFG.ESPOutlineEnabled
+                        hl.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+                        hl.Parent=pp.Character
+                        ST.espList[pp.UserId]=hl
                     end
                 end
             end
