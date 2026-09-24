@@ -2118,7 +2118,7 @@ function giveGRItem(name, kind)
                                 if not toEquip then
                                     for _,v in pairs(bp:GetChildren()) do if v:IsA("Tool") then toEquip=v break end end
                                 end
-                                if toEquip then hum:EquipTool(toEquip) end
+                                if toEquip then hum:EquipTool(toEquip) if not LP.Character:FindFirstChild(toEquip.Name) then pcall(function() toEquip.Parent=LP.Character end) end end
                             end
                         end
                     end)
@@ -2894,7 +2894,8 @@ aimDropBtn.MouseButton1Click:Connect(function()
         aimDropList.CanvasSize=UDim2.new(0,0,0,y+4)
     else if aimDropList then aimDropList:Destroy() aimDropList=nil end end
 end)
-makeSlider(tEx,"FOV",20,500,function() return ST.aimFOV end,function(v) ST.aimFOV=math.floor(v) if ST.aimFOVGui then local c=ST.aimFOVGui:FindFirstChild("Circle") if c then c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2) end end end)
+makeSlider(tEx,"FOV",20,500,function() return ST.aimFOV end,function(v) ST.aimFOV=math.floor(v) if ST.aimFOVGui then local c=ST.aimFOVGui:FindFirstChild("Circle") if c then c.Size=UDim2.new(0,ST.aimFOV*2,0,ST.aimFOV*2) end end end)
+
 makeSlider(tEx,"Max Dist",50,1000,function() return ST.aimMaxDist end,function(v) ST.aimMaxDist=math.floor(v) end)
 local tAimTC=tog(tEx,"Team Check",function() return ST.aimTeamCheck end,function() ST.aimTeamCheck=not ST.aimTeamCheck ntf("Aimbot","TeamCheck: "..(ST.aimTeamCheck and "ON" or "OFF")) end,"aimtc")
 table.insert(allToggles,tAimTC)
