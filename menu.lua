@@ -1597,6 +1597,154 @@ for vi,vp in ipairs(vehPresets) do
         local ch=LP.Character if ch then local seat=ch:FindFirstChildOfClass("VehicleSeat") or ch:FindFirstChild("Seat") if seat then ST._vehOrig=ST._vehOrig or {} if ST._vehOrig[seat]==nil and seat.MaxSpeed>0 then ST._vehOrig[seat]=seat.MaxSpeed end if vp[2]==nil then seat.MaxSpeed=ST._vehOrig[seat] or 30 ntf("Vehicle","Restored: "..tostring(seat.MaxSpeed)) else seat.MaxSpeed=math.max(vp[2],ST._vehOrig[seat] or 0) ntf("Vehicle",vp[1]..": "..tostring(seat.MaxSpeed)) end end end
     end) end)
 end
+sep(tW)
+lbl(tW,">> SPAWN VEHICLE (Next to you)")
+local function getVehicleList()
+    if ST._vehList then return ST._vehList end
+    local list={}
+    local seen={}
+    local function addModel(m)
+        if not m or seen[m] then return end
+        seen[m]=true
+        table.insert(list,m)
+    end
+    local function scan(parent,deep)
+        pcall(function()
+            if not parent then return end
+            local items=deep and parent:GetDescendants() or parent:GetChildren()
+            for _,d in ipairs(items) do
+                if d:IsA("VehicleSeat") then
+                    local model=d:FindFirstAncestorOfClass("Model")
+                    if model then addModel(model) end
+                elseif d:IsA("Model") and d:FindFirstChildOfClass("VehicleSeat") then
+                    addModel(d)
+                end
+            end
+        end)
+    end
+    pcall(function() scan(game:GetService("ReplicatedStorage"),true) end)
+    pcall(function() scan(game:GetService("ServerStorage"),true) end)
+    pcall(function() scan(W,true) end)
+    pcall(function() scan(RS,true) end)
+    ST._vehList=list
+    return list
+end
+local function spawnVehicle(name, pos)
+    local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    local spawnPos=pos or (hrp and hrp.Position + hrp.CFrame.LookVector*10 + Vector3.new(0,2,0) or Vector3.new(0,5,0))
+    local q=string.lower(name or "")
+    if q=="" then
+        local all=getVehicleList()
+        if #all>0 then
+            local pick=all[math.random(1,#all)]
+            q=string.lower(pick.Name)
+            name=pick.Name
+        else
+            ntf("Vehicle","No vehicles found to spawn",4) return
+        end
+    end
+    local fired=0
+    pcall(function()
+        local rems={
+            RS:FindFirstChild("Cars") and RS.Cars:FindFirstChild("CarDealer"),
+            RS:FindFirstChild("CarDealer"),
+            W:FindFirstChild("Cars") and W.Cars:FindFirstChild("CarDealer"),
+            findRemote("Cars.CarDealer"),
+            findRemote("CarDealer"),
+            findRemote("SpawnVehicle"),
+            findRemote("BuyVehicle"),
+            findRemote("CreateVehicle"),
+            findRemote("VehicleSpawn"),
+            findRemote("CreateMafia.RemoteEvent"),
+        }
+        local argsList={
+            {name},{q},{string.upper(name)},{spawnPos},{name,spawnPos},{q,spawnPos},
+            {"Spawn",name},{"Spawn",q},{"Buy",name},{"Buy",q},
+            {"SpawnVehicle",name},{"SpawnVehicle",q},
+        }
+        for _,r in ipairs(rems) do
+            if r then
+                for _,args in ipairs(argsList) do
+                    if grFire(r,args,"veh") then fired=fired+1 end
+                    pcall(function() if r:IsA("RemoteFunction") then r:InvokeServer(unpack(args)) fired=fired+1 end end)
+                end
+            end
+        end
+    end)
+    -- scan for any vehicle remote by name
+    pcall(function()
+        for _,obj in pairs(RS:GetDescendants()) do
+            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                local nm=string.lower(obj.Name)
+                if nm:find("car",1,true) or nm:find("vehicle",1,true) or nm:find("spawn",1,true) then
+                    for _,args in ipairs({{name},{q},{name,spawnPos}}) do
+                        if grFire(obj,args,"veh2") then fired=fired+1 end
+                    end
+                    if fired>5 then break end
+                end
+            end
+        end
+    end)
+    -- fallback client clone (not visible to others but for testing)
+    if fired==0 then
+        pcall(function()
+            local list=getVehicleList()
+            local found=nil
+            for _,m in ipairs(list) do
+                if string.lower(m.Name)==q or string.lower(m.Name):find(q,1,true) then found=m break end
+            end
+            if found then
+                local cl=found:Clone()
+                pcall(function() cl:SetPrimaryPartCFrame(CFrame.new(spawnPos)) end)
+                if not cl.PrimaryPart then
+                    local seat=cl:FindFirstChildOfClass("VehicleSeat")
+                    if seat then cl.PrimaryPart=seat pcall(function() cl:SetPrimaryPartCFrame(CFrame.new(spawnPos)) end) end
+                end
+                for _,d in pairs(cl:GetDescendants()) do
+                    if d:IsA("BasePart") then d.Anchored=false end
+                end
+                cl.Parent=W
+                ntf("Vehicle","Spawned (client) "..found.Name.." - press E to enter",5)
+                return
+            end
+        end)
+    end
+    if fired>0 then
+        ntf("Vehicle","Spawn tried "..name.." ("..fired.." remotes) - check nearby",5)
+    else
+        ntf("Vehicle","Tried "..name.." - no remote accepted, client fallback used",4)
+    end
+end
+local vehBox=Instance.new("TextBox") vehBox.Size=UDim2.new(1,-12,0,28) vehBox.Position=UDim2.new(0,6,0,0) vehBox.BackgroundColor3=TH.b vehBox.BorderSizePixel=0 vehBox.PlaceholderText="Vehicle name (e.g. Sultan, Adder) or empty for random" vehBox.PlaceholderColor3=Color3.fromRGB(100,100,120) vehBox.Text="" vehBox.TextColor3=TH.t vehBox.TextSize=11 vehBox.Font=Enum.Font.Gotham vehBox.ClearTextOnFocus=false vehBox.Parent=tW mkCorner(vehBox,6)
+btn(tW,"Spawn Vehicle Next to Me",function() spawnVehicle(vehBox.Text) end,"spawnveh")
+btn(tW,"Spawn Random Vehicle",function() spawnVehicle("") end,"spawnrand")
+btn(tW,"Despawn Nearest Vehicle",function()
+    pcall(function()
+        local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local best=nil
+        local bestD=40
+        for _,m in pairs(W:GetChildren()) do
+            if m:IsA("Model") and m:FindFirstChildOfClass("VehicleSeat") then
+                local seat=m:FindFirstChildOfClass("VehicleSeat")
+                if seat then
+                    local d=(seat.Position-hrp.Position).Magnitude
+                    if d<bestD then bestD=d best=m end
+                end
+            end
+        end
+        if best then
+            -- try remote despawn
+            local r=findRemote("Cars.CarDealer") or findRemote("DespawnVehicle")
+            if r then grFire(r,{"Despawn",best.Name},"veh") grFire(r,{"Delete",best.Name},"veh") end
+            -- client fallback
+            pcall(function() best:Destroy() end)
+            ntf("Vehicle","Despawed "..best.Name,4)
+        else
+            ntf("Vehicle","No vehicle nearby",4)
+        end
+    end)
+end,"despawnveh")
 local tP=tF["plr"]
 lbl(tP,">> SELECT PLAYER")
 local pDropBtn=Instance.new("TextButton") pDropBtn.Size=UDim2.new(1,-12,0,34) pDropBtn.Position=UDim2.new(0,6,0,0) pDropBtn.BackgroundColor3=TH.b pDropBtn.BorderSizePixel=0 pDropBtn.Text="  Click to select..." pDropBtn.TextColor3=TH.t pDropBtn.TextSize=13 pDropBtn.Font=Enum.Font.GothamMedium pDropBtn.TextXAlignment=Enum.TextXAlignment.Left pDropBtn.Parent=tP mkCorner(pDropBtn,6) mkStroke(pDropBtn,TH.a,1)
