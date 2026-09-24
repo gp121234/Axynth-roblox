@@ -843,54 +843,46 @@ local function setFreeCam(on)
         if ST.freeCam then return end
         stopOverhead(false)
         ST.freeCam=true
-        table.clear(FC_KEYS)
         ensureCamInputConns()
-        freezeLocalForCam()
+        -- freeze character once (no per-frame spam)
+        pcall(function()
+            local ch=LP.Character
+            local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+            local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+            if hum then
+                if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
+                if ST._fcAS==nil then ST._fcAS=hum.AutoRotate end
+                hum.WalkSpeed=0
+                hum.AutoRotate=false
+            end
+            if hrp then
+                hrp.Anchored=true
+                hrp.Velocity=Vector3.new(0,0,0)
+                hrp.RotVelocity=Vector3.new(0,0,0)
+            end
+        end)
         pcall(function()
             local cam=W.CurrentCamera or CAM
             CAM=cam
-            local cf=cam.CFrame
-            ST.freeCamPos=cf.Position
-            local look=cf.LookVector
-            local yaw=math.atan2(look.X,look.Z)
-            local pitch=math.asin(math.clamp(-look.Y,-1,1))
-            ST.freeCamYaw=yaw
-            ST.freeCamPitch=math.clamp(pitch,-1.45,1.45)
+            if not cam then return end
+            ST.freeCamPos=cam.CFrame.Position
+            local look=cam.CFrame.LookVector
+            ST.freeCamYaw=math.atan2(look.X,look.Z)
+            ST.freeCamPitch=math.clamp(math.asin(math.clamp(-look.Y,-1,1)),-1.45,1.45)
             fcLastT=tick()
-            fcPrevM=nil
             cam.CameraType=Enum.CameraType.Scriptable
-            cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
+            cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(0,ST.freeCamYaw,0)*CFrame.Angles(ST.freeCamPitch,0,0)
             U.MouseBehavior=Enum.MouseBehavior.Default
         end)
-        pcall(function()
-            local CAS=game:GetService("ContextActionService")
-            CAS:UnbindAction("AxFreecamSink")
-            CAS:BindActionAtPriority("AxFreecamSink",function(an,st,io)
-                local kc=io and io.KeyCode
-                if typeof(kc)=="EnumItem" and kc~=Enum.KeyCode.Unknown then
-                    if st==Enum.UserInputState.Begin then
-                        FC_KEYS[kc]=true
-                    elseif st==Enum.UserInputState.End or st==Enum.UserInputState.Cancel then
-                        FC_KEYS[kc]=nil
-                    end
-                end
-                return Enum.ContextActionResult.Sink
-            end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift)
-        end)
-        ntf("FreeCam","ON - WASD free (no RMB needed); hold RMB to look around; where you look you go")
+        ntf("FreeCam","ON - WASD to move (no RMB), hold RMB to look, Shift fast, Space/Ctrl up/down")
     else
         local was=ST.freeCam
         ST.freeCam=false
-        table.clear(FC_KEYS)
         ST._camRMB=false
-        fcPrevM=nil
         pcall(function() U.MouseBehavior=Enum.MouseBehavior.Default end)
-        pcall(function()
-            game:GetService("ContextActionService"):UnbindAction("AxFreecamSink")
-        end)
         unfreezeLocalFromCam()
         if not ST.spectateOverhead then restoreLocalCamera() end
-        ST.freeCamPos=nil fcPrevM=nil ST.freeCamAnchor=nil
+        ST.freeCamPos=nil
         if was then ntf("FreeCam","OFF") end
     end
 end
@@ -900,74 +892,87 @@ end
 local function applyFreeCam(cam)
     if not ST.freeCam then return end
     if not cam then return end
-    if cam.CameraType~=Enum.CameraType.Scriptable then cam.CameraType=Enum.CameraType.Scriptable end
+    if cam.CameraType~=Enum.CameraType.Scriptable then
+        pcall(function() cam.CameraType=Enum.CameraType.Scriptable end)
+    end
     local now=tick()
     local dt=now-(fcLastT or now)
     if dt<=0 then dt=0.016 end
-    if dt>0.09 then dt=0.09 end
+    if dt>0.1 then dt=0.1 end
     fcLastT=now
-    pcall(function()
-        local ch=LP.Character
-        local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-        local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-        if hum then
-            if ST._fcWalk==nil then ST._fcWalk=hum.WalkSpeed end
-            if ST._fcAS==nil then ST._fcAS=hum.AutoRotate end
-            if hum.WalkSpeed~=0 then hum.WalkSpeed=0 end
-            if hum.AutoRotate then hum.AutoRotate=false end
+    -- RMB = look (LockCenter + delta), else free mouse
+    local rmb=false
+    pcall(function() rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2) end)
+    if not rmb and ST._camRMB then rmb=true end
+    if rmb then
+        pcall(function() U.MouseBehavior=Enum.MouseBehavior.LockCenter end)
+        local dx,dy=0,0
+        pcall(function()
+            local d=U:GetMouseDelta()
+            if d then dx,dy=d.X,d.Y end
+        end)
+        if dx>80 then dx=80 elseif dx<-80 then dx=-80 end
+        if dy>80 then dy=80 elseif dy<-80 then dy=-80 end
+        if dx~=0 or dy~=0 then
+            ST.freeCamYaw=(ST.freeCamYaw or 0)-dx*0.004
+            ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-dy*0.004,-1.45,1.45)
         end
-        if hrp and not hrp.Anchored then
-            hrp.Anchored=true
-            hrp.Velocity=Vector3.new(0,0,0)
-            hrp.RotVelocity=Vector3.new(0,0,0)
-        end
-    end)
+    else
+        pcall(function()
+            if U.MouseBehavior~=Enum.MouseBehavior.Default then
+                U.MouseBehavior=Enum.MouseBehavior.Default
+            end
+        end)
+        if ST._camRMB then ST._camRMB=false end
+    end
+    local yaw=ST.freeCamYaw or 0
+    local pitch=ST.freeCamPitch or 0
+    local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
+    -- WASD always works via direct IsKeyDown (no FC_KEYS needed)
+    local dir=Vector3.new(0,0,0)
+    local base=60
+    local isShift=false
+    pcall(function() isShift=U:IsKeyDown(Enum.KeyCode.LeftShift) end)
+    if isShift then base=180 end
+    local fw,back,left,right,up,down=false,false,false,false,false,false
+    pcall(function() fw=U:IsKeyDown(Enum.KeyCode.W) end)
+    pcall(function() back=U:IsKeyDown(Enum.KeyCode.S) end)
+    pcall(function() left=U:IsKeyDown(Enum.KeyCode.A) end)
+    pcall(function() right=U:IsKeyDown(Enum.KeyCode.D) end)
+    pcall(function() up=U:IsKeyDown(Enum.KeyCode.Space) end)
+    pcall(function() down=U:IsKeyDown(Enum.KeyCode.LeftControl) end)
+    -- fallback to FC_KEYS if IsKeyDown fails in some executors
+    if not fw and not back and not left and not right then
+        if FC_KEYS[Enum.KeyCode.W] then fw=true end
+        if FC_KEYS[Enum.KeyCode.S] then back=true end
+        if FC_KEYS[Enum.KeyCode.A] then left=true end
+        if FC_KEYS[Enum.KeyCode.D] then right=true end
+        if FC_KEYS[Enum.KeyCode.Space] then up=true end
+        if FC_KEYS[Enum.KeyCode.LeftControl] then down=true end
+        if FC_KEYS[Enum.KeyCode.LeftShift] then base=180 end
+    end
+    if fw then dir=dir+rot.LookVector end
+    if back then dir=dir-rot.LookVector end
+    if left then dir=dir-rot.RightVector end
+    if right then dir=dir+rot.RightVector end
+    if up then dir=dir+Vector3.new(0,1,0) end
+    if down then dir=dir-Vector3.new(0,1,0) end
     local pos=ST.freeCamPos
     if not pos then
         pos=cam.CFrame.Position
         ST.freeCamPos=pos
     end
-    local rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2)
-    if ST._camRMB~=nil then
-        if ST._camRMB then rmb=true end
-        if not rmb then ST._camRMB=false end
-    end
-    if rmb then
-        U.MouseBehavior=Enum.MouseBehavior.LockCenter
-        local dx,dy=0,0
-        pcall(function()
-            local md=U:GetMouseDelta()
-            if md then dx,dy=md.X,md.Y end
-        end)
-        if dx>60 then dx=60 elseif dx<-60 then dx=-60 end
-        if dy>60 then dy=60 elseif dy<-60 then dy=-60 end
-        if dx~=0 or dy~=0 then
-            ST.freeCamYaw=(ST.freeCamYaw or 0)-dx*0.0035
-            ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-dy*0.0035,-1.45,1.45)
-        end
-    else
-        U.MouseBehavior=Enum.MouseBehavior.Default
-    end
-    local yaw=ST.freeCamYaw or 0
-    local pitch=ST.freeCamPitch or 0
-    local rot=CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
-    local dir=Vector3.new(0,0,0)
-    local base=60
-    if keyHeld(Enum.KeyCode.LeftShift) then base=180 end
-    if keyHeld(Enum.KeyCode.W) then dir=dir+rot.LookVector end
-    if keyHeld(Enum.KeyCode.S) then dir=dir-rot.LookVector end
-    if keyHeld(Enum.KeyCode.A) then dir=dir-rot.RightVector end
-    if keyHeld(Enum.KeyCode.D) then dir=dir+rot.RightVector end
-    if keyHeld(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end
-    if keyHeld(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end
     if dir.Magnitude>0 then
         pos=pos+dir.Unit*base*dt
         ST.freeCamPos=pos
     end
     local cf=CFrame.new(pos)*rot
-    if pos.X==pos.X and pos.Y==pos.Y and pos.Z==pos.Z and yaw==yaw and pitch==pitch then
-        cam.CFrame=cf
-        cam.Focus=cf
+    -- NaN guard
+    if pos.X==pos.X and pos.Y==pos.Y and pos.Z==pos.Z then
+        pcall(function()
+            cam.CFrame=cf
+            cam.Focus=cf
+        end)
     end
 end
 ovhPrevM=nil
