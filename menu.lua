@@ -1024,9 +1024,10 @@ local function applyOverhead(cam)
     end)
     if not ST.ovhInit then
         ST.ovhYaw=0
-        ST.ovhPitch=1.1
-        ST.ovhDist=22
+        ST.ovhPitch=1.45
+        ST.ovhDist=32
         ST.ovhInit=true
+        ovhLastT=tick()-1
     end
     local now=tick()
     local dt=now-(ovhLastT or now)
@@ -1038,8 +1039,8 @@ local function applyOverhead(cam)
     end
     ovhPrevM=nil
     local yaw=ST.ovhYaw or 0
-    local pitch=ST.ovhPitch or 1.1
-    local dist=ST.ovhDist or 22
+    local pitch=ST.ovhPitch or 1.45
+    local dist=ST.ovhDist or 32
     local cx=hrpT.Position.X+dist*math.cos(pitch)*math.sin(yaw)
     local cy=hrpT.Position.Y+dist*math.sin(pitch)
     local cz=hrpT.Position.Z+dist*math.cos(pitch)*math.cos(yaw)
@@ -1686,10 +1687,10 @@ btn(tP,"Spectate: Overhead",function()
         ST.spectateOverhead=true
         ST._ovhActive=true
         ST.ovhYaw=0
-        ST.ovhPitch=1.1
-        ST.ovhDist=22
+        ST.ovhPitch=1.45
+        ST.ovhDist=32
         ST.ovhInit=true
-        ovhLastT=tick()
+        ovhLastT=tick()-1
         ovhPrevM=nil
         table.clear(FC_KEYS)
         ensureCamInputConns()
@@ -1758,7 +1759,7 @@ btn(tP,"Open ESP Settings / Palette",function()
 end,"esppal")
 sep(tP)
 lbl(tP,">> MACETP (FOLLOW)")
-local tMace=tog(tP,"MaceTP",function() return ST.maceTP end,function() ST.maceTP=not ST.maceTP ntf("MaceTP",ST.maceTP and "ON - Follow nearest" or "OFF") end,"macetp")
+local tMace=tog(tP,"MaceTP",function() return ST.maceTP end,function() ST.maceTP=not ST.maceTP ntf("MaceTP",ST.maceTP and "ON - Follow selected, else nearest" or "OFF") end,"macetp")
 table.insert(allToggles,tMace)
 btn(tP,"MaceTP: Closer",function() if not ST.maceTPOffset then ST.maceTPOffset=3 end ST.maceTPOffset=ST.maceTPOffset-1 ntf("MaceTP","Offset: "..ST.maceTPOffset) end,"mzcloser")
 btn(tP,"MaceTP: Further",function() if not ST.maceTPOffset then ST.maceTPOffset=3 end ST.maceTPOffset=ST.maceTPOffset+1 ntf("MaceTP","Offset: "..ST.maceTPOffset) end,"mzfurther")
@@ -3553,7 +3554,36 @@ R.RenderStepped:Connect(function()
     pcall(function() if ST.bright then L.Brightness=2 L.GlobalShadows=false L.Ambient=Color3.fromRGB(178,178,178) L.OutdoorAmbient=Color3.fromRGB(178,178,178) end end)
     pcall(function() if ST.noFog then L.FogEnd=999999 L.FogStart=0 local atm=L:FindFirstChildOfClass("Atmosphere") if atm then atm.Density=0 end end end)
     pcall(function()
-        if not ST.freeCam and not ST.spectateOverhead and ST.maceTP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then local myRoot=LP.Character.HumanoidRootPart local nearestDist=math.huge local nearestRoot=nil for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and pp.Character:FindFirstChildOfClass("Humanoid") then local hum2=pp.Character:FindFirstChildOfClass("Humanoid") if hum2.Health>0 then local d=(myRoot.Position-pp.Character.HumanoidRootPart.Position).Magnitude if d<nearestDist then nearestDist=d nearestRoot=pp.Character.HumanoidRootPart end end end end if nearestRoot then local off=ST.maceTPOffset or 3 local targetCF=nearestRoot.CFrame*CFrame.new(0,0,off) local d=(myRoot.Position-nearestRoot.Position).Magnitude if d>140 then if tick()-(ST._maceTpT or 0)>0.5 then ST._maceTpT=tick() safeTeleport(targetCF.Position) end else myRoot.CFrame=targetCF end end end
+        if not ST.freeCam and not ST.spectateOverhead and ST.maceTP and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+            local myRoot=LP.Character.HumanoidRootPart
+            local targetRoot=nil
+            -- priority: selected player
+            if ST.selectedPlayer and ST.selectedPlayer~=LP and ST.selectedPlayer.Character then
+                local ch=ST.selectedPlayer.Character
+                local hrp=ch:FindFirstChild("HumanoidRootPart")
+                local hum=ch:FindFirstChildOfClass("Humanoid")
+                if hrp and hum and hum.Health>0 then targetRoot=hrp end
+            end
+            -- fallback: nearest
+            if not targetRoot then
+                local nearestDist=math.huge
+                for _,pp in pairs(P:GetPlayers()) do
+                    if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and pp.Character:FindFirstChildOfClass("Humanoid") then
+                        local hum2=pp.Character:FindFirstChildOfClass("Humanoid")
+                        if hum2.Health>0 then
+                            local d=(myRoot.Position-pp.Character.HumanoidRootPart.Position).Magnitude
+                            if d<nearestDist then nearestDist=d targetRoot=pp.Character.HumanoidRootPart end
+                        end
+                    end
+                end
+            end
+            if targetRoot then
+                local off=ST.maceTPOffset or 3
+                local targetCF=targetRoot.CFrame*CFrame.new(0,0,off)
+                local d=(myRoot.Position-targetRoot.Position).Magnitude
+                if d>140 then if tick()-(ST._maceTpT or 0)>0.5 then ST._maceTpT=tick() safeTeleport(targetCF.Position) end else myRoot.CFrame=targetCF end
+            end
+        end
     end)
     pcall(function()
         if ST.botRecord and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then table.insert(ST.botFrames,{t=tick()-ST.botStart,cf=LP.Character.HumanoidRootPart.CFrame:clone()}) end
