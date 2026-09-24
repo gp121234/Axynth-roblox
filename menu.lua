@@ -874,7 +874,7 @@ local function setFreeCam(on)
                 return Enum.ContextActionResult.Sink
             end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift)
         end)
-        ntf("FreeCam","ON - move mouse to look like normal Roblox; WASD moves there; Shift fast, Space/Ctrl up/down")
+        ntf("FreeCam","ON - WASD moves where camera faces; hold RMB to look (Roblox style); Shift fast, Space/Ctrl up/down")
     else
         local was=ST.freeCam
         ST.freeCam=false
@@ -924,27 +924,33 @@ local function applyFreeCam(cam)
         pos=cam.CFrame.Position
         ST.freeCamPos=pos
     end
-    if U.MouseBehavior~=Enum.MouseBehavior.Default then
-        U.MouseBehavior=Enum.MouseBehavior.Default
-    end
-    local dx,dy=0,0
-    local mp=U:GetMouseLocation()
-    if fcPrevM then
-        dx=mp.X-fcPrevM.X
-        dy=mp.Y-fcPrevM.Y
-    end
-    if dx==0 and dy==0 then
+    local rmb=ST._camRMB or U:IsKeyDown(Enum.UserInputType.MouseButton2)
+    if rmb then
+        U.MouseBehavior=Enum.MouseBehavior.LockCenter
+        local dx,dy=0,0
         pcall(function()
             local md=U:GetMouseDelta()
             if md then dx,dy=md.X,md.Y end
         end)
-    end
-    fcPrevM=mp
-    if dx>80 then dx=80 elseif dx<-80 then dx=-80 end
-    if dy>80 then dy=80 elseif dy<-80 then dy=-80 end
-    if dx~=0 or dy~=0 then
-        ST.freeCamYaw=(ST.freeCamYaw or 0)-dx*0.004
-        ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-dy*0.004,-1.45,1.45)
+        if dx==0 and dy==0 and fcPrevM then
+            local mp=U:GetMouseLocation()
+            dx=mp.X-fcPrevM.X
+            dy=mp.Y-fcPrevM.Y
+            fcPrevM=mp
+        else
+            fcPrevM=U:GetMouseLocation()
+        end
+        if dx>80 then dx=80 elseif dx<-80 then dx=-80 end
+        if dy>80 then dy=80 elseif dy<-80 then dy=-80 end
+        if dx~=0 or dy~=0 then
+            ST.freeCamYaw=(ST.freeCamYaw or 0)-dx*0.004
+            ST.freeCamPitch=math.clamp((ST.freeCamPitch or 0)-dy*0.004,-1.45,1.45)
+        end
+    else
+        if U.MouseBehavior~=Enum.MouseBehavior.Default then
+            U.MouseBehavior=Enum.MouseBehavior.Default
+        end
+        fcPrevM=nil
     end
     local yaw=ST.freeCamYaw or 0
     local pitch=ST.freeCamPitch or 0
@@ -1010,27 +1016,33 @@ local function applyOverhead(cam)
     if dt<=0 then dt=0.016 end
     if dt>0.09 then dt=0.09 end
     ovhLastT=now
-    if U.MouseBehavior~=Enum.MouseBehavior.Default then
-        U.MouseBehavior=Enum.MouseBehavior.Default
-    end
-    local dx,dy=0,0
-    local mp=U:GetMouseLocation()
-    if ovhPrevM then
-        dx=mp.X-ovhPrevM.X
-        dy=mp.Y-ovhPrevM.Y
-    end
-    if dx==0 and dy==0 then
+    local rmb=ST._camRMB or U:IsKeyDown(Enum.UserInputType.MouseButton2)
+    if rmb then
+        U.MouseBehavior=Enum.MouseBehavior.LockCenter
+        local dx,dy=0,0
         pcall(function()
             local md=U:GetMouseDelta()
             if md then dx,dy=md.X,md.Y end
         end)
-    end
-    ovhPrevM=mp
-    if dx>80 then dx=80 elseif dx<-80 then dx=-80 end
-    if dy>80 then dy=80 elseif dy<-80 then dy=-80 end
-    if dx~=0 or dy~=0 then
-        ST.ovhYaw=(ST.ovhYaw or 0)-dx*0.004
-        ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+dy*0.004,0.2,1.45)
+        if dx==0 and dy==0 and ovhPrevM then
+            local mp=U:GetMouseLocation()
+            dx=mp.X-ovhPrevM.X
+            dy=mp.Y-ovhPrevM.Y
+            ovhPrevM=mp
+        else
+            ovhPrevM=U:GetMouseLocation()
+        end
+        if dx>80 then dx=80 elseif dx<-80 then dx=-80 end
+        if dy>80 then dy=80 elseif dy<-80 then dy=-80 end
+        if dx~=0 or dy~=0 then
+            ST.ovhYaw=(ST.ovhYaw or 0)-dx*0.004
+            ST.ovhPitch=math.clamp((ST.ovhPitch or 1.1)+dy*0.004,0.2,1.45)
+        end
+    else
+        if U.MouseBehavior~=Enum.MouseBehavior.Default then
+            U.MouseBehavior=Enum.MouseBehavior.Default
+        end
+        ovhPrevM=nil
     end
     local rotS=1.6*dt
     if keyHeld(Enum.KeyCode.A) then ST.ovhYaw=(ST.ovhYaw or 0)+rotS end
@@ -1714,7 +1726,7 @@ btn(tP,"Spectate: Overhead",function()
             local cam=W.CurrentCamera or CAM
             if cam then CAM=cam applyOverhead(cam) end
         end)
-        ntf("Spectate","Overhead ON - "..ST.spectating.DisplayName.." | move mouse to look like normal Roblox; WASD, Space/Ctrl dist")
+        ntf("Spectate","Overhead ON - "..ST.spectating.DisplayName.." | hold RMB to look (Roblox style); WASD, Space/Ctrl dist")
     end
 end,"specover")
 local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Enabled=CFG.ESPFillEnabled hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
