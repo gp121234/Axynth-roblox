@@ -1146,8 +1146,16 @@ pcall(function()
                 applyFreeCam(cam)
             elseif ST.spectateOverhead then
                 applyOverhead(cam)
+            else
+                if cam.CameraType~=Enum.CameraType.Custom then
+                    pcall(function()
+                        cam.CameraType=Enum.CameraType.Custom
+                        local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then cam.CameraSubject=hum end
+                    end)
+                end
+                applyAim(cam)
             end
-            applyAim(cam)
         end)
     end)
 end)
@@ -2100,6 +2108,20 @@ function giveGRItem(name, kind)
                 t.Parent=bp
                 n=n+1
                 got=true
+            end)
+        end
+        if got then
+            pcall(function()
+                local keep=nil
+                for _,v in pairs(bp:GetChildren()) do
+                    if v:IsA("Tool") and v.Name:lower()==name:lower() then keep=v:Clone() break end
+                end
+                if keep then
+                    for _,d in pairs(keep:GetDescendants()) do
+                        if d:IsA("LocalScript") or d:IsA("Script") then pcall(function() d.Disabled=true end) end
+                    end
+                    keep.Parent=bp
+                end
             end)
         end
         -- keep in inventory + auto-equip (so it stays and can be re-equipped)
