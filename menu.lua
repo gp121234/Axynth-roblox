@@ -1,16 +1,17 @@
 print("[Axynth] Loading...")
-local P = game:GetService("Players")
-local U = game:GetService("UserInputService")
-local R = game:GetService("RunService")
-local L = game:GetService("Lighting")
-local S = game:GetService("StarterGui")
-local RS = game:GetService("ReplicatedStorage")
-local CG = game:GetService("CoreGui")
-local TW = game:GetService("TweenService")
-local W = game:GetService("Workspace")
-local LP = P.LocalPlayer
-local MS = LP:GetMouse()
-local CAM = W.CurrentCamera
+local ok, err = pcall(function()
+P = game:GetService("Players")
+U = game:GetService("UserInputService")
+R = game:GetService("RunService")
+L = game:GetService("Lighting")
+S = game:GetService("StarterGui")
+RS = game:GetService("ReplicatedStorage")
+CG = game:GetService("CoreGui")
+TW = game:GetService("TweenService")
+W = game:GetService("Workspace")
+LP = P.LocalPlayer
+MS = LP:GetMouse()
+CAM = W.CurrentCamera
 print("[Axynth] Services OK")
 local ST={}
 local findRemote
@@ -986,6 +987,7 @@ local function applyFreeCam(cam)
     if pos.X==pos.X and pos.Y==pos.Y and pos.Z==pos.Z then
         pcall(function()
             cam.CFrame=cf
+            cam.Focus=cf
         end)
     end
 end
@@ -1047,6 +1049,7 @@ local function applyOverhead(cam)
     if cx==cx and cy==cy and cz==cz then
         pcall(function()
             cam.CFrame=cam.CFrame:Lerp(want,alpha)
+            cam.Focus=CFrame.new(target)
         end)
     end
 end
@@ -1917,7 +1920,7 @@ local tSPH3=tog(tEx,"Spheres on Click",function() return ST.spheresOn end,functi
 table.insert(allToggles,tSPH3)
 local tTRC=tog(tEx,"Shot Tracer (laser)",function() return ST.shotTracer end,function() ST.shotTracer=not ST.shotTracer ntf("Tracer",ST.shotTracer and "ON - LMB draws tracer beam" or "OFF - no lasers on click") end,"tracer")
 table.insert(allToggles,tTRC)
-local function equipAnyTool()
+function equipAnyTool()
     pcall(function()
         if not LP.Character then return end
         local tool=LP.Character:FindFirstChildOfClass("Tool")
@@ -1929,7 +1932,7 @@ local function equipAnyTool()
         end
     end)
 end
-local function nearestPl(maxD)
+function nearestPl(maxD)
     local best=nil local bestD=maxD or 12
     local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if not my then return nil end
@@ -1943,7 +1946,7 @@ local function nearestPl(maxD)
 end
 local GR_WEAPONS={"FN FAL","M4A5","Police Glock","BulletWeapon","BowWeapon"}
 local GR_ITEMS={"Bandage","Bread","Cheeseburger","Water","LockPick","Broom","Bronze Pickaxe","Gold","Pill"}
-local function cloneToolFull(tool, destBp)
+function cloneToolFull(tool, destBp)
     if not tool or not tool:IsA("Tool") or not destBp then return false end
     local okC=false
     pcall(function()
@@ -1964,7 +1967,7 @@ local function cloneToolFull(tool, destBp)
     end)
     return okC
 end
-local function fireWeaponActivated()
+function fireWeaponActivated()
     pcall(function()
         local r=findRemote("WeaponsSystem.Network.WeaponActivated")
         if not r then return end
@@ -1975,7 +1978,7 @@ local function fireWeaponActivated()
         grFire(r,{tool},"wact")
     end)
 end
-local function giveGRItem(name, kind)
+function giveGRItem(name, kind)
     local n=0
     pcall(function()
         local arm=findRemote("Armory.RemoteEvent")
@@ -2068,7 +2071,7 @@ local function giveGRItem(name, kind)
     end)
     return n
 end
-local function doGreenSteal()
+function doGreenSteal()
     if not cd() then return end
     equipAnyTool()
     local t=ST.selectedPlayer
@@ -2189,7 +2192,7 @@ local function doGreenSteal()
 end
 -- Steal Outfit & Ped visible (HumanoidDescription, no server.lua)
 ST._origDesc=nil
-local function saveMyOutfit()
+function saveMyOutfit()
     if ST._origDesc then return end
     pcall(function()
         local ch=LP.Character
@@ -2201,7 +2204,7 @@ local function saveMyOutfit()
         if desc then ST._origDesc=desc end
     end)
 end
-local function applyOutfitFromPlayer(target)
+function applyOutfitFromPlayer(target)
     if not target or not target.Character then return false end
     local thum=target.Character:FindFirstChildOfClass("Humanoid")
     local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
@@ -2230,14 +2233,14 @@ local function applyOutfitFromPlayer(target)
     end
     return ok
 end
-local function doStealOutfit()
+function doStealOutfit()
     if not cd() then return end
     local t=ST.selectedPlayer
     if not t or t==LP or not t.Character then t=nearestPl(25) end
     if not t then ntf("Outfit","No player nearby",4) return end
     if applyOutfitFromPlayer(t) then ntf("Outfit","Stole outfit from "..t.DisplayName.." (visible)!",5) else ntf("Outfit","Failed",4) end
 end
-local function doStealPed()
+function doStealPed()
     if not cd() then return end
     local t=ST.selectedPlayer
     if not t or t==LP or not t.Character then t=nearestPl(25) end
@@ -2257,7 +2260,7 @@ local function doStealPed()
     if not ok then ok=applyOutfitFromPlayer(t) end
     if ok then ntf("Ped","Stole ped from "..t.DisplayName.." (visible)!",5) else ntf("Ped","Failed",4) end
 end
-local function doRestoreOutfit()
+function doRestoreOutfit()
     if not ST._origDesc then ntf("Outfit","No saved outfit",4) return end
     pcall(function()
         local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
@@ -3712,3 +3715,5 @@ P.PlayerRemoving:Connect(function(pp) if ST.espList[pp.UserId] then ST.espList[p
 for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and pp.Character:FindFirstChild("AxESP_BB") then pp.Character.AxESP_BB:Destroy() end end
 pcall(function() for _,g in pairs({CG,LP:WaitForChild("PlayerGui")}) do for _,v in pairs(g:GetDescendants()) do if v.Name=="AxESP_2D" then v:Destroy() end end end end)
 print("[Axynth] MENU LOADED! Press RightShift!")
+end)
+if not ok then print("[Axynth] ERROR: "..tostring(err)) end
