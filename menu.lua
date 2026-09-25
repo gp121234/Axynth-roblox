@@ -81,7 +81,19 @@ end
 local function randomDelay()
     return math.random(100,400)/1000
 end
-pcall(function()
+function axSpyHUD()
+    if not ST.remoteSpyOn then return end
+    local now=tick()
+    if now-(ST._spyHUDT or 0)<0.4 then return end
+    ST._spyHUDT=now
+    local p=ST._spyPTL
+    if p and p.Parent then
+        local e=ST._ncErr or 0
+        p.TextSize=10
+        p.Text="SPY nc:"..(ST._ncAll or 0).." ff:"..(ST._ncFF or 0).." blk:"..(ST._ncBlk or 0).." exp:"..(ST._ncExp or 0).." log:"..(ST._ncLog or 0)..(e>0 and (" err:"..e) or "")
+    end
+end
+local hkOk,hkErr=pcall(function()
     local oldNC
     oldNC = hookmetamethod(game,"__namecall",newcclosure(function(self,...)
         local args = {...}
@@ -112,7 +124,10 @@ pcall(function()
                 end
             end
             if (method=="FireServer" or method=="InvokeServer") and typeof(self)=="Instance" and (self:IsA("RemoteEvent") or self:IsA("RemoteFunction")) then
+                ST._ncAll=(ST._ncAll or 0)+1
                 if ST._forceFire then
+                    ST._ncFF=(ST._ncFF or 0)+1
+                    if axSpyHUD then pcall(axSpyHUD) end
                     return "PASS"
                 end
                 pcall(function()
@@ -177,16 +192,6 @@ pcall(function()
                         end
                     end
                 end)
-                if isBlocked(self.Name) and not isWhitelisted(self.Name) then
-                    table.insert(hookLog,{time=tick(),remote=self.Name,blocked=true})
-                    return "BLOCK"
-                end
-                if isUsingExploit and not isWhitelisted(self.Name) then
-                    task.delay(randomDelay(),function()
-                        pcall(function() oldNC(self,unpack(args)) end)
-                    end)
-                    return "BLOCK"
-                end
                 if ST.remoteSpyOn and not ST.remoteSpyPaused then
                     local argsStr=""
                     for i=1,math.min(#args,4) do
@@ -198,17 +203,33 @@ pcall(function()
                         else argsStr=argsStr..tostring(v).." "
                         end
                     end
-                    if _G._spyAdd then _G._spyAdd(self.Name,argsStr,"F") end
+                    if _G._spyAdd then _G._spyAdd(self.Name,argsStr,"F") ST._ncLog=(ST._ncLog or 0)+1 end
+                    if axSpyHUD then pcall(axSpyHUD) end
+                end
+                if isBlocked(self.Name) and not isWhitelisted(self.Name) then
+                    ST._ncBlk=(ST._ncBlk or 0)+1
+                    if axSpyHUD then pcall(axSpyHUD) end
+                    table.insert(hookLog,{time=tick(),remote=self.Name,blocked=true})
+                    return "BLOCK"
+                end
+                if isUsingExploit and not isWhitelisted(self.Name) then
+                    ST._ncExp=(ST._ncExp or 0)+1
+                    if axSpyHUD then pcall(axSpyHUD) end
+                    task.delay(randomDelay(),function()
+                        pcall(function() oldNC(self,unpack(args)) end)
+                    end)
+                    return "BLOCK"
                 end
             end
             return "PASS"
         end)
-        if not ok then return oldNC(self,unpack(args)) end
+        if not ok then ST._ncErr=(ST._ncErr or 0)+1 if not ST._ncErrP then ST._ncErrP=true pcall(function() print("[Axynth][NC] hook error: "..tostring(res)) end) end if axSpyHUD then pcall(axSpyHUD) end return oldNC(self,unpack(args)) end
         if res=="BLOCK" then return nil end
         if res=="PASS" then return oldNC(self,unpack(args)) end
         return res
     end))
 end)
+if hkOk then pcall(function() print("[Axynth][Hook] namecall installed OK") end) else pcall(function() print("[Axynth][Hook] namecall FAILED: "..tostring(hkErr)) end) end
 local function spoofVelocity()
     pcall(function()
         if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
@@ -3653,6 +3674,7 @@ btn(tEx,"Open Remote Spy",function()
     local PF=Instance.new("Frame") PF.Size=UDim2.new(0,550,0,400) PF.Position=UDim2.new(0.5,-275,0.5,-200) PF.BackgroundColor3=TH.p PF.BorderSizePixel=0 PF.Active=true PF.Draggable=true PF.Parent=SG3 PF.BackgroundTransparency=0 mkCorner(PF,12) mkStroke(PF,Color3.fromRGB(255,160,0),2)
     local PT=Instance.new("Frame") PT.Size=UDim2.new(1,0,0,36) PT.BackgroundColor3=TH.s PT.BorderSizePixel=0 PT.Parent=PF mkCorner(PT,12)
     local PTL=Instance.new("TextLabel") PTL.Size=UDim2.new(1,-230,1,0) PTL.Position=UDim2.new(0,12,0,0) PTL.BackgroundTransparency=1 PTL.Text="REMOTE SPY" PTL.TextColor3=Color3.fromRGB(255,160,0) PTL.TextSize=14 PTL.Font=Enum.Font.GothamBlack PTL.TextXAlignment=Enum.TextXAlignment.Left PTL.Parent=PT
+    ST._spyPTL=PTL pcall(axSpyHUD)
     local PX=Instance.new("TextButton") PX.Size=UDim2.new(0,28,0,28) PX.Position=UDim2.new(1,-32,0,4) PX.BackgroundTransparency=1 PX.Text="X" PX.TextColor3=TH.r PX.TextSize=18 PX.Font=Enum.Font.GothamBold PX.Parent=PT
     PX.MouseButton1Click:Connect(function() ST.spySG:Destroy() ST.spySG=nil ST.remoteSpyOn=false end)
     local PBtn=Instance.new("TextButton") PBtn.Size=UDim2.new(0,60,0,22) PBtn.Position=UDim2.new(1,-100,0,7) PBtn.BackgroundColor3=TH.b PBtn.BorderSizePixel=0 PBtn.Text="Pause" PBtn.TextColor3=TH.t PBtn.TextSize=10 PBtn.Font=Enum.Font.GothamBold PBtn.Parent=PT mkCorner(PBtn,4)
@@ -3662,6 +3684,7 @@ btn(tEx,"Open Remote Spy",function()
     CBtn.MouseButton1Click:Connect(function() ST.remoteSpyLog={} for _,ch in pairs(SF2:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end end)
     local CPBtn=Instance.new("TextButton") CPBtn.Size=UDim2.new(0,50,0,22) CPBtn.Position=UDim2.new(1,-216,0,7) CPBtn.BackgroundColor3=TH.b CPBtn.BorderSizePixel=0 CPBtn.Text="Copy" CPBtn.TextColor3=TH.t CPBtn.TextSize=10 CPBtn.Font=Enum.Font.GothamBold CPBtn.Parent=PT mkCorner(CPBtn,4)
     CPBtn.MouseButton1Click:Connect(function()
+        local hdr="nc="..(ST._ncAll or 0).." ff="..(ST._ncFF or 0).." blk="..(ST._ncBlk or 0).." exp="..(ST._ncExp or 0).." log="..(ST._ncLog or 0).." err="..(ST._ncErr or 0)
         local lines=ST._capLines
         local txt=""
         if lines and #lines>0 then txt=table.concat(lines,"\n") end
@@ -3670,11 +3693,14 @@ btn(tEx,"Open Remote Spy",function()
             for _,e in ipairs(ST.remoteSpyLog or {}) do table.insert(sl,e.time.." "..e.name.." "..e.args.." "..e.caller) end
             txt=table.concat(sl,"\n")
         end
-        if txt=="" then ntf("Spy","Nothing captured yet",3) return end
+        local body=txt
+        txt=hdr
+        if body~="" then txt=hdr.."\n"..body end
+        if body=="" then ntf("Spy","No events yet - counters copied",5) end
         local okc=false
         pcall(function() setclipboard(txt) okc=true end)
         if okc then
-            ntf("Spy","Copied "..#(ST._capLines or {}).." captures - paste them",6)
+            ntf("Spy",(body~="" and ("Copied "..#(ST._capLines or {}).." captures") or "Counters copied").." - paste them",6)
         else
             ntf("Spy","setclipboard unavailable - file axynth_capture.txt",6)
         end
