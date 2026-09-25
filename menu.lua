@@ -136,7 +136,8 @@ pcall(function()
                                 local c={} for k,v in pairs(a) do c[k]=v end copyargs[i]=c
                             else copyargs[i]=a end
                         end
-                        if axSerStr then
+                        if axSerStr and tick()-(ST._capSerT or 0)>0.3 then
+                            ST._capSerT=tick()
                             local line=fn.." | "..axSerStr(copyargs)
                             if not ST._capLast or ST._capLast~=line then
                                 ST._capLast=line
@@ -1685,7 +1686,7 @@ local function btn(p,t,fn,id)
     kbBtn.MouseButton2Click:Connect(function() if id then cycleKBMode(id) end end)
     b.MouseEnter:Connect(function() twFast(b,{BackgroundColor3=TH.bh,TextColor3=Color3.new(1,1,1)}) end)
     b.MouseLeave:Connect(function() tw(b,{BackgroundColor3=TH.b,TextColor3=TH.t},0.2) end)
-    b.MouseButton1Click:Connect(function() twFast(b,{BackgroundColor3=TH.a},0.08) wait(0.08) tw(b,{BackgroundColor3=TH.bh},0.15) pcall(fn) end)
+    b.MouseButton1Click:Connect(function() twFast(b,{BackgroundColor3=TH.a},0.08) wait(0.08) tw(b,{BackgroundColor3=TH.bh},0.15) local okE,eE=pcall(fn) if not okE then pcall(function() print("[Axynth][btn] "..tostring(t)..": "..tostring(eE)) end) pcall(function() ntf("Error",tostring(t)..": "..tostring(eE),7) end) end end)
     return b
 end
 local function tog(p,t,gf,fn,id)
@@ -1698,7 +1699,7 @@ local function tog(p,t,gf,fn,id)
     kbBtn.MouseButton2Click:Connect(function() if id then cycleKBMode(id) end end)
     b.MouseEnter:Connect(function() twFast(b,{BackgroundColor3=TH.bh}) end)
     b.MouseLeave:Connect(function() tw(b,{BackgroundColor3=TH.b},0.2) end)
-    b.MouseButton1Click:Connect(function() twFast(b,{BackgroundColor3=TH.a},0.08) wait(0.08) fn() local s=gf() tw(b,{BackgroundColor3=s and Color3.fromRGB(30,60,30) or TH.b},0.15) b.Text="  "..t..": "..(s and "ON" or "OFF") b.TextColor3=s and TH.g or TH.t pcall(function() b.UIStroke.Color=s and TH.g or Color3.fromRGB(60,60,90) end) end)
+    b.MouseButton1Click:Connect(function() twFast(b,{BackgroundColor3=TH.a},0.08) wait(0.08) local okE,eE=pcall(fn) if not okE then pcall(function() print("[Axynth][tog] "..tostring(t)..": "..tostring(eE)) end) pcall(function() ntf("Error",tostring(t)..": "..tostring(eE),7) end) end local s=gf() tw(b,{BackgroundColor3=s and Color3.fromRGB(30,60,30) or TH.b},0.15) b.Text="  "..t..": "..(s and "ON" or "OFF") b.TextColor3=s and TH.g or TH.t pcall(function() b.UIStroke.Color=s and TH.g or Color3.fromRGB(60,60,90) end) end)
     local updateFn=function() local s=gf() b.Text="  "..t..": "..(s and "ON" or "OFF") b.TextColor3=s and TH.g or TH.t pcall(function() b.UIStroke.Color=s and TH.g or Color3.fromRGB(60,60,90) end) kbBtn.Text=getKeyDisplay(KB[id]) kbBtn.TextColor3=(KBMode[id]=="hold") and Color3.fromRGB(255,200,80) or TH.a end
     togUpdates[b]=updateFn
     return b
@@ -3639,7 +3640,14 @@ end,"scanrem")
 sep(tEx)
 lbl(tEx,">> REMOTE SPY (LIVE LOG)")
 btn(tEx,"Open Remote Spy",function()
-    if ST.spySG then pcall(function() ST.spySG:Destroy() end) ST.spySG=nil ST.remoteSpyOn=false return end
+    if ST.spySG then
+        local alive=false
+        pcall(function() alive=(ST.spySG.Parent~=nil) end)
+        pcall(function() ST.spySG:Destroy() end)
+        ST.spySG=nil ST.remoteSpyOn=false
+        if alive then return end
+    end
+    local spyOK,spyErr=pcall(function()
     ST.remoteSpyOn=true ST.remoteSpyPaused=false ST.remoteSpyLog={}
     local SG3=Instance.new("ScreenGui") SG3.Name="RemoteSpy" SG3.ResetOnSpawn=false SG3.DisplayOrder=1002 SG3.ZIndexBehavior=Enum.ZIndexBehavior.Sibling SG3.IgnoreGuiInset=true pcall(function() if gethui then SG3.Parent=gethui() end end) if not SG3.Parent then pcall(function() SG3.Parent=CG end) end if not SG3.Parent then SG3.Parent=LP:WaitForChild("PlayerGui") end ST.spySG=SG3
     local PF=Instance.new("Frame") PF.Size=UDim2.new(0,550,0,400) PF.Position=UDim2.new(0.5,-275,0.5,-200) PF.BackgroundColor3=TH.p PF.BorderSizePixel=0 PF.Active=true PF.Draggable=true PF.Parent=SG3 PF.BackgroundTransparency=0 mkCorner(PF,12) mkStroke(PF,Color3.fromRGB(255,160,0),2)
@@ -3686,6 +3694,12 @@ btn(tEx,"Open Remote Spy",function()
         local CL=Instance.new("TextLabel") CL.Size=UDim2.new(0.08,0,1,0) CL.Position=UDim2.new(0.92,0,0,0) CL.BackgroundTransparency=1 CL.Text=caller CL.TextColor3=caller=="S" and Color3.fromRGB(80,255,120) or Color3.fromRGB(255,80,80) CL.TextSize=9 CL.Font=Enum.Font.GothamBold CL.TextXAlignment=Enum.TextXAlignment.Center CL.Parent=RF
         table.insert(ST.remoteSpyLog,{name=name,args=argsStr,caller=caller,time=ts})
         if #SF2:GetChildren()>200 then local first=SF2:FindFirstChildOfClass("Frame") if first then first:Destroy() end end
+    end
+    end)
+    if not spyOK then
+        pcall(function() print("[Axynth][Spy] open failed: "..tostring(spyErr)) end)
+        ST.spySG=nil ST.remoteSpyOn=false
+        pcall(function() ntf("Spy","Open error: "..tostring(spyErr),7) end)
     end
 end,"openspy")
 btn(tEx,"Clear Spy Log",function() ST.remoteSpyLog={} if _G._spyFrame then for _,ch in pairs(_G._spyFrame:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end end ntf("Spy","Cleared!") end,"clrspry")
@@ -3922,7 +3936,22 @@ U.InputBegan:Connect(function(inp,gpe)
             for _,t in pairs(allToggles) do if togUpdates[t] then togUpdates[t]() end end
         end
     end
-    if inp.KeyCode==Enum.KeyCode.RightShift then ST.menuOpen=not ST.menuOpen if ST.menuOpen then MF.Visible=true MF.BackgroundTransparency=1 MF.Size=UDim2.new(0,520,0,420) tw(MF,{BackgroundTransparency=0.02,Size=UDim2.new(0,520,0,480),Position=UDim2.new(0.5,-260,0.5,-240)},0.35) else tw(MF,{Position=UDim2.new(0.5,-260,0.5,-280),BackgroundTransparency=1,Size=UDim2.new(0,520,0,420)},0.25) wait(0.25) MF.Visible=false MF.Position=UDim2.new(0.5,-260,0.5,-240) MF.Size=UDim2.new(0,520,0,480) MF.BackgroundTransparency=0.02 if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end end end
+    if inp.KeyCode==Enum.KeyCode.RightShift then
+        pcall(function()
+            for _,root in pairs({MF,ST.spySG}) do
+                if root then
+                    for _,g in pairs(root:GetDescendants()) do
+                        if g:IsA("TextBox") then pcall(function() g:ReleaseFocus() end) end
+                        pcall(function() if g:IsA("GuiButton") and g.Selected then g.Selected=false end end)
+                    end
+                end
+            end
+            pcall(function() U.SelectedObject=nil end)
+            pcall(function() local GS=game:GetService("GuiService") if GS.SelectedObject then GS.SelectedObject=nil end end)
+        end)
+        waitingForKey=nil
+        pcall(function() refreshKBBtns() end)
+        ST.menuOpen=not ST.menuOpen if ST.menuOpen then MF.Visible=true MF.BackgroundTransparency=1 MF.Size=UDim2.new(0,520,0,420) tw(MF,{BackgroundTransparency=0.02,Size=UDim2.new(0,520,0,480),Position=UDim2.new(0.5,-260,0.5,-240)},0.35) else tw(MF,{Position=UDim2.new(0.5,-260,0.5,-280),BackgroundTransparency=1,Size=UDim2.new(0,520,0,420)},0.25) wait(0.25) MF.Visible=false MF.Position=UDim2.new(0.5,-260,0.5,-240) MF.Size=UDim2.new(0,520,0,480) MF.BackgroundTransparency=0.02 if pDropdown then pcall(function() pDropdown:Destroy() end) pDropdown=nil pDropOpen=false end if aimDropList then pcall(function() aimDropList:Destroy() end) aimDropList=nil aimDropOpen=false end end end
 end)
 U.InputEnded:Connect(function(inp)
     if KB.aimhold and (inp.KeyCode==KB.aimhold or inp.UserInputType==KB.aimhold) then
@@ -4367,6 +4396,27 @@ U.JumpRequest:Connect(function()
 end)
 print("[Axynth] Events OK")
 R.RenderStepped:Connect(function()
+    pcall(function()
+        if ST.menuOpen then
+            local nowSel=tick()
+            if nowSel-(ST._selT or 0)>0.4 then
+                ST._selT=nowSel
+                pcall(function()
+                    local sel=U.SelectedObject
+                    if sel and not sel:IsA("TextBox") then U.SelectedObject=nil end
+                end)
+                pcall(function()
+                    local GS=game:GetService("GuiService")
+                    if GS.SelectedObject then GS.SelectedObject=nil end
+                end)
+                if MF then
+                    for _,g in pairs(MF:GetDescendants()) do
+                        pcall(function() if g:IsA("GuiButton") and g.Selected then g.Selected=false end end)
+                    end
+                end
+            end
+        end
+    end)
     pcall(function()
         if ST.fly and not ST.freeCam and not ST.spectateOverhead and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h then local dir=Vector3.new(0,0,0) local sp=ST.flySpeed if U:IsKeyDown(Enum.KeyCode.LeftShift) then sp=sp*3 end if U:IsKeyDown(Enum.KeyCode.W) then dir=dir+CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.S) then dir=dir-CAM.CFrame.LookVector end if U:IsKeyDown(Enum.KeyCode.A) then dir=dir-CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.D) then dir=dir+CAM.CFrame.RightVector end if U:IsKeyDown(Enum.KeyCode.Space) then dir=dir+Vector3.new(0,1,0) end if U:IsKeyDown(Enum.KeyCode.LeftControl) then dir=dir-Vector3.new(0,1,0) end if dir.Magnitude>0 then dir=dir.Unit h.Velocity=Vector3.new(0,0,0) h.RotVelocity=Vector3.new(0,0,0) h.CFrame=h.CFrame+dir*sp/60 else h.Velocity=Vector3.new(0,0,0) end end end
     end)
