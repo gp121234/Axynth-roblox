@@ -82,6 +82,11 @@ local function randomDelay()
     return math.random(100,400)/1000
 end
 function axSpyHUD()
+    if ST._hookOK==false then
+        local pf=ST._spyPTL
+        if pf and pf.Parent then pf.TextSize=12 pf.Text="HOOK FAILED - see F9" pf.TextColor3=Color3.fromRGB(255,80,80) end
+        return
+    end
     if not ST.remoteSpyOn then return end
     local now=tick()
     if now-(ST._spyHUDT or 0)<0.4 then return end
@@ -90,13 +95,15 @@ function axSpyHUD()
     if p and p.Parent then
         local e=ST._ncErr or 0
         p.TextSize=10
-        p.Text="SPY nc:"..(ST._ncAll or 0).." ff:"..(ST._ncFF or 0).." blk:"..(ST._ncBlk or 0).." exp:"..(ST._ncExp or 0).." log:"..(ST._ncLog or 0)..(e>0 and (" err:"..e) or "")
+        p.Text="any:"..(ST._ncAny or 0).." nc:"..(ST._ncAll or 0).." blk:"..(ST._ncBlk or 0).." log:"..(ST._ncLog or 0)..(e>0 and (" err:"..e) or "")
     end
 end
 local hkOk,hkErr=pcall(function()
     local oldNC
     oldNC = hookmetamethod(game,"__namecall",newcclosure(function(self,...)
         local args = {...}
+        ST._ncAny=(ST._ncAny or 0)+1
+        if axSpyHUD then pcall(axSpyHUD) end
         local method = getnamecallmethod()
         local ok, res = pcall(function()
             if method=="Raycast" and ST.magicBullet and not checkcaller() then
@@ -123,7 +130,7 @@ local hkOk,hkErr=pcall(function()
                     end
                 end
             end
-            if (method=="FireServer" or method=="InvokeServer") and typeof(self)=="Instance" and (self:IsA("RemoteEvent") or self:IsA("RemoteFunction")) then
+            if (method=="FireServer" or method=="InvokeServer") and typeof(self)=="Instance" and (self:IsA("RemoteEvent") or self:IsA("RemoteFunction") or self:IsA("UnreliableRemoteEvent")) then
                 ST._ncAll=(ST._ncAll or 0)+1
                 if ST._forceFire then
                     ST._ncFF=(ST._ncFF or 0)+1
@@ -229,7 +236,13 @@ local hkOk,hkErr=pcall(function()
         return res
     end))
 end)
-if hkOk then pcall(function() print("[Axynth][Hook] namecall installed OK") end) else pcall(function() print("[Axynth][Hook] namecall FAILED: "..tostring(hkErr)) end) end
+if hkOk then
+    ST._hookOK=true
+    pcall(function() print("[Axynth][Hook] namecall installed OK") end)
+else
+    ST._hookOK=false ST._hookErr=tostring(hkErr)
+    pcall(function() print("[Axynth][Hook] namecall FAILED: "..ST._hookErr) end)
+end
 local function spoofVelocity()
     pcall(function()
         if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
@@ -3684,7 +3697,7 @@ btn(tEx,"Open Remote Spy",function()
     CBtn.MouseButton1Click:Connect(function() ST.remoteSpyLog={} for _,ch in pairs(SF2:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end end)
     local CPBtn=Instance.new("TextButton") CPBtn.Size=UDim2.new(0,50,0,22) CPBtn.Position=UDim2.new(1,-216,0,7) CPBtn.BackgroundColor3=TH.b CPBtn.BorderSizePixel=0 CPBtn.Text="Copy" CPBtn.TextColor3=TH.t CPBtn.TextSize=10 CPBtn.Font=Enum.Font.GothamBold CPBtn.Parent=PT mkCorner(CPBtn,4)
     CPBtn.MouseButton1Click:Connect(function()
-        local hdr="nc="..(ST._ncAll or 0).." ff="..(ST._ncFF or 0).." blk="..(ST._ncBlk or 0).." exp="..(ST._ncExp or 0).." log="..(ST._ncLog or 0).." err="..(ST._ncErr or 0)
+        local hdr="hook="..(ST._hookOK==false and ("FAIL:"..string.sub(ST._hookErr or "?",1,60)) or "OK").." any="..(ST._ncAny or 0).." nc="..(ST._ncAll or 0).." ff="..(ST._ncFF or 0).." blk="..(ST._ncBlk or 0).." exp="..(ST._ncExp or 0).." log="..(ST._ncLog or 0).." err="..(ST._ncErr or 0)
         local lines=ST._capLines
         local txt=""
         if lines and #lines>0 then txt=table.concat(lines,"\n") end
@@ -3728,6 +3741,15 @@ btn(tEx,"Open Remote Spy",function()
         pcall(function() ntf("Spy","Open error: "..tostring(spyErr),7) end)
     end
 end,"openspy")
+btn(tEx,"Spy Test (probe remote)",function()
+    local b1=ST._ncAny or 0
+    local b2=ST._ncAll or 0
+    pcall(function()
+        local r=Instance.new("RemoteEvent") r.Name="AxProbe"
+        r:FireServer("axprobe",math.floor(tick()))
+    end)
+    ntf("Spy","Probe: any "..b1.."->"..(ST._ncAny or 0).." | nc "..b2.."->"..(ST._ncAll or 0).." (same = hook dead, +1 = hook OK)",8)
+end,"spytest")
 btn(tEx,"Clear Spy Log",function() ST.remoteSpyLog={} if _G._spyFrame then for _,ch in pairs(_G._spyFrame:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end end ntf("Spy","Cleared!") end,"clrspry")
 sep(tEx)
 lbl(tEx,">> AIMBOT")
