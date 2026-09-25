@@ -423,7 +423,7 @@ pcall(function()
                     if (bp and bp:FindFirstChild(nm)) or char:FindFirstChild(nm) then have=true end
                 end)
                 if not have then
-                    task.delay(1.0,function() pcall(function() giveGRItem(nm,kind) end) end)
+                    task.delay(1.0,function() pcall(function() giveGRItem(nm,kind,true) end) end)
                 end
             end
         end)
@@ -1783,6 +1783,24 @@ local function spawnVehicle(name, pos)
         end)
         return parts,joints,anchored
     end
+    local function autoSit()
+        pcall(function()
+            local ch=LP.Character
+            local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+            if not hum or hum.SeatPart then return end
+            local rp=ch:FindFirstChild("HumanoidRootPart")
+            if not rp then return end
+            local best=nil
+            local bd=50
+            for _,d in pairs(W:GetDescendants()) do
+                if d:IsA("VehicleSeat") then
+                    local dd=(d.Position-rp.Position).Magnitude
+                    if dd<bd then bd=dd best=d end
+                end
+            end
+            if best then best:Sit(hum) end
+        end)
+    end
     local function clientClone()
         local ok=false
         pcall(function()
@@ -1841,8 +1859,9 @@ local function spawnVehicle(name, pos)
                 end
                 cl.Parent=W
                 ST._vehClone=cl
-                ntf("Vehicle","Spawned (client) "..found.Name.." - press E to enter",5)
+                ntf("Vehicle","Spawned (client) "..found.Name.." - getting in",5)
                 ok=true
+                task.delay(0.9,function() autoSit() end)
             end
         end)
         return ok
@@ -1865,7 +1884,8 @@ local function spawnVehicle(name, pos)
             end
         end)
         if near then
-            ntf("Vehicle","Spawned "..tostring(name).." nearby - press E to enter",5)
+            ntf("Vehicle","Spawned "..tostring(name).." nearby - getting in",5)
+            task.delay(0.9,function() autoSit() end)
             return
         end
         if clientClone() then return end
@@ -1878,6 +1898,7 @@ local function spawnVehicle(name, pos)
         verify()
     end
 end
+local vehBox
 local vDropBtn=Instance.new("TextButton") vDropBtn.Size=UDim2.new(1,-12,0,30) vDropBtn.Position=UDim2.new(0,6,0,0) vDropBtn.BackgroundColor3=TH.b vDropBtn.BorderSizePixel=0 vDropBtn.Text="  Select vehicle..." vDropBtn.TextColor3=TH.t vDropBtn.TextSize=11 vDropBtn.Font=Enum.Font.GothamMedium vDropBtn.TextXAlignment=Enum.TextXAlignment.Left vDropBtn.Parent=tW mkCorner(vDropBtn,6) mkStroke(vDropBtn,TH.a,1)
 local vDropOpen=false local vDropdown=nil
 vDropBtn.MouseButton1Click:Connect(function()
@@ -1911,9 +1932,33 @@ vDropBtn.MouseButton1Click:Connect(function()
         if vDropdown then vDropdown:Destroy() vDropdown=nil end
     end
 end)
-local vehBox=Instance.new("TextBox") vehBox.Size=UDim2.new(1,-12,0,28) vehBox.Position=UDim2.new(0,6,0,0) vehBox.BackgroundColor3=TH.b vehBox.BorderSizePixel=0 vehBox.PlaceholderText="Vehicle name or select above / empty for random" vehBox.PlaceholderColor3=Color3.fromRGB(100,100,120) vehBox.Text="" vehBox.TextColor3=TH.t vehBox.TextSize=11 vehBox.Font=Enum.Font.Gotham vehBox.ClearTextOnFocus=false vehBox.Parent=tW mkCorner(vehBox,6)
+vehBox=Instance.new("TextBox") vehBox.Size=UDim2.new(1,-12,0,28) vehBox.Position=UDim2.new(0,6,0,0) vehBox.BackgroundColor3=TH.b vehBox.BorderSizePixel=0 vehBox.PlaceholderText="Vehicle name or select above / empty for random" vehBox.PlaceholderColor3=Color3.fromRGB(100,100,120) vehBox.Text="" vehBox.TextColor3=TH.t vehBox.TextSize=11 vehBox.Font=Enum.Font.Gotham vehBox.ClearTextOnFocus=false vehBox.Parent=tW mkCorner(vehBox,6)
 btn(tW,"Spawn Vehicle Next to Me",function() spawnVehicle(vehBox.Text) end,"spawnveh")
 btn(tW,"Spawn Random Vehicle",function() spawnVehicle("") end,"spawnrand")
+btn(tW,"Sit in Nearest Vehicle",function()
+    pcall(function()
+        local ch=LP.Character
+        local hum=ch and ch:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        if hum.SeatPart then ntf("Vehicle","Already sitting",3) return end
+        local rp=ch:FindFirstChild("HumanoidRootPart")
+        if not rp then return end
+        local best=nil
+        local bd=60
+        for _,d in pairs(W:GetDescendants()) do
+            if d:IsA("VehicleSeat") then
+                local dd=(d.Position-rp.Position).Magnitude
+                if dd<bd then bd=dd best=d end
+            end
+        end
+        if best then
+            best:Sit(hum)
+            ntf("Vehicle","Getting in...",3)
+        else
+            ntf("Vehicle","No vehicle seat within 60 studs",4)
+        end
+    end)
+end,"sitveh")
 btn(tW,"Despawn Nearest Vehicle",function()
     pcall(function()
         local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
@@ -2100,10 +2145,10 @@ local function doForceJob(targetPl, jobName)
         local tok=string.lower(string.gsub(wp,"[^%w]",""))
         if #tok<3 then return end
         local function norm(s) return string.lower(string.gsub(s,"[^%w]","")) end
-        local found=nil
+        local cands={}
         local stack={W}
         local budget=15000
-        while #stack>0 and budget>0 and not found do
+        while #stack>0 and budget>0 and #cands<12 do
             local par=table.remove(stack,#stack)
             budget=budget-1
             pcall(function()
@@ -2112,15 +2157,51 @@ local function doForceJob(targetPl, jobName)
                         local nd=norm(d.Name)
                         local hit=false
                         if #nd>=4 and (string.find(nd,tok,1,true) or string.find(tok,nd,1,true)) then hit=true end
-                        if hit then found=d else table.insert(stack,d) end
+                        if hit then table.insert(cands,d) else table.insert(stack,d) end
                     end
                 end
             end)
         end
+        local found=nil
+        local bestScore=-1
+        for _,m in ipairs(cands) do
+            local pr,pt=0,0
+            pcall(function()
+                for _,d in pairs(m:GetDescendants()) do
+                    if d:IsA("BasePart") then pt=pt+1
+                    elseif d:IsA("ProximityPrompt") then pr=pr+1 end
+                end
+            end)
+            local sc=pr*1000+pt
+            if sc>bestScore then bestScore=sc found=m end
+        end
         if found then
             pcall(function()
                 local pv=found:GetPivot()
-                jobPos=pv.Position+Vector3.new(0,3,0)
+                local spot=nil
+                local bestS=99
+                local bestD=math.huge
+                local strong={"counter","npc","desk","till","register","cashier","manager","boss","apply","job","checkin"}
+                local weak={"door","marker","spot","entry"}
+                for _,d in pairs(found:GetDescendants()) do
+                    if d:IsA("BasePart") then
+                        local s2=99
+                        if d:FindFirstChildOfClass("ProximityPrompt") then s2=0
+                        else
+                            local ln=string.lower(d.Name)
+                            for _,kw in ipairs(strong) do if string.find(ln,kw,1,true) then s2=1 break end end
+                            if s2==99 then
+                                for _,kw in ipairs(weak) do if string.find(ln,kw,1,true) then s2=2 break end end
+                            end
+                        end
+                        if s2<99 then
+                            local dd=(d.Position-pv.Position).Magnitude
+                            if s2<bestS or (s2==bestS and dd<bestD) then bestS=s2 bestD=dd spot=d.Position end
+                        end
+                    end
+                end
+                if not spot then spot=pv.Position end
+                jobPos=spot+Vector3.new(0,3,0)
                 safeTeleport(jobPos)
             end)
             if jobPos then
@@ -2245,9 +2326,6 @@ btn(tP,"Spectate: Prev Player",function() local plrs=P:GetPlayers() local idx=1 
 btn(tP,"Spectate: Overhead",function()
     if not ST.spectating then
         if ST.selectedPlayer and ST.selectedPlayer.Character then ST.spectating=ST.selectedPlayer end
-        if not ST.spectating then
-            for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character then ST.spectating=pp break end end
-        end
     end
     if not ST.spectating or not ST.spectating.Character or not ST.spectating.Character:FindFirstChild("HumanoidRootPart") then
         ntf("Spectate","No target - select a player first",4) return
@@ -2288,7 +2366,7 @@ btn(tP,"Spectate: Overhead",function()
             local cam=W.CurrentCamera or CAM
             if cam then CAM=cam applyOverhead(cam) end
         end)
-        ntf("Spectate","Overhead ON - auto lock on "..ST.spectating.DisplayName)
+        ntf("Spectate","Overhead ON - "..ST.spectating.DisplayName)
     end
 end,"specover")
 local tESP=tog(tP,"ESP",function() return ST.esp end,function() ST.esp=not ST.esp if ST.esp then for _,pp in pairs(P:GetPlayers()) do if pp~=LP and pp.Character and not pp.Character:FindFirstChild("AxESP") then local hl=Instance.new("Highlight") hl.Name="AxESP" hl.FillColor=CFG.ESPColor hl.FillTransparency=CFG.ESPFillAlpha hl.OutlineColor=CFG.ESPOutlineColor hl.OutlineTransparency=CFG.ESPOutlineEnabled and 0 or 1 hl.Enabled=CFG.ESPFillEnabled hl.Parent=pp.Character ST.espList[pp.UserId]=hl end end else for id,hl in pairs(ST.espList) do if hl and hl.Parent then hl:Destroy() end ST.espList[id]=nil end end end,"esp")
@@ -2551,13 +2629,38 @@ function fireWeaponActivated()
         grFire(r,{tool},"wact")
     end)
 end
-function giveGRItem(name, kind)
+function giveGRItem(name, kind, noFire)
     if ST._learnPending then
         ST._learnPending=nil
         pcall(function() ntf("Learn","Inventory args learned - Give now replays them",5) end)
     end
+    local existing=nil
+    pcall(function()
+        local c=LP.Character
+        local o=c and c:FindFirstChild(name)
+        if o and o:IsA("Tool") then existing=o end
+        if not existing then
+            local bp=LP:FindFirstChild("Backpack")
+            if bp then
+                local ln=string.lower(name)
+                for _,v in pairs(bp:GetChildren()) do
+                    if v:IsA("Tool") and string.lower(v.Name)==ln then existing=v break end
+                end
+            end
+        end
+    end)
+    if existing then
+        if not noFire then
+            pcall(function()
+                local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                if hum and existing.Parent==LP:FindFirstChild("Backpack") then hum:EquipTool(existing) end
+            end)
+        end
+        return 1
+    end
     local n=0
     pcall(function()
+        if noFire then return end
         local arm=findRemote("Armory.RemoteEvent")
         local inv=findRemote("Inventory.Inventory")
         local sm=findRemote("SupermarketEvent.Triggered") or findRemote("SupermarketEvent.BuyItem")
@@ -2727,19 +2830,52 @@ function giveGRItem(name, kind)
                         end
                     end)
                     -- also try Inventory equip remote for custom inventory
-                    pcall(function()
+                    if not noFire then pcall(function()
                         local inv=findRemote("Inventory.Inventory")
                         if inv then
                             grFire(inv,{"equip",name},"equip")
                             grFire(inv,{"use",name},"equip")
                         end
-                    end)
+                    end) end
                 end)
             end)
         end
     end)
     return n
 end
+pcall(function()
+    local function watchBp(bp)
+        if not bp or bp:FindFirstChild("AxWatch") then return end
+        local mk=Instance.new("Folder") mk.Name="AxWatch" mk.Parent=bp
+        bp.ChildRemoved:Connect(function(ch)
+            if not ch or not ch:IsA("Tool") then return end
+            if not ST._givenItems then return end
+            local key=string.lower(ch.Name)
+            local kind=nil
+            for nm,k in pairs(ST._givenItems) do
+                if string.lower(nm)==key then kind=k break end
+            end
+            if not kind then return end
+            ST._recloneT=ST._recloneT or {}
+            if tick()-(ST._recloneT[key] or 0)<6 then return end
+            ST._recloneT[key]=tick()
+            task.delay(0.7,function()
+                pcall(function()
+                    local gone=true
+                    local c2=LP.Character
+                    local b2=LP:FindFirstChild("Backpack")
+                    if c2 and c2:FindFirstChild(ch.Name) then gone=false end
+                    if b2 and b2:FindFirstChild(ch.Name) then gone=false end
+                    if gone then giveGRItem(ch.Name,kind,true) end
+                end)
+            end)
+        end)
+    end
+    watchBp(LP:FindFirstChild("Backpack"))
+    LP.ChildAdded:Connect(function(c)
+        if c and c.Name=="Backpack" then task.defer(function() pcall(function() watchBp(c) end) end) end
+    end)
+end)
 function doGreenSteal()
     if not cd() then return end
     equipAnyTool()
@@ -3428,9 +3564,9 @@ btn(tEx,"Open Remote Spy",function()
     PX.MouseButton1Click:Connect(function() ST.spySG:Destroy() ST.spySG=nil ST.remoteSpyOn=false end)
     local PBtn=Instance.new("TextButton") PBtn.Size=UDim2.new(0,60,0,22) PBtn.Position=UDim2.new(1,-100,0,7) PBtn.BackgroundColor3=TH.b PBtn.BorderSizePixel=0 PBtn.Text="Pause" PBtn.TextColor3=TH.t PBtn.TextSize=10 PBtn.Font=Enum.Font.GothamBold PBtn.Parent=PT mkCorner(PBtn,4)
     PBtn.MouseButton1Click:Connect(function() ST.remoteSpyPaused=not ST.remoteSpyPaused PBtn.Text=ST.remoteSpyPaused and "Resume" or "Pause" end)
+    local SF2=Instance.new("ScrollingFrame") SF2.Size=UDim2.new(1,-16,1,-48) SF2.Position=UDim2.new(0,8,0,42) SF2.BackgroundTransparency=1 SF2.BorderSizePixel=0 SF2.ScrollBarThickness=4 SF2.ScrollBarImageColor3=Color3.fromRGB(255,160,0) SF2.CanvasSize=UDim2.new(0,0,0,0) SF2.Parent=PF SF2.AutomaticCanvasSize=Enum.AutomaticSize.Y SF2.ScrollingDirection=Enum.ScrollingDirection.Y SF2.ElasticBehavior=Enum.ElasticBehavior.Never
     local CBtn=Instance.new("TextButton") CBtn.Size=UDim2.new(0,50,0,22) CBtn.Position=UDim2.new(1,-160,0,7) CBtn.BackgroundColor3=TH.b CBtn.BorderSizePixel=0 CBtn.Text="Clear" CBtn.TextColor3=TH.t CBtn.TextSize=10 CBtn.Font=Enum.Font.GothamBold CBtn.Parent=PT mkCorner(CBtn,4)
     CBtn.MouseButton1Click:Connect(function() ST.remoteSpyLog={} for _,ch in pairs(SF2:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end end)
-    local SF2=Instance.new("ScrollingFrame") SF2.Size=UDim2.new(1,-16,1,-48) SF2.Position=UDim2.new(0,8,0,42) SF2.BackgroundTransparency=1 SF2.BorderSizePixel=0 SF2.ScrollBarThickness=4 SF2.ScrollBarImageColor3=Color3.fromRGB(255,160,0) SF2.CanvasSize=UDim2.new(0,0,0,0) SF2.Parent=PF SF2.AutomaticCanvasSize=Enum.AutomaticSize.Y SF2.ScrollingDirection=Enum.ScrollingDirection.Y SF2.ElasticBehavior=Enum.ElasticBehavior.Never
     local SL2=Instance.new("UIListLayout",SF2) SL2.Padding=UDim.new(0,2) SL2.SortOrder=Enum.SortOrder.LayoutOrder
     SL2:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() SF2.CanvasSize=UDim2.new(0,0,0,SL2.AbsoluteContentSize.Y+8) end)
     _G._spyFrame=SF2
