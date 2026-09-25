@@ -118,7 +118,7 @@ pcall(function()
                 pcall(function()
                     local fn=self:GetFullName()
                     local fl=string.lower(fn)
-                    if string.find(fl,"inventory",1,true) or string.find(fl,"armory",1,true) or string.find(fl,"supermarket",1,true) or string.find(fl,"jobcenter",1,true) or string.find(fl,"changejob",1,true) or string.find(fl,"changeteam",1,true) or string.find(fl,"weaponhit",1,true) or string.find(fl,"weaponfired",1,true) or string.find(fl,"damage",1,true) or string.find(fl,"hurt",1,true) or string.find(fl,"cardealer",1,true) or string.find(fl,"vehicle",1,true) or string.find(fl,"spawncar",1,true) then
+                    if string.find(fl,"inventory",1,true) or string.find(fl,"armory",1,true) or string.find(fl,"supermarket",1,true) or string.find(fl,"jobcenter",1,true) or string.find(fl,"changejob",1,true) or string.find(fl,"changeteam",1,true) or string.find(fl,"weaponhit",1,true) or string.find(fl,"weaponfired",1,true) or string.find(fl,"damage",1,true) or string.find(fl,"hurt",1,true) or string.find(fl,"cardealer",1,true) or string.find(fl,"vehicle",1,true) or string.find(fl,"spawncar",1,true) or string.find(fl,"shop",1,true) or string.find(fl,"store",1,true) or string.find(fl,"garage",1,true) or string.find(fl,"dealership",1,true) or string.find(fl,"cars",1,true) or string.find(fl,"job",1,true) or string.find(fl,"career",1,true) then
                         local verb=""
                         for i=1,#args do
                             local a=args[i]
@@ -135,6 +135,15 @@ pcall(function()
                             if typeof(a)=="table" then
                                 local c={} for k,v in pairs(a) do c[k]=v end copyargs[i]=c
                             else copyargs[i]=a end
+                        end
+                        if axSerStr then
+                            local line=fn.." | "..axSerStr(copyargs)
+                            if not ST._capLast or ST._capLast~=line then
+                                ST._capLast=line
+                                ST._capLines=ST._capLines or {}
+                                table.insert(ST._capLines,1,string.sub(line,1,2000))
+                                while #ST._capLines>40 do table.remove(ST._capLines) end
+                            end
                         end
                         local fresh=true
                         for _,rec in ipairs(arr) do
@@ -153,7 +162,7 @@ pcall(function()
                             ST._lsForce=true
                         end
                         if axSaveLearn then pcall(axSaveLearn) end
-                        if not ST._learnNtf and string.find(fl,"inventory",1,true) then
+                        if not ST._learnNtf and (string.find(fl,"inventory",1,true) or string.find(fl,"shop",1,true)) then
                             ST._learnNtf=true
                             ST._learnPending=true
                         end
@@ -1278,52 +1287,59 @@ axResolvePath=function(p)
     end
     return cur
 end
+axEnc=function(v,d)
+    d=d or 0
+    if d>7 then return nil end
+    local t=typeof(v)
+    if t=="string" then return v end
+    if t=="boolean" then return v end
+    if t=="number" then
+        if v~=v or v==math.huge or v==-math.huge then return 0 end
+        return v
+    end
+    if t=="Instance" then return {__t="i",p=v:GetFullName()} end
+    if t=="Vector3" then return {__t="v",x=v.X,y=v.Y,z=v.Z} end
+    if t=="CFrame" then return {__t="c",c={v:GetComponents()}} end
+    if t=="EnumItem" then return {__t="e",s=tostring(v)} end
+    if t=="table" then
+        local n=#v
+        local seq=false
+        if n>0 then
+            seq=true
+            local cnt=0
+            for k in pairs(v) do
+                cnt=cnt+1
+                if type(k)~="number" or k<1 or k%1~=0 then seq=false break end
+            end
+            if cnt~=n then seq=false end
+        end
+        if seq then
+            local o={}
+            for i=1,n do o[i]=axEnc(v[i],d+1) end
+            return o
+        end
+        local o={}
+        for k,val in pairs(v) do
+            local e=axEnc(val,d+1)
+            if e~=nil then o[tostring(k)]=e end
+        end
+        return o
+    end
+    return nil
+end
+axSerStr=function(a)
+    local ok2,r=pcall(function()
+        return game:GetService("HttpService"):JSONEncode(axEnc(a))
+    end)
+    if ok2 and type(r)=="string" then return r end
+    return ""
+end
 axSaveLearn=function()
     pcall(function()
         if not ST._lsForce and tick()-(ST._lsT or 0)<5 then return end
         ST._lsForce=false
         ST._lsT=tick()
         local HS=game:GetService("HttpService")
-        local function enc(v,d)
-            d=d or 0
-            if d>7 then return nil end
-            local t=typeof(v)
-            if t=="string" then return v end
-            if t=="boolean" then return v end
-            if t=="number" then
-                if v~=v or v==math.huge or v==-math.huge then return 0 end
-                return v
-            end
-            if t=="Instance" then return {__t="i",p=v:GetFullName()} end
-            if t=="Vector3" then return {__t="v",x=v.X,y=v.Y,z=v.Z} end
-            if t=="CFrame" then return {__t="c",c={v:GetComponents()}} end
-            if t=="EnumItem" then return {__t="e",s=tostring(v)} end
-            if t=="table" then
-                local n=#v
-                local seq=false
-                if n>0 then
-                    seq=true
-                    local cnt=0
-                    for k in pairs(v) do
-                        cnt=cnt+1
-                        if type(k)~="number" or k<1 or k%1~=0 then seq=false break end
-                    end
-                    if cnt~=n then seq=false end
-                end
-                if seq then
-                    local o={}
-                    for i=1,n do o[i]=enc(v[i],d+1) end
-                    return o
-                end
-                local o={}
-                for k,val in pairs(v) do
-                    local e=enc(val,d+1)
-                    if e~=nil then o[tostring(k)]=e end
-                end
-                return o
-            end
-            return nil
-        end
         local out={}
         local lg=ST._learnLog
         if lg then
@@ -1331,11 +1347,14 @@ axSaveLearn=function()
                 if #out>=25 then break end
                 local rec=arr and arr[1]
                 if rec and rec.args then
-                    table.insert(out,{p=path,s=rec.sig or "",a=enc(rec.args)})
+                    table.insert(out,{p=path,s=rec.sig or "",a=axEnc(rec.args)})
                 end
             end
         end
         writefile("axynth_learn.json",HS:JSONEncode(out))
+        if ST._capLines and #ST._capLines>0 then
+            pcall(function() writefile("axynth_capture.txt",table.concat(ST._capLines,"\n")) end)
+        end
     end)
 end
 axLoadLearn=function()
@@ -1912,7 +1931,7 @@ local function spawnVehicle(name, pos)
         for path,arr in pairs(lg) do
             if replays>=2 then break end
             local lp=string.lower(path)
-            if string.find(lp,"cardealer",1,true) or string.find(lp,"spawncar",1,true) or string.find(lp,"vehicle",1,true) then
+            if string.find(lp,"cardealer",1,true) or string.find(lp,"spawncar",1,true) or string.find(lp,"vehicle",1,true) or string.find(lp,"garage",1,true) or string.find(lp,"dealership",1,true) or string.find(lp,"cars",1,true) then
                 local rec=arr[1]
                 if rec and axLearnInst(rec) then
                     local function build(usePos)
@@ -2252,7 +2271,9 @@ local function doForceJob(targetPl, jobName)
     pcall(function()
         local lg=ST._learnLog
         local verbs={apply=1,change=1,set=1,select=1,join=1,choose=1,get=1,switch=1,work=1,accept=1,job=1,team=1,setjob=1,changejob=1,start=1,enter=1}
+        local jDone=false
         local function replayFor(sub)
+            if jDone then return true end
             if not lg then return false end
             for path,arr in pairs(lg) do
                 if string.find(string.lower(path),sub,1,true) then
@@ -2275,6 +2296,7 @@ local function doForceJob(targetPl, jobName)
                             end
                         end
                         if okSub then
+                            jDone=true
                             if grFire(rec.inst,newArgs,"learnJ") then fired=fired+1 end
                             return true
                         end
@@ -2283,7 +2305,7 @@ local function doForceJob(targetPl, jobName)
             end
             return false
         end
-        if not replayFor("changejob") and not replayFor("changeteam") then
+        if not replayFor("changejob") and not replayFor("changeteam") and not replayFor("job") and not replayFor("team") and not replayFor("career") then
             local r=findRemote("Teams.ChangeJob") or findRemote("Teams.ChangeTeam") or findRemote("ChangeJob") or findRemote("ChangeTeam")
             if r then
                 local teamObj=nil
@@ -2718,7 +2740,7 @@ function giveGRItem(name, kind, noFire)
             local verbSet={buy=1,sell=1,add=1,use=1,equip=1,give=1,save=1,set=1,drop=1,take=1,select=1,spawn=1,craft=1,collect=1,pickup=1,pick=1,eat=1,heal=1,store=1,load=1,get=1,put=1,trade=1,accept=1,apply=1,open=1}
             for path,arr in pairs(lg) do
                 local lp=string.lower(path)
-                if string.find(lp,"inventory",1,true) or string.find(lp,"armory",1,true) or string.find(lp,"supermarket",1,true) then
+                if string.find(lp,"inventory",1,true) or string.find(lp,"armory",1,true) or string.find(lp,"supermarket",1,true) or string.find(lp,"shop",1,true) or string.find(lp,"store",1,true) then
                     local rec=arr[1]
                     if rec and axLearnInst(rec) then
                         local newArgs={}
@@ -3622,7 +3644,7 @@ btn(tEx,"Open Remote Spy",function()
     local SG3=Instance.new("ScreenGui") SG3.Name="RemoteSpy" SG3.ResetOnSpawn=false SG3.DisplayOrder=1002 SG3.ZIndexBehavior=Enum.ZIndexBehavior.Sibling SG3.IgnoreGuiInset=true pcall(function() if gethui then SG3.Parent=gethui() end end) if not SG3.Parent then pcall(function() SG3.Parent=CG end) end if not SG3.Parent then SG3.Parent=LP:WaitForChild("PlayerGui") end ST.spySG=SG3
     local PF=Instance.new("Frame") PF.Size=UDim2.new(0,550,0,400) PF.Position=UDim2.new(0.5,-275,0.5,-200) PF.BackgroundColor3=TH.p PF.BorderSizePixel=0 PF.Active=true PF.Draggable=true PF.Parent=SG3 PF.BackgroundTransparency=0 mkCorner(PF,12) mkStroke(PF,Color3.fromRGB(255,160,0),2)
     local PT=Instance.new("Frame") PT.Size=UDim2.new(1,0,0,36) PT.BackgroundColor3=TH.s PT.BorderSizePixel=0 PT.Parent=PF mkCorner(PT,12)
-    local PTL=Instance.new("TextLabel") PTL.Size=UDim2.new(1,-120,1,0) PTL.Position=UDim2.new(0,12,0,0) PTL.BackgroundTransparency=1 PTL.Text="REMOTE SPY" PTL.TextColor3=Color3.fromRGB(255,160,0) PTL.TextSize=14 PTL.Font=Enum.Font.GothamBlack PTL.TextXAlignment=Enum.TextXAlignment.Left PTL.Parent=PT
+    local PTL=Instance.new("TextLabel") PTL.Size=UDim2.new(1,-230,1,0) PTL.Position=UDim2.new(0,12,0,0) PTL.BackgroundTransparency=1 PTL.Text="REMOTE SPY" PTL.TextColor3=Color3.fromRGB(255,160,0) PTL.TextSize=14 PTL.Font=Enum.Font.GothamBlack PTL.TextXAlignment=Enum.TextXAlignment.Left PTL.Parent=PT
     local PX=Instance.new("TextButton") PX.Size=UDim2.new(0,28,0,28) PX.Position=UDim2.new(1,-32,0,4) PX.BackgroundTransparency=1 PX.Text="X" PX.TextColor3=TH.r PX.TextSize=18 PX.Font=Enum.Font.GothamBold PX.Parent=PT
     PX.MouseButton1Click:Connect(function() ST.spySG:Destroy() ST.spySG=nil ST.remoteSpyOn=false end)
     local PBtn=Instance.new("TextButton") PBtn.Size=UDim2.new(0,60,0,22) PBtn.Position=UDim2.new(1,-100,0,7) PBtn.BackgroundColor3=TH.b PBtn.BorderSizePixel=0 PBtn.Text="Pause" PBtn.TextColor3=TH.t PBtn.TextSize=10 PBtn.Font=Enum.Font.GothamBold PBtn.Parent=PT mkCorner(PBtn,4)
@@ -3630,6 +3652,25 @@ btn(tEx,"Open Remote Spy",function()
     local SF2=Instance.new("ScrollingFrame") SF2.Size=UDim2.new(1,-16,1,-48) SF2.Position=UDim2.new(0,8,0,42) SF2.BackgroundTransparency=1 SF2.BorderSizePixel=0 SF2.ScrollBarThickness=4 SF2.ScrollBarImageColor3=Color3.fromRGB(255,160,0) SF2.CanvasSize=UDim2.new(0,0,0,0) SF2.Parent=PF SF2.AutomaticCanvasSize=Enum.AutomaticSize.Y SF2.ScrollingDirection=Enum.ScrollingDirection.Y SF2.ElasticBehavior=Enum.ElasticBehavior.Never
     local CBtn=Instance.new("TextButton") CBtn.Size=UDim2.new(0,50,0,22) CBtn.Position=UDim2.new(1,-160,0,7) CBtn.BackgroundColor3=TH.b CBtn.BorderSizePixel=0 CBtn.Text="Clear" CBtn.TextColor3=TH.t CBtn.TextSize=10 CBtn.Font=Enum.Font.GothamBold CBtn.Parent=PT mkCorner(CBtn,4)
     CBtn.MouseButton1Click:Connect(function() ST.remoteSpyLog={} for _,ch in pairs(SF2:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end end)
+    local CPBtn=Instance.new("TextButton") CPBtn.Size=UDim2.new(0,50,0,22) CPBtn.Position=UDim2.new(1,-216,0,7) CPBtn.BackgroundColor3=TH.b CPBtn.BorderSizePixel=0 CPBtn.Text="Copy" CPBtn.TextColor3=TH.t CPBtn.TextSize=10 CPBtn.Font=Enum.Font.GothamBold CPBtn.Parent=PT mkCorner(CPBtn,4)
+    CPBtn.MouseButton1Click:Connect(function()
+        local lines=ST._capLines
+        local txt=""
+        if lines and #lines>0 then txt=table.concat(lines,"\n") end
+        if txt=="" then
+            local sl={}
+            for _,e in ipairs(ST.remoteSpyLog or {}) do table.insert(sl,e.time.." "..e.name.." "..e.args.." "..e.caller) end
+            txt=table.concat(sl,"\n")
+        end
+        if txt=="" then ntf("Spy","Nothing captured yet",3) return end
+        local okc=false
+        pcall(function() setclipboard(txt) okc=true end)
+        if okc then
+            ntf("Spy","Copied "..#(ST._capLines or {}).." captures - paste them",6)
+        else
+            ntf("Spy","setclipboard unavailable - file axynth_capture.txt",6)
+        end
+    end)
     local SL2=Instance.new("UIListLayout",SF2) SL2.Padding=UDim.new(0,2) SL2.SortOrder=Enum.SortOrder.LayoutOrder
     SL2:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() SF2.CanvasSize=UDim2.new(0,0,0,SL2.AbsoluteContentSize.Y+8) end)
     _G._spyFrame=SF2
