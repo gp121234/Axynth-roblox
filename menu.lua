@@ -123,6 +123,7 @@ local XG=xnapi("getrawmetatable") or xnapi("get_raw_metatable")
 local XS=xnapi("setreadonly") or xnapi("set_readonly")
 local XN=xnapi("getnamecallmethod") or xnapi("get_namecall_method")
 local XCHK=xnapi("checkcaller")
+local XHF=xnapi("hookfunction") or xnapi("hook_function")
 pcall(function()
     local rep={}
     for _,n in ipairs({"hookmetamethod","newcclosure","getrawmetatable","setreadonly","getnamecallmethod","hookfunction","checkcaller","getgenv","getgc","getreg","getinstances","getnilinstances","getconnections","getloadedmodules","getrenv","getsenv","gethui","protectgui","queue_on_teleport","firesignal","setclipboard","islclosure","iscclosure","getcallbackvalue","gethui"}) do
@@ -145,14 +146,58 @@ pcall(function()
     end
     print("[Axynth][Hook] resolved: hookmetamethod="..type(XM).." newcclosure="..type(XC).." getrawmetatable="..type(XG).." setreadonly="..type(XS).." getnamecallmethod="..type(XN).." checkcaller="..type(XCHK))
     print("[Axynth][Hook] avail "..HOOK_APIS)
+    local okm,gm=pcall(getmetatable,game)
+    local gms=okm and (type(gm)..":"..string.sub(tostring(gm),1,60)) or ("err:"..string.sub(tostring(gm),1,60))
+    local dbgm=(type(debug)=="table") and type(debug.getmetatable) or "no-debug"
+    local hfs="no-hookfunction"
+    if type(XHF)=="function" then
+        local okh,hinfo=pcall(function()
+            local a=function() return 1 end
+            local b=function() return 2 end
+            local r=XHF(a,b)
+            local oka,ra=pcall(a)
+            return "ret="..type(r).."/same="..tostring(r==b).."/aCall="..(oka and tostring(ra) or "err")
+        end)
+        if okh then hfs=hinfo else hfs="probe-err:"..string.sub(tostring(hinfo),1,60) end
+    end
+    local hits={}
+    local function scanKeys(t,tag)
+        if type(t)~="table" then return end
+        for k in pairs(t) do
+            if type(k)=="string" then
+                local lk=string.lower(k)
+                if string.find(lk,"hook",1,true) or string.find(lk,"meta",1,true) or string.find(lk,"namecall",1,true) then
+                    hits[#hits+1]=tag..k
+                end
+            end
+        end
+    end
+    scanKeys(_G,"")
+    if type(getgenv)=="function" then local o,e=pcall(getgenv) if o then scanKeys(e,"genv:") end end
+    if type(getfenv)=="function" then local o,e=pcall(getfenv,0) if o then scanKeys(e,"fenv:") end end
+    scanKeys(xnapi("Xeno"),"Xeno:")
+    print("[Axynth][Hook] probe gm="..gms.." debugGM="..tostring(dbgm).." hf="..hfs)
+    print("[Axynth][Hook] hookish: "..(next(hits) and table.concat(hits,",") or "none"))
+    local XTK=xnapi("Xeno")
+    if type(XTK)=="table" then
+        local ks={}
+        for k in pairs(XTK) do ks[#ks+1]=tostring(k) end
+        table.sort(ks)
+        print("[Axynth][Hook] Xeno keys: "..string.sub(table.concat(ks,","),1,500))
+    end
 end)
+local path4FS=false
 local hkOk,hkErr=pcall(function()
     local oldNC
-    local hookFn=function(self,...)
+    local hookBody=function(method,orig,self,...)
         local args = {...}
         ST._ncAny=(ST._ncAny or 0)+1
         if axSpyHUD then pcall(axSpyHUD) end
-        local method = (type(XN)=="function") and XN() or ""
+        if method=="" and typeof(self)=="Instance" then
+            if self:IsA("Workspace") or self:IsA("BasePart") then method="Raycast"
+            elseif self:IsA("RemoteEvent") or self:IsA("UnreliableRemoteEvent") then method="FireServer"
+            elseif self:IsA("RemoteFunction") then method="InvokeServer" end
+        end
         local ok, res = pcall(function()
             if method=="Raycast" and ST.magicBullet and not (type(XCHK)=="function" and XCHK() or false) then
                 local rcp,dir,params=args[1],args[2],args[3]
@@ -174,7 +219,7 @@ local hkOk,hkErr=pcall(function()
                         local newParams=params:Clone()
                         newParams.FilterType=Enum.RaycastFilterType.Include
                         newParams.FilterDescendantsInstances=charParts
-                        return oldNC(self,rcp,dir,newParams)
+                        return orig(self,rcp,dir,newParams)
                     end
                 end
             end
@@ -271,17 +316,20 @@ local hkOk,hkErr=pcall(function()
                     ST._ncExp=(ST._ncExp or 0)+1
                     if axSpyHUD then pcall(axSpyHUD) end
                     task.delay(randomDelay(),function()
-                        pcall(function() oldNC(self,unpack(args)) end)
+                        pcall(function() orig(self,unpack(args)) end)
                     end)
                     return "BLOCK"
                 end
             end
             return "PASS"
         end)
-        if not ok then ST._ncErr=(ST._ncErr or 0)+1 if not ST._ncErrP then ST._ncErrP=true pcall(function() print("[Axynth][NC] hook error: "..tostring(res)) end) end if axSpyHUD then pcall(axSpyHUD) end return oldNC(self,unpack(args)) end
+        if not ok then ST._ncErr=(ST._ncErr or 0)+1 if not ST._ncErrP then ST._ncErrP=true pcall(function() print("[Axynth][NC] hook error: "..tostring(res)) end) end if axSpyHUD then pcall(axSpyHUD) end return orig(self,unpack(args)) end
         if res=="BLOCK" then return nil end
-        if res=="PASS" then return oldNC(self,unpack(args)) end
+        if res=="PASS" then return orig(self,unpack(args)) end
         return res
+    end
+    local hookFn=function(self,...)
+        return hookBody((type(XN)=="function") and XN() or "", oldNC, self, ...)
     end
     local p1ok,p1err=pcall(function()
         if type(XM)~="function" then error("hookmetamethod is "..type(XM),0) end
@@ -294,30 +342,91 @@ local hkOk,hkErr=pcall(function()
     if p1ok then
         HOOK_PATH=(type(XC)=="function") and "hookmetamethod+cclosure" or "hookmetamethod+lclosure"
     else
-        if type(XG)~="function" then error("path1 failed ("..tostring(p1err).."); getrawmetatable is "..type(XG),0) end
-        local mt=XG(game)
-        if type(mt)~="table" then error("path1 failed ("..tostring(p1err).."); getrawmetatable(game) returned "..type(mt),0) end
-        oldNC=mt.__namecall
-        if type(XS)=="function" then XS(mt,false) end
-        local h=hookFn
-        if type(XC)=="function" then h=XC(hookFn) end
-        mt.__namecall=h
-        if type(XS)=="function" then XS(mt,true) end
-        HOOK_PATH="rawmetatable after path1: "..string.sub(tostring(p1err),1,64)
+        local p2ok,p2err=pcall(function()
+            if type(XG)~="function" then error("getrawmetatable is "..type(XG),0) end
+            local mt=XG(game)
+            if type(mt)~="table" then error("getrawmetatable(game) is "..type(mt),0) end
+            if type(XS)=="function" then pcall(XS,mt,false) end
+            oldNC=mt.__namecall
+            if type(oldNC)~="function" then error("__namecall is "..type(oldNC),0) end
+            local h=hookFn
+            if type(XC)=="function" then h=XC(hookFn) end
+            mt.__namecall=h
+            if type(XS)=="function" then pcall(XS,mt,true) end
+        end)
+        if p2ok then
+            HOOK_PATH="rawmetatable (after p1: "..string.sub(tostring(p1err),1,48)..")"
+        else
+            local p3ok,p3err=pcall(function()
+                local mt=getmetatable(game)
+                if type(mt)~="table" then error("getmetatable(game) is "..type(mt),0) end
+                local ro=type(XS)=="function"
+                if ro then local o=pcall(XS,mt,false) if not o then ro=false end end
+                oldNC=mt.__namecall
+                if type(oldNC)~="function" then error("__namecall is "..type(oldNC),0) end
+                local h=hookFn
+                if type(XC)=="function" then h=XC(hookFn) end
+                mt.__namecall=h
+                if ro then pcall(XS,mt,true) end
+            end)
+            if p3ok then
+                HOOK_PATH="getmetatable (after p2: "..string.sub(tostring(p2err),1,48)..")"
+            else
+                if type(XHF)~="function" then error("path3 failed ("..string.sub(tostring(p3err),1,48).."); hookfunction is "..type(XHF),0) end
+                local done,errs={},{}
+                local function tryM(mname,cls)
+                    local fn
+                    if cls=="Workspace" then fn=workspace.Raycast
+                    else
+                        local inst0=Instance.new(cls)
+                        fn=inst0[mname]
+                    end
+                    if type(fn)~="function" then error(mname.." is "..type(fn),0) end
+                    local box={orig=fn}
+                    local wrapper=function(self,...) return hookBody(mname,box.orig,self,...) end
+                    local okh,ret=pcall(XHF,fn,wrapper)
+                    if not okh then error("hookfunction: "..tostring(ret),0) end
+                    if type(ret)=="function" and ret~=wrapper then box.orig=ret end
+                    if box.orig==wrapper then error(mname..": recursive hook",0) end
+                    local v0=ST._ncAny or 0
+                    pcall(function()
+                        local pr=(cls=="Workspace") and workspace or Instance.new(cls)
+                        pr[mname](pr,"selftest")
+                    end)
+                    local d=(ST._ncAny or 0)-v0
+                    if d~=1 then error(mname..": closure did not run (delta="..tostring(d)..")",0) end
+                    done[#done+1]=cls..":"..mname
+                    if cls=="RemoteEvent" and mname=="FireServer" then path4FS=true end
+                end
+                local tgt={{"FireServer","RemoteEvent"},{"InvokeServer","RemoteFunction"},{"FireServer","UnreliableRemoteEvent"},{"Raycast","Workspace"}}
+                for _,t in ipairs(tgt) do
+                    local ok,e=pcall(tryM,t[1],t[2])
+                    if not ok then errs[#errs+1]=t[2]..":"..string.sub(tostring(e),1,60) end
+                end
+                if #done==0 then error("path4: "..table.concat(errs,"; "),0) end
+                HOOK_PATH="hookfunction["..table.concat(done,",").."]"..((#errs>0) and (" partial: "..table.concat(errs,"; ")) or "")
+            end
+        end
     end
 end)
 if hkOk then
     HOOK_OK=true
-    local vB=ST._ncAny or 0
-    pcall(function()
-        local r=Instance.new("RemoteEvent") r.Name="AxSelfTest"
-        r:FireServer("selftest")
-    end)
-    if (ST._ncAny or 0)>vB then
-        pcall(function() print("[Axynth][Hook] namecall OK via "..tostring(HOOK_PATH).." (self-test passed)") end)
+    local pth=tostring(HOOK_PATH)
+    local skipFS=string.find(pth,"hookfunction",1,true) and not path4FS
+    if skipFS then
+        pcall(function() print("[Axynth][Hook] OK via "..pth.." (install probes passed)") end)
     else
-        HOOK_OK=false HOOK_ERR="installed via "..tostring(HOOK_PATH).." but closure never runs (no-op hook)"
-        pcall(function() print("[Axynth][Hook] "..HOOK_ERR) end)
+        local vB=ST._ncAny or 0
+        pcall(function()
+            local r=Instance.new("RemoteEvent") r.Name="AxSelfTest"
+            r:FireServer("selftest")
+        end)
+        if (ST._ncAny or 0)>vB then
+            pcall(function() print("[Axynth][Hook] namecall OK via "..pth.." (self-test passed)") end)
+        else
+            HOOK_OK=false HOOK_ERR="installed via "..pth.." but closure never runs (no-op hook)"
+            pcall(function() print("[Axynth][Hook] "..HOOK_ERR) end)
+        end
     end
 else
     HOOK_OK=false HOOK_ERR=tostring(hkErr)
