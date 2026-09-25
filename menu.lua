@@ -129,9 +129,6 @@ pcall(function()
                             ST._learnLog=ST._learnLog or {}
                             arr={} ST._learnLog[fn]=arr
                         end
-                        for _,rec in ipairs(arr) do
-                            if rec.sig==verb then rec.t=tick() return end
-                        end
                         local copyargs={}
                         for i=1,#args do
                             local a=args[i]
@@ -139,8 +136,23 @@ pcall(function()
                                 local c={} for k,v in pairs(a) do c[k]=v end copyargs[i]=c
                             else copyargs[i]=a end
                         end
-                        table.insert(arr,1,{sig=verb,t=tick(),inst=self,args=copyargs})
-                        while #arr>6 do table.remove(arr) end
+                        local fresh=true
+                        for _,rec in ipairs(arr) do
+                            if rec.sig==verb then
+                                rec.t=tick()
+                                rec.inst=self
+                                rec.args=copyargs
+                                rec.path=fn
+                                fresh=false
+                                break
+                            end
+                        end
+                        if fresh then
+                            table.insert(arr,1,{sig=verb,t=tick(),inst=self,args=copyargs,path=fn})
+                            while #arr>6 do table.remove(arr) end
+                            ST._lsForce=true
+                        end
+                        if axSaveLearn then pcall(axSaveLearn) end
                         if not ST._learnNtf and string.find(fl,"inventory",1,true) then
                             ST._learnNtf=true
                             ST._learnPending=true
@@ -1257,6 +1269,125 @@ function findRemote(name)
     if last then local found=RS:FindFirstChild(last,true) if found then return found end end
     return nil
 end
+axResolvePath=function(p)
+    if type(p)~="string" then return nil end
+    local cur=game
+    for part in string.gmatch(p,"[^%.]+") do
+        if not cur then return nil end
+        cur=cur:FindFirstChild(part)
+    end
+    return cur
+end
+axSaveLearn=function()
+    pcall(function()
+        if not ST._lsForce and tick()-(ST._lsT or 0)<5 then return end
+        ST._lsForce=false
+        ST._lsT=tick()
+        local HS=game:GetService("HttpService")
+        local function enc(v,d)
+            d=d or 0
+            if d>7 then return nil end
+            local t=typeof(v)
+            if t=="string" then return v end
+            if t=="boolean" then return v end
+            if t=="number" then
+                if v~=v or v==math.huge or v==-math.huge then return 0 end
+                return v
+            end
+            if t=="Instance" then return {__t="i",p=v:GetFullName()} end
+            if t=="Vector3" then return {__t="v",x=v.X,y=v.Y,z=v.Z} end
+            if t=="CFrame" then return {__t="c",c={v:GetComponents()}} end
+            if t=="EnumItem" then return {__t="e",s=tostring(v)} end
+            if t=="table" then
+                local n=#v
+                local seq=false
+                if n>0 then
+                    seq=true
+                    local cnt=0
+                    for k in pairs(v) do
+                        cnt=cnt+1
+                        if type(k)~="number" or k<1 or k%1~=0 then seq=false break end
+                    end
+                    if cnt~=n then seq=false end
+                end
+                if seq then
+                    local o={}
+                    for i=1,n do o[i]=enc(v[i],d+1) end
+                    return o
+                end
+                local o={}
+                for k,val in pairs(v) do
+                    local e=enc(val,d+1)
+                    if e~=nil then o[tostring(k)]=e end
+                end
+                return o
+            end
+            return nil
+        end
+        local out={}
+        local lg=ST._learnLog
+        if lg then
+            for path,arr in pairs(lg) do
+                if #out>=25 then break end
+                local rec=arr and arr[1]
+                if rec and rec.args then
+                    table.insert(out,{p=path,s=rec.sig or "",a=enc(rec.args)})
+                end
+            end
+        end
+        writefile("axynth_learn.json",HS:JSONEncode(out))
+    end)
+end
+axLoadLearn=function()
+    pcall(function()
+        if not isfile("axynth_learn.json") then return end
+        local raw=readfile("axynth_learn.json")
+        if type(raw)~="string" or raw=="" then return end
+        local data=game:GetService("HttpService"):JSONDecode(raw)
+        if type(data)~="table" then return end
+        local function dec(v,d)
+            d=d or 0
+            if d>7 then return v end
+            if type(v)~="table" then return v end
+            local tg=v.__t
+            if tg=="i" then return axResolvePath(v.p) or v.p end
+            if tg=="v" then return Vector3.new(v.x or 0,v.y or 0,v.z or 0) end
+            if tg=="c" then
+                local ok2,cf=pcall(function() return CFrame.new(unpack(v.c)) end)
+                if ok2 then return cf end
+                return v
+            end
+            if tg=="e" then
+                local cls,it=tostring(v.s or ""):match("^Enum%.([^.]+)%.(.+)$")
+                if cls and Enum[cls] and Enum[cls][it] then return Enum[cls][it] end
+                return v.s
+            end
+            local o={}
+            for k,val in pairs(v) do o[k]=dec(val,d+1) end
+            return o
+        end
+        ST._learnLog=ST._learnLog or {}
+        for _,e in ipairs(data) do
+            if type(e)=="table" and type(e.p)=="string" and type(e.a)=="table" then
+                local args=dec(e.a)
+                if type(args)=="table" then
+                    local arr=ST._learnLog[e.p] or {}
+                    table.insert(arr,1,{sig=e.s or "",t=tick(),inst=axResolvePath(e.p),path=e.p,args=args})
+                    while #arr>6 do table.remove(arr) end
+                    ST._learnLog[e.p]=arr
+                end
+            end
+        end
+    end)
+end
+axLearnInst=function(rec)
+    if not rec then return nil end
+    if not rec.inst and rec.path then
+        rec.inst=axResolvePath(rec.path)
+    end
+    return rec.inst
+end
+pcall(axLoadLearn)
 local function forceFire(r, ...)
     if not r then return end
     local args={...}
@@ -1783,7 +1914,7 @@ local function spawnVehicle(name, pos)
             local lp=string.lower(path)
             if string.find(lp,"cardealer",1,true) or string.find(lp,"spawncar",1,true) or string.find(lp,"vehicle",1,true) then
                 local rec=arr[1]
-                if rec and rec.inst then
+                if rec and axLearnInst(rec) then
                     local function build(usePos)
                         local na={} local sub=false
                         for i,a in ipairs(rec.args) do
@@ -2126,7 +2257,7 @@ local function doForceJob(targetPl, jobName)
             for path,arr in pairs(lg) do
                 if string.find(string.lower(path),sub,1,true) then
                     local rec=arr[1]
-                    if rec and rec.inst then
+                    if rec and axLearnInst(rec) then
                         local newArgs={}
                         local okSub=false
                         for i,a in ipairs(rec.args) do
@@ -2589,7 +2720,7 @@ function giveGRItem(name, kind, noFire)
                 local lp=string.lower(path)
                 if string.find(lp,"inventory",1,true) or string.find(lp,"armory",1,true) or string.find(lp,"supermarket",1,true) then
                     local rec=arr[1]
-                    if rec and rec.inst then
+                    if rec and axLearnInst(rec) then
                         local newArgs={}
                         local sub=false
                         for i,a in ipairs(rec.args) do
@@ -3855,7 +3986,7 @@ local function dealWeaponDamage(victim, hitPos, force)
                 local lp2=string.lower(wpath)
                 if string.find(lp2,"weaponhit",1,true) or string.find(lp2,"damage",1,true) or string.find(lp2,"hurt",1,true) then
                     local rec=arr[1]
-                    if rec and rec.inst then
+                    if rec and axLearnInst(rec) then
                         local newArgs={}
                         local sub=false
                         for i,a in ipairs(rec.args) do
@@ -4146,7 +4277,7 @@ MS.Button1Down:Connect(function()
                             for wpath,arr in pairs(lg) do
                                 if string.find(string.lower(wpath),"weaponfired",1,true) then
                                     local rec=arr[1]
-                                    if rec and rec.inst then
+                                    if rec and axLearnInst(rec) then
                                         local na={}
                                         local ns=false
                                         for i,a in ipairs(rec.args) do
