@@ -348,20 +348,20 @@ local hkOk,hkErr=pcall(function()
             pHIok,pHIerr=pcall(function()
                 local HI=xnapi("hookinstance") or xnapi("hook_instance")
                 if type(HI)~="function" then error("hookinstance is "..type(HI),0) end
-                local h=hookFn
-                if type(XC)=="function" then h=XC(hookFn) end
-                local ok1,r1=pcall(HI,game,"__namecall",h)
-                if ok1 and type(r1)=="function" then oldNC=r1 HOOK_PATH="hookinstance+namecall" return end
-                local e1=ok1 and ("returned "..type(r1)) or string.sub(tostring(r1),1,80)
+                ST._hiShape=nil
                 local dA=Instance.new("RemoteEvent")
                 local origA=dA.FireServer
-                if type(origA)~="function" then error("nc:"..e1.."; FireServer is "..type(origA),0) end
-                local wA=function(self,...) return hookBody("FireServer",origA,self,...) end
-                local ok2,e2=pcall(HI,dA,"FireServer",wA)
-                if not ok2 then error("nc:"..e1.."; fire:"..string.sub(tostring(e2),1,80),0) end
+                if type(origA)~="function" then error("FireServer is "..type(origA),0) end
+                local wA=function(self,...)
+                    if ST._hiShape==nil then ST._hiShape=typeof(self) end
+                    return hookBody("FireServer",origA,self,...)
+                end
+                local okA,eA=pcall(HI,dA,wA)
+                if not okA then error("f2:"..string.sub(tostring(eA),1,90),0) end
                 local v0=ST._ncAny or 0
                 pcall(function() dA:FireServer("axprobe") end)
-                if (ST._ncAny or 0)<=v0 then error("nc:"..e1.."; fire: no interception",0) end
+                if (ST._ncAny or 0)<=v0 then error("f2: no interception",0) end
+                if ST._hiShape~="Instance" then error("f2: shape="..tostring(ST._hiShape),0) end
                 local dB=Instance.new("RemoteEvent")
                 local v1=ST._ncAny or 0
                 pcall(function() dB:FireServer("axprobe") end)
@@ -371,13 +371,13 @@ local hkOk,hkErr=pcall(function()
                     local origF=dF.InvokeServer
                     if type(origF)=="function" then
                         local wF=function(self,...) return hookBody("InvokeServer",origF,self,...) end
-                        if pcall(HI,dF,"InvokeServer",wF) then parts[#parts+1]="InvokeServer" end
+                        if pcall(HI,dF,wF) then parts[#parts+1]="InvokeServer" end
                     end
                     local dU=Instance.new("UnreliableRemoteEvent")
                     local origU=dU.FireServer
                     if type(origU)=="function" then
                         local wU=function(self,...) return hookBody("FireServer",origU,self,...) end
-                        if pcall(HI,dU,"FireServer",wU) then parts[#parts+1]="UnreliableRE" end
+                        if pcall(HI,dU,wU) then parts[#parts+1]="UnreliableRE" end
                     end
                     HOOK_PATH="hookinstance["..table.concat(parts,",").."]"
                     return
@@ -397,7 +397,7 @@ local hkOk,hkErr=pcall(function()
                                     if type(fn)=="function" then
                                         local bx={orig=fn}
                                         local w=function(self,...) return hookBody(m,bx.orig,self,...) end
-                                        if pcall(HI,inst,m,w) then n=n+1 end
+                                        if pcall(HI,inst,w) then n=n+1 end
                                     end
                                 end
                             end
@@ -408,7 +408,7 @@ local hkOk,hkErr=pcall(function()
                     HOOK_PATH="hookinstance[instance x"..n.."]"
                     return
                 end
-                error("nc:"..e1.."; fire:class=no inst=0",0)
+                error("f2:class=no inst=0",0)
             end)
             pHIdone=true
         end)
