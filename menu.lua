@@ -2573,6 +2573,7 @@ function giveGRItem(name, kind, noFire)
         return 1
     end
     local n=0
+    local didReplay=false
     pcall(function()
         if noFire then return end
         local arm=findRemote("Armory.RemoteEvent")
@@ -2603,7 +2604,7 @@ function giveGRItem(name, kind, noFire)
                                 newArgs[i]=a
                             end
                         end
-                        if sub then grFire(rec.inst,newArgs,"learn") end
+                        if sub then grFire(rec.inst,newArgs,"learn") didReplay=true end
                     end
                 end
             end
@@ -2634,6 +2635,15 @@ function giveGRItem(name, kind, noFire)
             if jc then grFire(jc,name,"give") end
         end
     end)
+    if not noFire then
+        pcall(function()
+            if didReplay then
+                ntf("Give","Using real shop remote (learned) - if others dont see the item, server rejected the replay",6)
+            else
+                ntf("Give","LOCAL copy only - make ONE legit purchase in-game with menu open first, then Give uses the real remote",7)
+            end
+        end)
+    end
     pcall(function()
         local bp=LP:FindFirstChild("Backpack")
         if not bp then return end
