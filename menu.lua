@@ -14,6 +14,7 @@ MS = LP:GetMouse()
 CAM = W.CurrentCamera
 print("[Axynth] Services OK")
 local ST={}
+local HOOK_OK,HOOK_ERR,HOOK_PATH
 local findRemote
 local freezeLocalForCam
 local unfreezeLocalFromCam
@@ -82,9 +83,9 @@ local function randomDelay()
     return math.random(100,400)/1000
 end
 function axSpyHUD()
-    if ST._hookOK==false then
+    if HOOK_OK==false then
         local pf=ST._spyPTL
-        if pf and pf.Parent then pf.TextSize=12 pf.Text="HOOK FAILED - see F9" pf.TextColor3=Color3.fromRGB(255,80,80) end
+        if pf and pf.Parent then pf.TextSize=10 pf.Text="HOOK FAILED: "..string.sub(HOOK_ERR or "?",1,52) pf.TextColor3=Color3.fromRGB(255,80,80) end
         return
     end
     if not ST.remoteSpyOn then return end
@@ -98,13 +99,14 @@ function axSpyHUD()
         p.Text="any:"..(ST._ncAny or 0).." nc:"..(ST._ncAll or 0).." blk:"..(ST._ncBlk or 0).." log:"..(ST._ncLog or 0)..(e>0 and (" err:"..e) or "")
     end
 end
+pcall(function() print("[Axynth][Hook] APIs: hookmetamethod="..type(hookmetamethod).." newcclosure="..type(newcclosure).." getrawmetatable="..type(getrawmetatable).." setreadonly="..type(setreadonly).." getnamecallmethod="..type(getnamecallmethod)) end)
 local hkOk,hkErr=pcall(function()
     local oldNC
-    oldNC = hookmetamethod(game,"__namecall",newcclosure(function(self,...)
+    local hookFn=function(self,...)
         local args = {...}
         ST._ncAny=(ST._ncAny or 0)+1
         if axSpyHUD then pcall(axSpyHUD) end
-        local method = getnamecallmethod()
+        local method = (type(getnamecallmethod)=="function") and getnamecallmethod() or ""
         local ok, res = pcall(function()
             if method=="Raycast" and ST.magicBullet and not checkcaller() then
                 local rcp,dir,params=args[1],args[2],args[3]
@@ -234,14 +236,46 @@ local hkOk,hkErr=pcall(function()
         if res=="BLOCK" then return nil end
         if res=="PASS" then return oldNC(self,unpack(args)) end
         return res
-    end))
+    end
+    local p1ok,p1err=pcall(function()
+        if type(hookmetamethod)~="function" then error("hookmetamethod is "..type(hookmetamethod)) end
+        local h=hookFn
+        if type(newcclosure)=="function" then h=newcclosure(hookFn) end
+        local r=hookmetamethod(game,"__namecall",h)
+        if type(r)~="function" then error("hookmetamethod returned "..type(r)) end
+        oldNC=r
+    end)
+    if p1ok then
+        HOOK_PATH=(type(newcclosure)=="function") and "hookmetamethod+cclosure" or "hookmetamethod+lclosure"
+    else
+        if type(getrawmetatable)~="function" then error("path1 failed ("..tostring(p1err).."); getrawmetatable is "..type(getrawmetatable)) end
+        local mt=getrawmetatable(game)
+        if type(mt)~="table" then error("path1 failed ("..tostring(p1err).."); getrawmetatable(game) returned "..type(mt)) end
+        oldNC=mt.__namecall
+        if type(setreadonly)=="function" then setreadonly(mt,false) end
+        local h=hookFn
+        if type(newcclosure)=="function" then h=newcclosure(hookFn) end
+        mt.__namecall=h
+        if type(setreadonly)=="function" then setreadonly(mt,true) end
+        HOOK_PATH="rawmetatable after path1: "..string.sub(tostring(p1err),1,64)
+    end
 end)
 if hkOk then
-    ST._hookOK=true
-    pcall(function() print("[Axynth][Hook] namecall installed OK") end)
+    HOOK_OK=true
+    local vB=ST._ncAny or 0
+    pcall(function()
+        local r=Instance.new("RemoteEvent") r.Name="AxSelfTest"
+        r:FireServer("selftest")
+    end)
+    if (ST._ncAny or 0)>vB then
+        pcall(function() print("[Axynth][Hook] namecall OK via "..tostring(HOOK_PATH).." (self-test passed)") end)
+    else
+        HOOK_OK=false HOOK_ERR="installed via "..tostring(HOOK_PATH).." but closure never runs (no-op hook)"
+        pcall(function() print("[Axynth][Hook] "..HOOK_ERR) end)
+    end
 else
-    ST._hookOK=false ST._hookErr=tostring(hkErr)
-    pcall(function() print("[Axynth][Hook] namecall FAILED: "..ST._hookErr) end)
+    HOOK_OK=false HOOK_ERR=tostring(hkErr)
+    pcall(function() print("[Axynth][Hook] namecall FAILED: "..HOOK_ERR) end)
 end
 local function spoofVelocity()
     pcall(function()
@@ -596,7 +630,7 @@ R.RenderStepped:Connect(function()
     if _frameCount%300~=0 then return end
     hideBanGUI()
 end)
-print("[Axynth] Anti-Ban v9 SAFE | Whitelist: "..(function() local c=0 for _ in pairs(whitelistRemotes) do c=c+1 end return c end)().." | Keywords: "..#blockedKeywords.." | Hooks: 1 (namecall)")
+print("[Axynth] Anti-Ban v9 SAFE | Whitelist: "..(function() local c=0 for _ in pairs(whitelistRemotes) do c=c+1 end return c end)().." | Keywords: "..#blockedKeywords.." | Hooks: "..(HOOK_OK and 1 or 0)..(HOOK_PATH and (" via "..HOOK_PATH) or ""))
 local decoyRemotes={"ClientReplicator","CharacterReplicator","PlayerReplicator","DataReplicator"}
 local function fakeDecoy()
     pcall(function()
@@ -3697,7 +3731,7 @@ btn(tEx,"Open Remote Spy",function()
     CBtn.MouseButton1Click:Connect(function() ST.remoteSpyLog={} for _,ch in pairs(SF2:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end end)
     local CPBtn=Instance.new("TextButton") CPBtn.Size=UDim2.new(0,50,0,22) CPBtn.Position=UDim2.new(1,-216,0,7) CPBtn.BackgroundColor3=TH.b CPBtn.BorderSizePixel=0 CPBtn.Text="Copy" CPBtn.TextColor3=TH.t CPBtn.TextSize=10 CPBtn.Font=Enum.Font.GothamBold CPBtn.Parent=PT mkCorner(CPBtn,4)
     CPBtn.MouseButton1Click:Connect(function()
-        local hdr="hook="..(ST._hookOK==false and ("FAIL:"..string.sub(ST._hookErr or "?",1,60)) or "OK").." any="..(ST._ncAny or 0).." nc="..(ST._ncAll or 0).." ff="..(ST._ncFF or 0).." blk="..(ST._ncBlk or 0).." exp="..(ST._ncExp or 0).." log="..(ST._ncLog or 0).." err="..(ST._ncErr or 0)
+        local hdr="hook="..(HOOK_OK==false and ("FAIL:"..string.sub(HOOK_ERR or "?",1,70)) or tostring(HOOK_PATH or "OK")).." any="..(ST._ncAny or 0).." nc="..(ST._ncAll or 0).." ff="..(ST._ncFF or 0).." blk="..(ST._ncBlk or 0).." exp="..(ST._ncExp or 0).." log="..(ST._ncLog or 0).." err="..(ST._ncErr or 0)
         local lines=ST._capLines
         local txt=""
         if lines and #lines>0 then txt=table.concat(lines,"\n") end
