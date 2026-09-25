@@ -14,7 +14,7 @@ MS = LP:GetMouse()
 CAM = W.CurrentCamera
 print("[Axynth] Services OK")
 local ST={}
-local HOOK_OK,HOOK_ERR,HOOK_PATH
+local HOOK_OK,HOOK_ERR,HOOK_PATH,HOOK_APIS
 local findRemote
 local freezeLocalForCam
 local unfreezeLocalFromCam
@@ -85,7 +85,12 @@ end
 function axSpyHUD()
     if HOOK_OK==false then
         local pf=ST._spyPTL
-        if pf and pf.Parent then pf.TextSize=10 pf.Text="HOOK FAILED: "..string.sub(HOOK_ERR or "?",1,52) pf.TextColor3=Color3.fromRGB(255,80,80) end
+        if pf and pf.Parent then
+            pf.TextSize=10
+            local disp=string.gsub(tostring(HOOK_ERR or "?"),"^.-loadstring[:%.][%d]+[:%.]%d+:%s*","")
+            pf.Text="HOOK FAILED: "..string.sub(disp,1,64)
+            pf.TextColor3=Color3.fromRGB(255,80,80)
+        end
         return
     end
     if not ST.remoteSpyOn then return end
@@ -99,16 +104,57 @@ function axSpyHUD()
         p.Text="any:"..(ST._ncAny or 0).." nc:"..(ST._ncAll or 0).." blk:"..(ST._ncBlk or 0).." log:"..(ST._ncLog or 0)..(e>0 and (" err:"..e) or "")
     end
 end
-pcall(function() print("[Axynth][Hook] APIs: hookmetamethod="..type(hookmetamethod).." newcclosure="..type(newcclosure).." getrawmetatable="..type(getrawmetatable).." setreadonly="..type(setreadonly).." getnamecallmethod="..type(getnamecallmethod)) end)
+local function xnapi(n)
+    local v=_G[n]
+    if v~=nil then return v end
+    if type(getgenv)=="function" then
+        local okg,g=pcall(getgenv)
+        if okg and type(g)=="table" and g[n]~=nil then return g[n] end
+    end
+    if type(getfenv)=="function" then
+        local oke,e0=pcall(getfenv,0)
+        if oke and type(e0)=="table" and e0[n]~=nil then return e0[n] end
+    end
+    return nil
+end
+local XM=xnapi("hookmetamethod") or xnapi("hook_metamethod")
+local XC=xnapi("newcclosure") or xnapi("new_cclosure")
+local XG=xnapi("getrawmetatable") or xnapi("get_raw_metatable")
+local XS=xnapi("setreadonly") or xnapi("set_readonly")
+local XN=xnapi("getnamecallmethod") or xnapi("get_namecall_method")
+local XCHK=xnapi("checkcaller")
+pcall(function()
+    local rep={}
+    for _,n in ipairs({"hookmetamethod","newcclosure","getrawmetatable","setreadonly","getnamecallmethod","hookfunction","checkcaller","getgenv","getgc","getreg","getinstances","getnilinstances","getconnections","getloadedmodules","getrenv","getsenv","gethui","protectgui","queue_on_teleport","firesignal","setclipboard","islclosure","iscclosure","getcallbackvalue","gethui"}) do
+        rep[#rep+1]=n.."="..type(xnapi(n))
+    end
+    HOOK_APIS=table.concat(rep," ")
+    local okE,ET=pcall(getgenv)
+    if okE and type(ET)=="table" then
+        local ks={}
+        for k in pairs(ET) do if type(k)=="string" then ks[#ks+1]=k end end
+        table.sort(ks)
+        HOOK_APIS=HOOK_APIS.." | genv["..string.sub(table.concat(ks,","),1,400).."]"
+    end
+    local XT=xnapi("Xeno")
+    if type(XT)=="table" then
+        local ks={}
+        for k in pairs(XT) do ks[#ks+1]=tostring(k) end
+        table.sort(ks)
+        HOOK_APIS=HOOK_APIS.." | Xeno["..string.sub(table.concat(ks,","),1,400).."]"
+    end
+    print("[Axynth][Hook] resolved: hookmetamethod="..type(XM).." newcclosure="..type(XC).." getrawmetatable="..type(XG).." setreadonly="..type(XS).." getnamecallmethod="..type(XN).." checkcaller="..type(XCHK))
+    print("[Axynth][Hook] avail "..HOOK_APIS)
+end)
 local hkOk,hkErr=pcall(function()
     local oldNC
     local hookFn=function(self,...)
         local args = {...}
         ST._ncAny=(ST._ncAny or 0)+1
         if axSpyHUD then pcall(axSpyHUD) end
-        local method = (type(getnamecallmethod)=="function") and getnamecallmethod() or ""
+        local method = (type(XN)=="function") and XN() or ""
         local ok, res = pcall(function()
-            if method=="Raycast" and ST.magicBullet and not checkcaller() then
+            if method=="Raycast" and ST.magicBullet and not (type(XCHK)=="function" and XCHK() or false) then
                 local rcp,dir,params=args[1],args[2],args[3]
                 if typeof(rcp)=="Vector3" and typeof(dir)=="Vector3" and params~=nil then
                     if not _G._mbParts or tick()-(_G._mbPartsT or 0)>0.5 then
@@ -238,25 +284,25 @@ local hkOk,hkErr=pcall(function()
         return res
     end
     local p1ok,p1err=pcall(function()
-        if type(hookmetamethod)~="function" then error("hookmetamethod is "..type(hookmetamethod)) end
+        if type(XM)~="function" then error("hookmetamethod is "..type(XM),0) end
         local h=hookFn
-        if type(newcclosure)=="function" then h=newcclosure(hookFn) end
-        local r=hookmetamethod(game,"__namecall",h)
-        if type(r)~="function" then error("hookmetamethod returned "..type(r)) end
+        if type(XC)=="function" then h=XC(hookFn) end
+        local r=XM(game,"__namecall",h)
+        if type(r)~="function" then error("hookmetamethod returned "..type(r),0) end
         oldNC=r
     end)
     if p1ok then
-        HOOK_PATH=(type(newcclosure)=="function") and "hookmetamethod+cclosure" or "hookmetamethod+lclosure"
+        HOOK_PATH=(type(XC)=="function") and "hookmetamethod+cclosure" or "hookmetamethod+lclosure"
     else
-        if type(getrawmetatable)~="function" then error("path1 failed ("..tostring(p1err).."); getrawmetatable is "..type(getrawmetatable)) end
-        local mt=getrawmetatable(game)
-        if type(mt)~="table" then error("path1 failed ("..tostring(p1err).."); getrawmetatable(game) returned "..type(mt)) end
+        if type(XG)~="function" then error("path1 failed ("..tostring(p1err).."); getrawmetatable is "..type(XG),0) end
+        local mt=XG(game)
+        if type(mt)~="table" then error("path1 failed ("..tostring(p1err).."); getrawmetatable(game) returned "..type(mt),0) end
         oldNC=mt.__namecall
-        if type(setreadonly)=="function" then setreadonly(mt,false) end
+        if type(XS)=="function" then XS(mt,false) end
         local h=hookFn
-        if type(newcclosure)=="function" then h=newcclosure(hookFn) end
+        if type(XC)=="function" then h=XC(hookFn) end
         mt.__namecall=h
-        if type(setreadonly)=="function" then setreadonly(mt,true) end
+        if type(XS)=="function" then XS(mt,true) end
         HOOK_PATH="rawmetatable after path1: "..string.sub(tostring(p1err),1,64)
     end
 end)
@@ -3731,7 +3777,8 @@ btn(tEx,"Open Remote Spy",function()
     CBtn.MouseButton1Click:Connect(function() ST.remoteSpyLog={} for _,ch in pairs(SF2:GetChildren()) do if ch:IsA("Frame") then ch:Destroy() end end end)
     local CPBtn=Instance.new("TextButton") CPBtn.Size=UDim2.new(0,50,0,22) CPBtn.Position=UDim2.new(1,-216,0,7) CPBtn.BackgroundColor3=TH.b CPBtn.BorderSizePixel=0 CPBtn.Text="Copy" CPBtn.TextColor3=TH.t CPBtn.TextSize=10 CPBtn.Font=Enum.Font.GothamBold CPBtn.Parent=PT mkCorner(CPBtn,4)
     CPBtn.MouseButton1Click:Connect(function()
-        local hdr="hook="..(HOOK_OK==false and ("FAIL:"..string.sub(HOOK_ERR or "?",1,70)) or tostring(HOOK_PATH or "OK")).." any="..(ST._ncAny or 0).." nc="..(ST._ncAll or 0).." ff="..(ST._ncFF or 0).." blk="..(ST._ncBlk or 0).." exp="..(ST._ncExp or 0).." log="..(ST._ncLog or 0).." err="..(ST._ncErr or 0)
+        local cleanE=string.gsub(tostring(HOOK_ERR or "-"),"^.-loadstring[:%.][%d]+[:%.]%d+:%s*","")
+        local hdr="hook="..(HOOK_OK==false and ("FAIL:"..cleanE) or tostring(HOOK_PATH or "OK")).." any="..(ST._ncAny or 0).." nc="..(ST._ncAll or 0).." ff="..(ST._ncFF or 0).." blk="..(ST._ncBlk or 0).." exp="..(ST._ncExp or 0).." log="..(ST._ncLog or 0).." err="..(ST._ncErr or 0).." | apis="..string.sub(tostring(HOOK_APIS or "-"),1,600)
         local lines=ST._capLines
         local txt=""
         if lines and #lines>0 then txt=table.concat(lines,"\n") end
