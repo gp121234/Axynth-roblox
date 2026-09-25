@@ -342,7 +342,7 @@ local hkOk,hkErr=pcall(function()
     if p1ok then
         HOOK_PATH=(type(XC)=="function") and "hookmetamethod+cclosure" or "hookmetamethod+lclosure"
     else
-        local pHIok,pHIerr=false,"hookinstance timeout"
+        local pHIok,pHIerr=false,"hookinstance not run"
         local pHIdone=false
         task.spawn(function()
             pHIok,pHIerr=pcall(function()
@@ -350,13 +350,69 @@ local hkOk,hkErr=pcall(function()
                 if type(HI)~="function" then error("hookinstance is "..type(HI),0) end
                 local h=hookFn
                 if type(XC)=="function" then h=XC(hookFn) end
-                local r=HI(game,"__namecall",h)
-                if type(r)~="function" then error("hookinstance returned "..type(r),0) end
-                oldNC=r
+                local ok1,r1=pcall(HI,game,"__namecall",h)
+                if ok1 and type(r1)=="function" then oldNC=r1 HOOK_PATH="hookinstance+namecall" return end
+                local e1=ok1 and ("returned "..type(r1)) or string.sub(tostring(r1),1,80)
+                local dA=Instance.new("RemoteEvent")
+                local origA=dA.FireServer
+                if type(origA)~="function" then error("nc:"..e1.."; FireServer is "..type(origA),0) end
+                local wA=function(self,...) return hookBody("FireServer",origA,self,...) end
+                local ok2,e2=pcall(HI,dA,"FireServer",wA)
+                if not ok2 then error("nc:"..e1.."; fire:"..string.sub(tostring(e2),1,80),0) end
+                local v0=ST._ncAny or 0
+                pcall(function() dA:FireServer("axprobe") end)
+                if (ST._ncAny or 0)<=v0 then error("nc:"..e1.."; fire: no interception",0) end
+                local dB=Instance.new("RemoteEvent")
+                local v1=ST._ncAny or 0
+                pcall(function() dB:FireServer("axprobe") end)
+                if (ST._ncAny or 0)>v1 then
+                    local parts={"class:FireServer"}
+                    local dF=Instance.new("RemoteFunction")
+                    local origF=dF.InvokeServer
+                    if type(origF)=="function" then
+                        local wF=function(self,...) return hookBody("InvokeServer",origF,self,...) end
+                        if pcall(HI,dF,"InvokeServer",wF) then parts[#parts+1]="InvokeServer" end
+                    end
+                    local dU=Instance.new("UnreliableRemoteEvent")
+                    local origU=dU.FireServer
+                    if type(origU)=="function" then
+                        local wU=function(self,...) return hookBody("FireServer",origU,self,...) end
+                        if pcall(HI,dU,"FireServer",wU) then parts[#parts+1]="UnreliableRE" end
+                    end
+                    HOOK_PATH="hookinstance["..table.concat(parts,",").."]"
+                    return
+                end
+                local got=xnapi("getinstances")
+                local n=0
+                if type(got)=="function" then
+                    local okL,insts=pcall(got)
+                    if okL and type(insts)=="table" then
+                        for _,inst in ipairs(insts) do
+                            if n>=600 then break end
+                            if typeof(inst)=="Instance" then
+                                local cn=inst.ClassName
+                                if cn=="RemoteEvent" or cn=="UnreliableRemoteEvent" or cn=="RemoteFunction" then
+                                    local m=(cn=="RemoteFunction") and "InvokeServer" or "FireServer"
+                                    local fn=inst[m]
+                                    if type(fn)=="function" then
+                                        local bx={orig=fn}
+                                        local w=function(self,...) return hookBody(m,bx.orig,self,...) end
+                                        if pcall(HI,inst,m,w) then n=n+1 end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                if n>0 then
+                    HOOK_PATH="hookinstance[instance x"..n.."]"
+                    return
+                end
+                error("nc:"..e1.."; fire:class=no inst=0",0)
             end)
             pHIdone=true
         end)
-        for i=1,20 do
+        for i=1,30 do
             if pHIdone then break end
             task.wait(0.1)
         end
@@ -440,7 +496,7 @@ local hkOk,hkErr=pcall(function()
                     end
                     if not ok then errs[#errs+1]=t[2]..":"..string.sub(tostring(e),1,60) end
                 end
-                if #done==0 then error("path4: "..table.concat(errs,"; "),0) end
+                if #done==0 then error("pHI["..string.sub(tostring(pHIerr),1,140).."] path4: "..table.concat(errs,"; "),0) end
                 HOOK_PATH="hookfunction["..table.concat(done,",").."]"..((#errs>0) and (" partial: "..table.concat(errs,"; ")) or "")
             end
         end
@@ -450,7 +506,7 @@ end)
 if hkOk then
     HOOK_OK=true
     local pth=tostring(HOOK_PATH)
-    local skipFS=string.find(pth,"hookfunction",1,true) and not path4FS
+    local skipFS=(string.find(pth,"hookfunction",1,true) and not path4FS) or string.find(pth,"[instance",1,true)
     if skipFS then
         pcall(function() print("[Axynth][Hook] OK via "..pth.." (install probes passed)") end)
     else
