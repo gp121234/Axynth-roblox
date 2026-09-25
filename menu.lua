@@ -118,7 +118,7 @@ pcall(function()
                 pcall(function()
                     local fn=self:GetFullName()
                     local fl=string.lower(fn)
-                    if string.find(fl,"inventory",1,true) or string.find(fl,"armory",1,true) or string.find(fl,"supermarket",1,true) or string.find(fl,"jobcenter",1,true) or string.find(fl,"changejob",1,true) or string.find(fl,"changeteam",1,true) then
+                    if string.find(fl,"inventory",1,true) or string.find(fl,"armory",1,true) or string.find(fl,"supermarket",1,true) or string.find(fl,"jobcenter",1,true) or string.find(fl,"changejob",1,true) or string.find(fl,"changeteam",1,true) or string.find(fl,"weaponhit",1,true) or string.find(fl,"weaponfired",1,true) or string.find(fl,"damage",1,true) or string.find(fl,"hurt",1,true) then
                         local verb=""
                         for i=1,#args do
                             local a=args[i]
@@ -144,6 +144,10 @@ pcall(function()
                         if not ST._learnNtf and string.find(fl,"inventory",1,true) then
                             ST._learnNtf=true
                             ST._learnPending=true
+                        end
+                        if not ST._learnCT and (string.find(fl,"weaponhit",1,true) or string.find(fl,"weaponfired",1,true) or string.find(fl,"damage",1,true) or string.find(fl,"hurt",1,true)) then
+                            ST._learnCT=true
+                            ST._learnCPend=true
                         end
                     end
                 end)
@@ -1188,7 +1192,7 @@ local function applyAim(cam)
     if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
 end
 pcall(function()
-    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Camera.Value+100,function()
+    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Last.Value+100,function()
         pcall(function()
             local cam=W.CurrentCamera
             if not cam then return end
@@ -1783,24 +1787,6 @@ local function spawnVehicle(name, pos)
         end)
         return parts,joints,anchored
     end
-    local function autoSit()
-        pcall(function()
-            local ch=LP.Character
-            local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-            if not hum or hum.SeatPart then return end
-            local rp=ch:FindFirstChild("HumanoidRootPart")
-            if not rp then return end
-            local best=nil
-            local bd=50
-            for _,d in pairs(W:GetDescendants()) do
-                if d:IsA("VehicleSeat") then
-                    local dd=(d.Position-rp.Position).Magnitude
-                    if dd<bd then bd=dd best=d end
-                end
-            end
-            if best then best:Sit(hum) end
-        end)
-    end
     local function clientClone()
         local ok=false
         pcall(function()
@@ -1859,9 +1845,8 @@ local function spawnVehicle(name, pos)
                 end
                 cl.Parent=W
                 ST._vehClone=cl
-                ntf("Vehicle","Spawned (client) "..found.Name.." - getting in",5)
+                ntf("Vehicle","Spawned (client) "..found.Name.." - press E to enter",5)
                 ok=true
-                task.delay(0.9,function() autoSit() end)
             end
         end)
         return ok
@@ -1884,8 +1869,7 @@ local function spawnVehicle(name, pos)
             end
         end)
         if near then
-            ntf("Vehicle","Spawned "..tostring(name).." nearby - getting in",5)
-            task.delay(0.9,function() autoSit() end)
+            ntf("Vehicle","Spawned "..tostring(name).." nearby - press E to enter",5)
             return
         end
         if clientClone() then return end
@@ -1935,30 +1919,6 @@ end)
 vehBox=Instance.new("TextBox") vehBox.Size=UDim2.new(1,-12,0,28) vehBox.Position=UDim2.new(0,6,0,0) vehBox.BackgroundColor3=TH.b vehBox.BorderSizePixel=0 vehBox.PlaceholderText="Vehicle name or select above / empty for random" vehBox.PlaceholderColor3=Color3.fromRGB(100,100,120) vehBox.Text="" vehBox.TextColor3=TH.t vehBox.TextSize=11 vehBox.Font=Enum.Font.Gotham vehBox.ClearTextOnFocus=false vehBox.Parent=tW mkCorner(vehBox,6)
 btn(tW,"Spawn Vehicle Next to Me",function() spawnVehicle(vehBox.Text) end,"spawnveh")
 btn(tW,"Spawn Random Vehicle",function() spawnVehicle("") end,"spawnrand")
-btn(tW,"Sit in Nearest Vehicle",function()
-    pcall(function()
-        local ch=LP.Character
-        local hum=ch and ch:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-        if hum.SeatPart then ntf("Vehicle","Already sitting",3) return end
-        local rp=ch:FindFirstChild("HumanoidRootPart")
-        if not rp then return end
-        local best=nil
-        local bd=60
-        for _,d in pairs(W:GetDescendants()) do
-            if d:IsA("VehicleSeat") then
-                local dd=(d.Position-rp.Position).Magnitude
-                if dd<bd then bd=dd best=d end
-            end
-        end
-        if best then
-            best:Sit(hum)
-            ntf("Vehicle","Getting in...",3)
-        else
-            ntf("Vehicle","No vehicle seat within 60 studs",4)
-        end
-    end)
-end,"sitveh")
 btn(tW,"Despawn Nearest Vehicle",function()
     pcall(function()
         local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
@@ -2138,83 +2098,6 @@ local function doForceJob(targetPl, jobName)
     if not jobName or jobName=="" then ntf("Job","Select a job first",4) return end
     local target=targetPl or LP
     local jobPos=nil
-    pcall(function()
-        if target~=LP then return end
-        local wp=string.match(jobName,"^([^\\]+)") or jobName
-        wp=string.match(wp,"^([^:]+)") or wp
-        local tok=string.lower(string.gsub(wp,"[^%w]",""))
-        if #tok<3 then return end
-        local function norm(s) return string.lower(string.gsub(s,"[^%w]","")) end
-        local cands={}
-        local stack={W}
-        local budget=15000
-        while #stack>0 and budget>0 and #cands<12 do
-            local par=table.remove(stack,#stack)
-            budget=budget-1
-            pcall(function()
-                for _,d in ipairs(par:GetChildren()) do
-                    if d:IsA("Model") or d:IsA("Folder") then
-                        local nd=norm(d.Name)
-                        local hit=false
-                        if #nd>=4 and (string.find(nd,tok,1,true) or string.find(tok,nd,1,true)) then hit=true end
-                        if hit then table.insert(cands,d) else table.insert(stack,d) end
-                    end
-                end
-            end)
-        end
-        local found=nil
-        local bestScore=-1
-        for _,m in ipairs(cands) do
-            local pr,pt=0,0
-            pcall(function()
-                for _,d in pairs(m:GetDescendants()) do
-                    if d:IsA("BasePart") then pt=pt+1
-                    elseif d:IsA("ProximityPrompt") then pr=pr+1 end
-                end
-            end)
-            local sc=pr*1000+pt
-            if sc>bestScore then bestScore=sc found=m end
-        end
-        if found then
-            pcall(function()
-                local pv=found:GetPivot()
-                local spot=nil
-                local bestS=99
-                local bestD=math.huge
-                local strong={"counter","npc","desk","till","register","cashier","manager","boss","apply","job","checkin"}
-                local weak={"door","marker","spot","entry"}
-                for _,d in pairs(found:GetDescendants()) do
-                    if d:IsA("BasePart") then
-                        local s2=99
-                        if d:FindFirstChildOfClass("ProximityPrompt") then s2=0
-                        else
-                            local ln=string.lower(d.Name)
-                            for _,kw in ipairs(strong) do if string.find(ln,kw,1,true) then s2=1 break end end
-                            if s2==99 then
-                                for _,kw in ipairs(weak) do if string.find(ln,kw,1,true) then s2=2 break end end
-                            end
-                        end
-                        if s2<99 then
-                            local dd=(d.Position-pv.Position).Magnitude
-                            if s2<bestS or (s2==bestS and dd<bestD) then bestS=s2 bestD=dd spot=d.Position end
-                        end
-                    end
-                end
-                if not spot then spot=pv.Position end
-                jobPos=spot+Vector3.new(0,3,0)
-                safeTeleport(jobPos)
-            end)
-            if jobPos then
-                local t0=tick()
-                while tick()-t0<3.5 do
-                    local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                    if h and (h.Position-jobPos).Magnitude<25 then break end
-                    task.wait(0.15)
-                end
-                task.wait(0.4)
-            end
-        end
-    end)
     local fired=0
     pcall(function()
         local lg=ST._learnLog
@@ -2324,11 +2207,23 @@ end,"stopspec")
 btn(tP,"Spectate: Next Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local nextI=idx+1 if nextI>#plrs then nextI=1 end local np=plrs[nextI] if np~=LP and np.Character then local h=np.Character:FindFirstChildOfClass("Humanoid") if h then if not ST.spectateOverhead then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom end ST.spectating=np ST.ovhInit=false ntf("Spectate","Following: "..np.DisplayName) end end end,"specnext")
 btn(tP,"Spectate: Prev Player",function() local plrs=P:GetPlayers() local idx=1 for i,pp in pairs(plrs) do if pp==ST.spectating then idx=i break end end local prevI=idx-1 if prevI<1 then prevI=#plrs end local pp2=plrs[prevI] if pp2~=LP and pp2.Character then local h=pp2.Character:FindFirstChildOfClass("Humanoid") if h then if not ST.spectateOverhead then CAM.CameraSubject=h CAM.CameraType=Enum.CameraType.Custom end ST.spectating=pp2 ST.ovhInit=false ntf("Spectate","Following: "..pp2.DisplayName) end end end,"specprev")
 btn(tP,"Spectate: Overhead",function()
-    if not ST.spectating then
-        if ST.selectedPlayer and ST.selectedPlayer.Character then ST.spectating=ST.selectedPlayer end
+    if ST.selectedPlayer and ST.selectedPlayer.Character and ST.selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        ST.spectating=ST.selectedPlayer
+    end
+    if not ST.spectating or not ST.spectating.Parent or not ST.spectating.Character or not ST.spectating.Character:FindFirstChild("HumanoidRootPart") then
+        local best=nil
+        local bd=math.huge
+        local mp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        for _,pp in pairs(P:GetPlayers()) do
+            if pp~=LP and pp.Character and pp.Character:FindFirstChild("HumanoidRootPart") and mp then
+                local d=(pp.Character.HumanoidRootPart.Position-mp.Position).Magnitude
+                if d<bd then bd=d best=pp end
+            end
+        end
+        ST.spectating=best
     end
     if not ST.spectating or not ST.spectating.Character or not ST.spectating.Character:FindFirstChild("HumanoidRootPart") then
-        ntf("Spectate","No target - select a player first",4) return
+        ntf("Spectate","No other players online",4) return
     end
     if ST.spectateOverhead then
         stopOverhead(true)
@@ -2742,6 +2637,7 @@ function giveGRItem(name, kind, noFire)
             pcall(function() table.insert(roots,W) end)
             pcall(function() local ss=game:GetService("ServerStorage") if ss then table.insert(roots,ss) end end)
             pcall(function() local sa=game:GetService("ServerScriptService") if sa then table.insert(roots,sa) end end)
+            pcall(function() local sp=game:GetService("StarterPlayer") if sp then local sc=sp:FindFirstChild("StarterCharacterTools") if sc then table.insert(roots,sc) end end end)
             for _,src in ipairs(roots) do
                 pcall(function()
                     for _,obj in pairs(src:GetDescendants()) do
@@ -3905,8 +3801,8 @@ local function popDmgNum(victim, amount)
         end)
     end)
 end
-local function dealWeaponDamage(victim, hitPos)
-    if not ST.weaponDmgOn then return end
+local function dealWeaponDamage(victim, hitPos, force)
+    if not force and not ST.weaponDmgOn then return end
     if not victim or victim==LP or not victim.Character then return end
     local now=tick()
     if now-(ST._wdT or 0)<0.1 then return end
@@ -3914,6 +3810,46 @@ local function dealWeaponDamage(victim, hitPos)
     local mult=math.clamp(ST.weaponDmgMult or 1,1,10)
     local amt=ST.weaponDmg or 30
     popDmgNum(victim, math.floor(amt*mult))
+    local function learnedDmgFire()
+        local ok=false
+        pcall(function()
+            local lg=ST._learnLog
+            if not lg then return end
+            for wpath,arr in pairs(lg) do
+                local lp2=string.lower(wpath)
+                if string.find(lp2,"weaponhit",1,true) or string.find(lp2,"damage",1,true) or string.find(lp2,"hurt",1,true) then
+                    local rec=arr[1]
+                    if rec and rec.inst then
+                        local newArgs={}
+                        local sub=false
+                        for i,a in ipairs(rec.args) do
+                            local rep=nil
+                            if typeof(a)=="Instance" then
+                                if a:IsA("Player") and a~=LP then rep=victim
+                                else
+                                    local mdl=a:IsA("Model") and a or a:FindFirstAncestorOfClass("Model")
+                                    local apl=mdl and P:GetPlayerFromCharacter(mdl)
+                                    if apl and apl~=LP and victim.Character then
+                                        rep=victim.Character:FindFirstChild(a.Name) or victim.Character
+                                    end
+                                end
+                                newArgs[i]=rep or a
+                                if rep and rep~=a then sub=true end
+                            elseif typeof(a)=="Vector3" then
+                                newArgs[i]=hitPos
+                                sub=true
+                            else
+                                newArgs[i]=a
+                            end
+                        end
+                        if sub and grFire(rec.inst,newArgs,"learnDmg") then ok=true end
+                    end
+                end
+            end
+        end)
+        return ok
+    end
+    if not learnedDmgFire() then
     pcall(function()
         local part=victim.Character:FindFirstChild(ST.aimTargetPart) or victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
         local hits={
@@ -3928,13 +3864,18 @@ local function dealWeaponDamage(victim, hitPos)
             end
         end
     end)
+    end
     pcall(function()
         if not AR then AR=RS:FindFirstChild("AdminRemote") or RS:FindFirstChild("HDAdminRemote") end
         if AR then AR:FireServer("damage",victim.Name,amt) end
     end)
 end
-local function weaponHitScan()
-    if not ST.weaponDmgOn then return end
+local function weaponHitScan(force)
+    if ST._learnCPend then
+        ST._learnCPend=nil
+        pcall(function() ntf("Learn","Combat args learned - your shots can damage now",5) end)
+    end
+    if not force and not ST.weaponDmgOn then return end
     if tick()-(ST._whsT or 0)<0.12 then return end
     ST._whsT=tick()
     local cam=W.CurrentCamera or CAM
@@ -3959,7 +3900,7 @@ local function weaponHitScan()
         local model=hit.Instance:FindFirstAncestorOfClass("Model")
         local pl=model and P:GetPlayerFromCharacter(model)
         if pl and pl~=LP then
-            dealWeaponDamage(pl,hit.Position)
+            dealWeaponDamage(pl,hit.Position,force)
             return
         end
     end
@@ -3967,7 +3908,7 @@ local function weaponHitScan()
         local tp=ST.aimTarget.Character:FindFirstChild(ST.aimTargetPart) or ST.aimTarget.Character:FindFirstChild("HumanoidRootPart")
         local h=ST.aimTarget.Character:FindFirstChildOfClass("Humanoid")
         if tp and h and h.Health>0 and not (ST.aimTeamCheck and ST.aimTarget.Team==LP.Team) then
-            dealWeaponDamage(ST.aimTarget,tp.Position)
+            dealWeaponDamage(ST.aimTarget,tp.Position,force)
         end
     end
 end
@@ -4155,6 +4096,47 @@ MS.Button1Down:Connect(function()
         if ST.shotTracer then drawShotTracer() end
         if ST.spheresOn then throwSpheres() end
         if isAimActive() and ST.aimTarget then weaponHitScan() end
+        pcall(function()
+            local eq=LP.Character and LP.Character:FindFirstChildOfClass("Tool")
+            if eq and ST._givenItems and ST._givenItems[eq.Name] then
+                local cam=W.CurrentCamera or CAM
+                if cam then
+                    local origin=cam.CFrame.Position
+                    local endPos=origin+cam.CFrame.LookVector*500
+                    local fired=false
+                    pcall(function()
+                        local lg=ST._learnLog
+                        if lg then
+                            for wpath,arr in pairs(lg) do
+                                if string.find(string.lower(wpath),"weaponfired",1,true) then
+                                    local rec=arr[1]
+                                    if rec and rec.inst then
+                                        local na={}
+                                        local ns=false
+                                        for i,a in ipairs(rec.args) do
+                                            if typeof(a)=="Vector3" then
+                                                na[i]=(i==1) and origin or endPos
+                                                ns=true
+                                            else
+                                                na[i]=a
+                                            end
+                                        end
+                                        if ns and grFire(rec.inst,na,"learnWF") then fired=true break end
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                    if not fired then
+                        pcall(function()
+                            local r=findRemote("WeaponsSystem.Network.WeaponFired")
+                            if r then grFire(r,{origin,endPos},"wf") end
+                        end)
+                    end
+                end
+                weaponHitScan(true)
+            end
+        end)
     end
     if ST.clickTP and LP.Character then local h=LP.Character:FindFirstChild("HumanoidRootPart") if h and MS.Hit then safeTeleport(MS.Hit.Position+Vector3.new(0,2,0)) end end
 end)
