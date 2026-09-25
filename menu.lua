@@ -115,6 +115,38 @@ pcall(function()
                 if ST._forceFire then
                     return "PASS"
                 end
+                pcall(function()
+                    local fn=self:GetFullName()
+                    local fl=string.lower(fn)
+                    if string.find(fl,"inventory",1,true) or string.find(fl,"armory",1,true) or string.find(fl,"supermarket",1,true) or string.find(fl,"jobcenter",1,true) or string.find(fl,"changejob",1,true) or string.find(fl,"changeteam",1,true) then
+                        local verb=""
+                        for i=1,#args do
+                            local a=args[i]
+                            if typeof(a)=="string" and #a<=14 and not string.find(a," ",1,true) then verb=string.lower(a) break end
+                        end
+                        local arr=ST._learnLog and ST._learnLog[fn]
+                        if not arr then
+                            ST._learnLog=ST._learnLog or {}
+                            arr={} ST._learnLog[fn]=arr
+                        end
+                        for _,rec in ipairs(arr) do
+                            if rec.sig==verb then rec.t=tick() return end
+                        end
+                        local copyargs={}
+                        for i=1,#args do
+                            local a=args[i]
+                            if typeof(a)=="table" then
+                                local c={} for k,v in pairs(a) do c[k]=v end copyargs[i]=c
+                            else copyargs[i]=a end
+                        end
+                        table.insert(arr,1,{sig=verb,t=tick(),inst=self,args=copyargs})
+                        while #arr>6 do table.remove(arr) end
+                        if not ST._learnNtf and string.find(fl,"inventory",1,true) then
+                            ST._learnNtf=true
+                            ST._learnPending=true
+                        end
+                    end
+                end)
                 if isBlocked(self.Name) and not isWhitelisted(self.Name) then
                     table.insert(hookLog,{time=tick(),remote=self.Name,blocked=true})
                     return "BLOCK"
@@ -1686,8 +1718,10 @@ local function getVehicleList()
     return list
 end
 local function spawnVehicle(name, pos)
+    pcall(function() if ST._vehClone and ST._vehClone.Parent then ST._vehClone:Destroy() end ST._vehClone=nil end)
     local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     local spawnPos=pos or (hrp and hrp.Position + hrp.CFrame.LookVector*10 + Vector3.new(0,2,0) or Vector3.new(0,5,0))
+    name=string.match(name or "","^%s*(.-)%s*$") or name
     local q=string.lower(name or "")
     if q=="" then
         local all=getVehicleList()
@@ -1711,18 +1745,12 @@ local function spawnVehicle(name, pos)
             findRemote("BuyVehicle"),
             findRemote("CreateVehicle"),
             findRemote("VehicleSpawn"),
-            findRemote("CreateMafia.RemoteEvent"),
-        }
-        local argsList={
-            {name},{q},{string.upper(name)},{spawnPos},{name,spawnPos},{q,spawnPos},
-            {"Spawn",name},{"Spawn",q},{"Buy",name},{"Buy",q},
-            {"SpawnVehicle",name},{"SpawnVehicle",q},
         }
         for ri,r in ipairs(rems) do
             if r then
-                for _,args in ipairs(argsList) do
-                    if grFire(r,args,"veh"..ri) then fired=fired+1 end
-                    pcall(function() if r:IsA("RemoteFunction") then r:InvokeServer(unpack(args)) fired=fired+1 end end)
+                if grFire(r,{name},"veh"..ri) then fired=fired+1 end
+                if r:IsA("RemoteFunction") then
+                    pcall(function() r:InvokeServer(name) fired=fired+1 end)
                 end
             end
         end
@@ -1733,35 +1761,86 @@ local function spawnVehicle(name, pos)
         for _,obj in pairs(RS:GetDescendants()) do
             if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
                 local nm=string.lower(obj.Name)
-                if nm:find("car",1,true) or nm:find("vehicle",1,true) or nm:find("spawn",1,true) then
+                if nm:find("car",1,true) or nm:find("vehicle",1,true) then
                     vi=vi+1
-                    for _,args in ipairs({{name},{q},{name,spawnPos}}) do
-                        if grFire(obj,args,"vehS"..vi) then fired=fired+1 end
-                    end
-                    if vi>=4 then break end
+                    if grFire(obj,{name},"vehS"..vi) then fired=fired+1 end
+                    if vi>=3 then break end
                 end
             end
         end
     end)
+    local function vehStats(m)
+        local parts,joints,anchored=0,0,0
+        pcall(function()
+            for _,d in pairs(m:GetDescendants()) do
+                if d:IsA("BasePart") then
+                    parts=parts+1
+                    if d.Anchored then anchored=anchored+1 end
+                elseif d:IsA("Weld") or d:IsA("WeldConstraint") or d:IsA("Motor6D") or d:IsA("Snap") or d:IsA("Hinge") or d:IsA("BallSocket") then
+                    joints=joints+1
+                end
+            end
+        end)
+        return parts,joints,anchored
+    end
     local function clientClone()
         local ok=false
         pcall(function()
             local list=getVehicleList()
-            local found=nil
+            local cands={}
             for _,m in ipairs(list) do
-                if string.lower(m.Name)==q or string.lower(m.Name):find(q,1,true) then found=m break end
+                local mn=string.lower(m.Name)
+                local sc=3
+                if mn==q then sc=0
+                elseif string.find(mn,q,1,true)==1 then sc=1
+                elseif string.find(mn,q,1,true) then sc=2 end
+                table.insert(cands,{m=m,s=sc})
+            end
+            table.sort(cands,function(a,b) return a.s<b.s end)
+            local found=nil
+            for _,cand in ipairs(cands) do
+                if cand.s>=3 then break end
+                local parts,joints,anchored=vehStats(cand.m)
+                if parts>0 and not (joints==0 and anchored<parts) then
+                    found=cand.m
+                    break
+                end
             end
             if found then
                 local cl=found:Clone()
+                local seat=cl:FindFirstChildOfClass("VehicleSeat")
+                local pj=0
+                pcall(function()
+                    for _,d in pairs(cl:GetDescendants()) do
+                        if d:IsA("Weld") or d:IsA("WeldConstraint") or d:IsA("Motor6D") then pj=pj+1 end
+                    end
+                end)
+                if pj==0 and seat then
+                    pcall(function()
+                        for _,d in pairs(cl:GetDescendants()) do
+                            if d:IsA("BasePart") and d~=seat then
+                                local wc=Instance.new("WeldConstraint")
+                                wc.Part0=seat wc.Part1=d
+                                wc.Parent=d
+                            end
+                        end
+                    end)
+                end
+                pcall(function() if not cl.PrimaryPart and seat then cl.PrimaryPart=seat end end)
                 pcall(function() cl:SetPrimaryPartCFrame(CFrame.new(spawnPos)) end)
                 if not cl.PrimaryPart then
-                    local seat=cl:FindFirstChildOfClass("VehicleSeat")
-                    if seat then cl.PrimaryPart=seat pcall(function() cl:SetPrimaryPartCFrame(CFrame.new(spawnPos)) end) end
+                    pcall(function()
+                        for _,d in pairs(cl:GetChildren()) do
+                            if d:IsA("BasePart") then cl.PrimaryPart=d break end
+                        end
+                        if cl.PrimaryPart then cl:SetPrimaryPartCFrame(CFrame.new(spawnPos)) end
+                    end)
                 end
                 for _,d in pairs(cl:GetDescendants()) do
                     if d:IsA("BasePart") then d.Anchored=false end
                 end
                 cl.Parent=W
+                ST._vehClone=cl
                 ntf("Vehicle","Spawned (client) "..found.Name.." - press E to enter",5)
                 ok=true
             end
@@ -1773,9 +1852,15 @@ local function spawnVehicle(name, pos)
         pcall(function()
             for _,d in pairs(W:GetDescendants()) do
                 if d:IsA("VehicleSeat") then
-                    local okd=false
-                    pcall(function() okd=(d.Position-spawnPos).Magnitude<40 end)
-                    if okd then near=true break end
+                    local m=d:FindFirstAncestorOfClass("Model")
+                    if m then
+                        local parts,joints,anchored=vehStats(m)
+                        if parts>0 and (joints>0 or anchored>=parts) then
+                            local okd=false
+                            pcall(function() okd=(d.Position-spawnPos).Magnitude<40 end)
+                            if okd then near=true break end
+                        end
+                    end
                 end
             end
         end)
@@ -1784,7 +1869,7 @@ local function spawnVehicle(name, pos)
             return
         end
         if clientClone() then return end
-        ntf("Vehicle",tostring(name).." - server ignored and no template found",4)
+        ntf("Vehicle",tostring(name).." - server ignored, no intact template found",4)
     end
     if fired>0 then
         ntf("Vehicle","Spawning "..tostring(name).." ...",3)
@@ -2007,39 +2092,105 @@ local function doForceJob(targetPl, jobName)
     if not jobName or jobName=="" then jobName=ST.selectedJob end
     if not jobName or jobName=="" then ntf("Job","Select a job first",4) return end
     local target=targetPl or LP
-    local fired=0
+    local jobPos=nil
     pcall(function()
-        local jc=findRemote("JobCenter.JobCenter") or findRemote("JobCenter")
-        if jc then
-            if grFire(jc,{jobName},"jobJC") then fired=fired+1 end
-        end
-        local r=findRemote("Teams.ChangeJob") or findRemote("Teams.ChangeTeam") or findRemote("ChangeJob") or findRemote("ChangeTeam")
-        if r then
-            -- exactly ONE fire: extra fires made the server cycle jobs (changejob behavior)
-            local teamObj=nil
+        if target~=LP then return end
+        local wp=string.match(jobName,"^([^\\]+)") or jobName
+        wp=string.match(wp,"^([^:]+)") or wp
+        local tok=string.lower(string.gsub(wp,"[^%w]",""))
+        if #tok<3 then return end
+        local function norm(s) return string.lower(string.gsub(s,"[^%w]","")) end
+        local found=nil
+        local stack={W}
+        local budget=15000
+        while #stack>0 and budget>0 and not found do
+            local par=table.remove(stack,#stack)
+            budget=budget-1
             pcall(function()
-                for _,tm in pairs(game:GetService("Teams"):GetTeams()) do if tm.Name==jobName then teamObj=tm break end end
-                if not teamObj then for _,tm in pairs(game:GetService("Teams"):GetChildren()) do if tm.Name==jobName and tm:IsA("Team") then teamObj=tm break end end end
+                for _,d in ipairs(par:GetChildren()) do
+                    if d:IsA("Model") or d:IsA("Folder") then
+                        local nd=norm(d.Name)
+                        local hit=false
+                        if #nd>=4 and (string.find(nd,tok,1,true) or string.find(tok,nd,1,true)) then hit=true end
+                        if hit then found=d else table.insert(stack,d) end
+                    end
+                end
             end)
-            if teamObj then
-                if grFire(r,{teamObj},"jobCJ") then fired=fired+1 end
-            else
-                if grFire(r,{jobName},"jobCJ") then fired=fired+1 end
+        end
+        if found then
+            pcall(function()
+                local pv=found:GetPivot()
+                jobPos=pv.Position+Vector3.new(0,3,0)
+                safeTeleport(jobPos)
+            end)
+            if jobPos then
+                local t0=tick()
+                while tick()-t0<3.5 do
+                    local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                    if h and (h.Position-jobPos).Magnitude<25 then break end
+                    task.wait(0.15)
+                end
+                task.wait(0.4)
             end
         end
-        local gen=0
-        pcall(function()
-            for _,obj in pairs(RS:GetDescendants()) do
-                if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and obj~=jc and obj~=r then
-                    local nm=string.lower(obj.Name)
-                    if nm:find("job",1,true) or nm:find("team",1,true) or nm:find("role",1,true) then
-                        if grFire(obj,{jobName},"jobG"..obj:GetFullName()) then fired=fired+1 end
-                        gen=gen+1
-                        if gen>=6 then break end
+    end)
+    local fired=0
+    pcall(function()
+        local lg=ST._learnLog
+        local verbs={apply=1,change=1,set=1,select=1,join=1,choose=1,get=1,switch=1,work=1,accept=1,job=1,team=1,setjob=1,changejob=1,start=1,enter=1}
+        local function replayFor(sub)
+            if not lg then return false end
+            for path,arr in pairs(lg) do
+                if string.find(string.lower(path),sub,1,true) then
+                    local rec=arr[1]
+                    if rec and rec.inst then
+                        local newArgs={}
+                        local okSub=false
+                        for i,a in ipairs(rec.args) do
+                            if typeof(a)=="string" then
+                                local lv=string.lower(a)
+                                if verbs[lv] or string.find(a,"%d") then
+                                    newArgs[i]=a
+                                else
+                                    newArgs[i]=jobName okSub=true
+                                end
+                            elseif typeof(a)=="Vector3" and jobPos then
+                                newArgs[i]=jobPos okSub=true
+                            else
+                                newArgs[i]=a
+                            end
+                        end
+                        if okSub then
+                            if grFire(rec.inst,newArgs,"learnJ") then fired=fired+1 end
+                            return true
+                        end
                     end
                 end
             end
-        end)
+            return false
+        end
+        if not replayFor("changejob") and not replayFor("changeteam") then
+            local r=findRemote("Teams.ChangeJob") or findRemote("Teams.ChangeTeam") or findRemote("ChangeJob") or findRemote("ChangeTeam")
+            if r then
+                local teamObj=nil
+                pcall(function()
+                    for _,tm in pairs(game:GetService("Teams"):GetTeams()) do if tm.Name==jobName then teamObj=tm break end end
+                    if not teamObj then for _,tm in pairs(game:GetService("Teams"):GetChildren()) do if tm.Name==jobName and tm:IsA("Team") then teamObj=tm break end end end
+                end)
+                if teamObj then
+                    if grFire(r,{teamObj},"jobCJ") then fired=fired+1 end
+                else
+                    if grFire(r,{jobName},"jobCJ") then fired=fired+1 end
+                end
+            end
+        end
+        task.wait(0.3)
+        if not replayFor("jobcenter") then
+            local jc=findRemote("JobCenter.JobCenter") or findRemote("JobCenter")
+            if jc then
+                if grFire(jc,{jobName},"jobJC") then fired=fired+1 end
+            end
+        end
     end)
     if fired>0 then
         ntf("Job",(target==LP and "Self" or target.DisplayName).." -> "..jobName.." ("..fired.." remotes)",4)
@@ -2401,6 +2552,10 @@ function fireWeaponActivated()
     end)
 end
 function giveGRItem(name, kind)
+    if ST._learnPending then
+        ST._learnPending=nil
+        pcall(function() ntf("Learn","Inventory args learned - Give now replays them",5) end)
+    end
     local n=0
     pcall(function()
         local arm=findRemote("Armory.RemoteEvent")
@@ -2408,6 +2563,34 @@ function giveGRItem(name, kind)
         local sm=findRemote("SupermarketEvent.Triggered") or findRemote("SupermarketEvent.BuyItem")
         local jc=findRemote("JobCenter.JobCenter")
         local rk="give"..(kind or "w")
+        pcall(function()
+            local lg=ST._learnLog
+            if not lg then return end
+            local verbSet={buy=1,sell=1,add=1,use=1,equip=1,give=1,save=1,set=1,drop=1,take=1,select=1,spawn=1,craft=1,collect=1,pickup=1,pick=1,eat=1,heal=1,store=1,load=1,get=1,put=1,trade=1,accept=1,apply=1,open=1}
+            for path,arr in pairs(lg) do
+                local lp=string.lower(path)
+                if string.find(lp,"inventory",1,true) or string.find(lp,"armory",1,true) or string.find(lp,"supermarket",1,true) then
+                    local rec=arr[1]
+                    if rec and rec.inst then
+                        local newArgs={}
+                        local sub=false
+                        for i,a in ipairs(rec.args) do
+                            if typeof(a)=="string" then
+                                local lv=string.lower(a)
+                                if verbSet[lv]==1 or string.find(a,"%d") or string.find(a,"_",1,true) then
+                                    newArgs[i]=a
+                                else
+                                    newArgs[i]=name sub=true
+                                end
+                            else
+                                newArgs[i]=a
+                            end
+                        end
+                        if sub then grFire(rec.inst,newArgs,"learn") end
+                    end
+                end
+            end
+        end)
         if kind=="weapon" or kind==nil then
             if arm then
                 grFire(arm,{"buy",name},rk)
