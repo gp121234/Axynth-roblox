@@ -342,6 +342,18 @@ local hkOk,hkErr=pcall(function()
     if p1ok then
         HOOK_PATH=(type(XC)=="function") and "hookmetamethod+cclosure" or "hookmetamethod+lclosure"
     else
+        local pHIok,pHIerr=pcall(function()
+            local HI=xnapi("hookinstance") or xnapi("hook_instance")
+            if type(HI)~="function" then error("hookinstance is "..type(HI),0) end
+            local h=hookFn
+            if type(XC)=="function" then h=XC(hookFn) end
+            local r=HI(game,"__namecall",h)
+            if type(r)~="function" then error("hookinstance returned "..type(r),0) end
+            oldNC=r
+        end)
+        if pHIok then
+            HOOK_PATH="hookinstance+namecall"
+        else
         local p2ok,p2err=pcall(function()
             if type(XG)~="function" then error("getrawmetatable is "..type(XG),0) end
             local mt=XG(game)
@@ -406,6 +418,7 @@ local hkOk,hkErr=pcall(function()
                 if #done==0 then error("path4: "..table.concat(errs,"; "),0) end
                 HOOK_PATH="hookfunction["..table.concat(done,",").."]"..((#errs>0) and (" partial: "..table.concat(errs,"; ")) or "")
             end
+        end
         end
     end
 end)
