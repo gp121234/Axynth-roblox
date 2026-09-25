@@ -342,15 +342,24 @@ local hkOk,hkErr=pcall(function()
     if p1ok then
         HOOK_PATH=(type(XC)=="function") and "hookmetamethod+cclosure" or "hookmetamethod+lclosure"
     else
-        local pHIok,pHIerr=pcall(function()
-            local HI=xnapi("hookinstance") or xnapi("hook_instance")
-            if type(HI)~="function" then error("hookinstance is "..type(HI),0) end
-            local h=hookFn
-            if type(XC)=="function" then h=XC(hookFn) end
-            local r=HI(game,"__namecall",h)
-            if type(r)~="function" then error("hookinstance returned "..type(r),0) end
-            oldNC=r
+        local pHIok,pHIerr=false,"hookinstance timeout"
+        local pHIdone=false
+        task.spawn(function()
+            pHIok,pHIerr=pcall(function()
+                local HI=xnapi("hookinstance") or xnapi("hook_instance")
+                if type(HI)~="function" then error("hookinstance is "..type(HI),0) end
+                local h=hookFn
+                if type(XC)=="function" then h=XC(hookFn) end
+                local r=HI(game,"__namecall",h)
+                if type(r)~="function" then error("hookinstance returned "..type(r),0) end
+                oldNC=r
+            end)
+            pHIdone=true
         end)
+        for i=1,20 do
+            if pHIdone then break end
+            task.wait(0.1)
+        end
         if pHIok then
             HOOK_PATH="hookinstance+namecall"
         else
@@ -401,18 +410,34 @@ local hkOk,hkErr=pcall(function()
                     if type(ret)=="function" and ret~=wrapper then box.orig=ret end
                     if box.orig==wrapper then error(mname..": recursive hook",0) end
                     local v0=ST._ncAny or 0
-                    pcall(function()
-                        local pr=(cls=="Workspace") and workspace or Instance.new(cls)
-                        pr[mname](pr,"selftest")
+                    local probeDone=false
+                    task.spawn(function()
+                        pcall(function()
+                            local pr=(cls=="Workspace") and workspace or Instance.new(cls)
+                            pr[mname](pr,"selftest")
+                        end)
+                        probeDone=true
                     end)
+                    for i=1,7 do
+                        if (ST._ncAny or 0)>v0 or probeDone then break end
+                        task.wait(0.1)
+                    end
                     local d=(ST._ncAny or 0)-v0
                     if d~=1 then error(mname..": closure did not run (delta="..tostring(d)..")",0) end
                     done[#done+1]=cls..":"..mname
                     if cls=="RemoteEvent" and mname=="FireServer" then path4FS=true end
                 end
-                local tgt={{"FireServer","RemoteEvent"},{"InvokeServer","RemoteFunction"},{"FireServer","UnreliableRemoteEvent"},{"Raycast","Workspace"}}
+                local tgt={{"FireServer","RemoteEvent"},{"FireServer","UnreliableRemoteEvent"},{"Raycast","Workspace"},{"InvokeServer","RemoteFunction"}}
                 for _,t in ipairs(tgt) do
-                    local ok,e=pcall(tryM,t[1],t[2])
+                    local ok,e,done=false,"timeout",false
+                    task.spawn(function()
+                        ok,e=pcall(tryM,t[1],t[2])
+                        done=true
+                    end)
+                    for i=1,25 do
+                        if done then break end
+                        task.wait(0.1)
+                    end
                     if not ok then errs[#errs+1]=t[2]..":"..string.sub(tostring(e),1,60) end
                 end
                 if #done==0 then error("path4: "..table.concat(errs,"; "),0) end
@@ -430,10 +455,16 @@ if hkOk then
         pcall(function() print("[Axynth][Hook] OK via "..pth.." (install probes passed)") end)
     else
         local vB=ST._ncAny or 0
-        pcall(function()
-            local r=Instance.new("RemoteEvent") r.Name="AxSelfTest"
-            r:FireServer("selftest")
+        task.spawn(function()
+            pcall(function()
+                local r=Instance.new("RemoteEvent") r.Name="AxSelfTest"
+                r:FireServer("selftest")
+            end)
         end)
+        for i=1,10 do
+            if (ST._ncAny or 0)>vB then break end
+            task.wait(0.1)
+        end
         if (ST._ncAny or 0)>vB then
             pcall(function() print("[Axynth][Hook] namecall OK via "..pth.." (self-test passed)") end)
         else
