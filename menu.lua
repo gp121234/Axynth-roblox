@@ -270,10 +270,12 @@ end
 local function grFire(r, args, rateKey)
     if not r then return false end
     local rk=rateKey or "gr"
-    ST["_rt"..rk]=ST["_rt"..rk] or 0
+    local st=ST["_rt"..rk]
+    if type(st)~="table" then st={t=0,c=0} ST["_rt"..rk]=st end
     local now=tick()
-    if now-ST["_rt"..rk]<0.05 then return false end
-    ST["_rt"..rk]=now
+    if now-st.t>=0.05 then st.t=now st.c=0 end
+    if st.c>=10 then return false end
+    st.c=st.c+1
     local ok2=false
     if r:IsA("RemoteFunction") then
         ST._forceFire=true
@@ -376,6 +378,23 @@ pcall(function()
         task.wait(1)
         spoofLeaderstats()
         hideBanGUI()
+        pcall(function()
+            local items=ST._givenItems
+            if not items then return end
+            local bp=LP:FindFirstChild("Backpack")
+            local c=0
+            for nm,kind in pairs(items) do
+                c=c+1
+                if c>6 then break end
+                local have=false
+                pcall(function()
+                    if (bp and bp:FindFirstChild(nm)) or char:FindFirstChild(nm) then have=true end
+                end)
+                if not have then
+                    task.delay(1.0,function() pcall(function() giveGRItem(nm,kind) end) end)
+                end
+            end
+        end)
         if ST.freeCam then
             task.delay(0.3,function()
                 if not ST.freeCam then return end
@@ -1147,7 +1166,7 @@ pcall(function()
             elseif ST.spectateOverhead then
                 applyOverhead(cam)
             else
-                if cam.CameraType~=Enum.CameraType.Custom then
+                if not isAimActive() and cam.CameraType~=Enum.CameraType.Custom then
                     pcall(function()
                         cam.CameraType=Enum.CameraType.Custom
                         local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
@@ -1600,32 +1619,69 @@ end
 sep(tW)
 lbl(tW,">> SPAWN VEHICLE (Next to you)")
 local function getVehicleList()
-    if ST._vehList then return ST._vehList end
+    if ST._vehList and #ST._vehList>0 then return ST._vehList end
+    if ST._vehScanT and tick()-ST._vehScanT<5 then return ST._vehList or {} end
+    ST._vehScanT=tick()
     local list={}
     local seen={}
     local function addModel(m)
         if not m or seen[m] then return end
         seen[m]=true
         table.insert(list,m)
+        if #list>40 then return true end
+        return false
     end
     local function scan(parent,deep)
+        if not parent then return false end
+        local ok=false
         pcall(function()
-            if not parent then return end
             local items=deep and parent:GetDescendants() or parent:GetChildren()
             for _,d in ipairs(items) do
                 if d:IsA("VehicleSeat") then
                     local model=d:FindFirstAncestorOfClass("Model")
-                    if model then addModel(model) end
-                elseif d:IsA("Model") and d:FindFirstChildOfClass("VehicleSeat") then
-                    addModel(d)
+                    if model and addModel(model) then ok=true return end
+                elseif d:IsA("Model") then
+                    -- quick check: only if model has VehicleSeat child (not deep scan for every desc)
+                    if d:FindFirstChildOfClass("VehicleSeat") then
+                        if addModel(d) then ok=true return end
+                    end
                 end
+                if #list>40 then ok=true return end
+            end
+        end)
+        return ok
+    end
+    -- only scan ReplicatedStorage and RS for templates (fast), not Workspace
+    scan(game:GetService("ReplicatedStorage"),true)
+    if #list<10 then scan(RS,true) end
+    if #list<5 then scan(game:GetService("ServerStorage"),true) end
+    -- fallback: if still empty, bounded walk of Workspace (finds nested vehicles, capped cost)
+    if #list==0 then
+        pcall(function()
+            local stack={W}
+            local budget=20000
+            while #stack>0 and budget>0 and #list<40 do
+                local par=table.remove(stack,#stack)
+                budget=budget-1
+                pcall(function()
+                    for _,d in ipairs(par:GetChildren()) do
+                        if d:IsA("VehicleSeat") then
+                            local m=d:FindFirstAncestorOfClass("Model")
+                            if m and not addModel(m) then return end
+                        elseif d:IsA("Model") then
+                            if d:FindFirstChildOfClass("VehicleSeat") then
+                                if not addModel(d) then return end
+                            else
+                                table.insert(stack,d)
+                            end
+                        elseif d:IsA("Folder") then
+                            table.insert(stack,d)
+                        end
+                    end
+                end)
             end
         end)
     end
-    pcall(function() scan(game:GetService("ReplicatedStorage"),true) end)
-    pcall(function() scan(game:GetService("ServerStorage"),true) end)
-    pcall(function() scan(W,true) end)
-    pcall(function() scan(RS,true) end)
     ST._vehList=list
     return list
 end
@@ -1662,10 +1718,10 @@ local function spawnVehicle(name, pos)
             {"Spawn",name},{"Spawn",q},{"Buy",name},{"Buy",q},
             {"SpawnVehicle",name},{"SpawnVehicle",q},
         }
-        for _,r in ipairs(rems) do
+        for ri,r in ipairs(rems) do
             if r then
                 for _,args in ipairs(argsList) do
-                    if grFire(r,args,"veh") then fired=fired+1 end
+                    if grFire(r,args,"veh"..ri) then fired=fired+1 end
                     pcall(function() if r:IsA("RemoteFunction") then r:InvokeServer(unpack(args)) fired=fired+1 end end)
                 end
             end
@@ -1673,20 +1729,22 @@ local function spawnVehicle(name, pos)
     end)
     -- scan for any vehicle remote by name
     pcall(function()
+        local vi=0
         for _,obj in pairs(RS:GetDescendants()) do
             if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
                 local nm=string.lower(obj.Name)
                 if nm:find("car",1,true) or nm:find("vehicle",1,true) or nm:find("spawn",1,true) then
+                    vi=vi+1
                     for _,args in ipairs({{name},{q},{name,spawnPos}}) do
-                        if grFire(obj,args,"veh2") then fired=fired+1 end
+                        if grFire(obj,args,"vehS"..vi) then fired=fired+1 end
                     end
-                    if fired>5 then break end
+                    if vi>=4 then break end
                 end
             end
         end
     end)
-    -- fallback client clone (not visible to others but for testing)
-    if fired==0 then
+    local function clientClone()
+        local ok=false
         pcall(function()
             local list=getVehicleList()
             local found=nil
@@ -1705,14 +1763,34 @@ local function spawnVehicle(name, pos)
                 end
                 cl.Parent=W
                 ntf("Vehicle","Spawned (client) "..found.Name.." - press E to enter",5)
-                return
+                ok=true
             end
         end)
+        return ok
+    end
+    local function verify()
+        local near=false
+        pcall(function()
+            for _,d in pairs(W:GetDescendants()) do
+                if d:IsA("VehicleSeat") then
+                    local okd=false
+                    pcall(function() okd=(d.Position-spawnPos).Magnitude<40 end)
+                    if okd then near=true break end
+                end
+            end
+        end)
+        if near then
+            ntf("Vehicle","Spawned "..tostring(name).." nearby - press E to enter",5)
+            return
+        end
+        if clientClone() then return end
+        ntf("Vehicle",tostring(name).." - server ignored and no template found",4)
     end
     if fired>0 then
-        ntf("Vehicle","Spawn tried "..name.." ("..fired.." remotes) - check nearby",5)
+        ntf("Vehicle","Spawning "..tostring(name).." ...",3)
+        task.delay(1.2,verify)
     else
-        ntf("Vehicle","Tried "..name.." - no remote accepted, client fallback used",4)
+        verify()
     end
 end
 local vDropBtn=Instance.new("TextButton") vDropBtn.Size=UDim2.new(1,-12,0,30) vDropBtn.Position=UDim2.new(0,6,0,0) vDropBtn.BackgroundColor3=TH.b vDropBtn.BorderSizePixel=0 vDropBtn.Text="  Select vehicle..." vDropBtn.TextColor3=TH.t vDropBtn.TextSize=11 vDropBtn.Font=Enum.Font.GothamMedium vDropBtn.TextXAlignment=Enum.TextXAlignment.Left vDropBtn.Parent=tW mkCorner(vDropBtn,6) mkStroke(vDropBtn,TH.a,1)
@@ -1867,20 +1945,32 @@ local jDropBtn=Instance.new("TextButton") jDropBtn.Size=UDim2.new(1,-12,0,32) jD
 local jDropOpen=false local jDropdown=nil
 local function getTeamsList()
     local list={}
-    pcall(function()
-        local teams=game:GetService("Teams"):GetTeams()
-        for _,tm in pairs(teams) do table.insert(list,tm) end
-    end)
-    if #list==0 then
-        pcall(function()
-            for _,tm in pairs(game:GetService("Teams"):GetChildren()) do if tm:IsA("Team") then table.insert(list,tm) end end
-        end)
+    local seen={}
+    local function add(nm,obj)
+        if not nm or nm=="" then return end
+        local k=string.lower(nm)
+        if seen[k] then return end
+        seen[k]=true
+        table.insert(list,obj or {Name=nm,TeamColor=Color3.new(1,1,1)})
     end
-    if #list==0 then
-        -- fallback common Grand RP jobs
-        for _,nm in ipairs({"Police","Medic","Taxi","Mafia","Gang","Mechanic","Unemployed","Civilian","CREWMATE","EMPLOYEE"}) do
-            table.insert(list,{Name=nm, TeamColor=Color3.new(1,1,1)})
+    pcall(function()
+        for _,tm in pairs(game:GetService("Teams"):GetTeams()) do add(tm.Name,tm) end
+    end)
+    pcall(function()
+        for _,tm in pairs(game:GetService("Teams"):GetChildren()) do if tm:IsA("Team") then add(tm.Name,tm) end end
+    end)
+    pcall(function()
+        for _,root in ipairs({RS,W}) do
+            for _,f in ipairs(root:GetChildren()) do
+                local ln=string.lower(f.Name)
+                if (f:IsA("Folder") or f:IsA("Configuration")) and (ln=="jobs" or ln=="joblist" or ln=="jobcenter" or ln=="roles" or ln=="teams" or ln=="work") then
+                    for _,ch in ipairs(f:GetChildren()) do add(ch.Name) end
+                end
+            end
         end
+    end)
+    for _,nm in ipairs({"Police","EMT","Medic","Taxi","Mafia","Gang","Mechanic","Trucker","Unemployed","Civilian","CREWMATE","EMPLOYEE"}) do
+        add(nm)
     end
     return list
 end
@@ -1919,40 +2009,37 @@ local function doForceJob(targetPl, jobName)
     local target=targetPl or LP
     local fired=0
     pcall(function()
+        local jc=findRemote("JobCenter.JobCenter") or findRemote("JobCenter")
+        if jc then
+            if grFire(jc,{jobName},"jobJC") then fired=fired+1 end
+        end
         local r=findRemote("Teams.ChangeJob") or findRemote("Teams.ChangeTeam") or findRemote("ChangeJob") or findRemote("ChangeTeam")
         if r then
-            -- try Team object, name, color
+            -- exactly ONE fire: extra fires made the server cycle jobs (changejob behavior)
             local teamObj=nil
             pcall(function()
                 for _,tm in pairs(game:GetService("Teams"):GetTeams()) do if tm.Name==jobName then teamObj=tm break end end
                 if not teamObj then for _,tm in pairs(game:GetService("Teams"):GetChildren()) do if tm.Name==jobName and tm:IsA("Team") then teamObj=tm break end end end
             end)
             if teamObj then
-                if grFire(r,{teamObj},"job") then fired=fired+1 end
-                if grFire(r,{teamObj.TeamColor},"job") then fired=fired+1 end
+                if grFire(r,{teamObj},"jobCJ") then fired=fired+1 end
+            else
+                if grFire(r,{jobName},"jobCJ") then fired=fired+1 end
             end
-            if grFire(r,{jobName},"job") then fired=fired+1 end
-            if grFire(r,{target,jobName},"job") then fired=fired+1 end
-            if grFire(r,{jobName,target},"job") then fired=fired+1 end
-            if target~=LP and grFire(r,{target},"job") then fired=fired+1 end
         end
-        local jc=findRemote("JobCenter.JobCenter") or findRemote("JobCenter")
-        if jc then
-            if grFire(jc,{jobName},"job") then fired=fired+1 end
-            if grFire(jc,{target,jobName},"job") then fired=fired+1 end
-            if grFire(jc,{jobName,target},"job") then fired=fired+1 end
-        end
-        -- generic job remotes
-        for _,obj in pairs(RS:GetDescendants()) do
-            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-                local nm=string.lower(obj.Name)
-                if nm:find("job",1,true) or nm:find("team",1,true) or nm:find("role",1,true) then
-                    if grFire(obj,{jobName},"job2") then fired=fired+1 end
-                    if grFire(obj,{target,jobName},"job2") then fired=fired+1 end
-                    if fired>6 then break end
+        local gen=0
+        pcall(function()
+            for _,obj in pairs(RS:GetDescendants()) do
+                if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and obj~=jc and obj~=r then
+                    local nm=string.lower(obj.Name)
+                    if nm:find("job",1,true) or nm:find("team",1,true) or nm:find("role",1,true) then
+                        if grFire(obj,{jobName},"jobG"..obj:GetFullName()) then fired=fired+1 end
+                        gen=gen+1
+                        if gen>=6 then break end
+                    end
                 end
             end
-        end
+        end)
     end)
     if fired>0 then
         ntf("Job",(target==LP and "Self" or target.DisplayName).." -> "..jobName.." ("..fired.." remotes)",4)
@@ -2330,6 +2417,8 @@ function giveGRItem(name, kind)
             if inv then
                 grFire(inv,{"add",name},"give")
                 grFire(inv,{name},"give")
+                grFire(inv,{"save",name},"give")
+                grFire(inv,{"save",name,1},"give")
             end
         else
             if sm then
@@ -2339,6 +2428,8 @@ function giveGRItem(name, kind)
             if inv then
                 grFire(inv,{"add",name},"give")
                 grFire(inv,{name},"give")
+                grFire(inv,{"save",name},"give")
+                grFire(inv,{"save",name,1},"give")
             end
             if jc then grFire(jc,name,"give") end
         end
@@ -2426,38 +2517,10 @@ function giveGRItem(name, kind)
                 got=true
             end)
         end
-        if got then
-            pcall(function()
-                local keep=nil
-                for _,v in pairs(bp:GetChildren()) do
-                    if v:IsA("Tool") and v.Name:lower()==name:lower() then keep=v:Clone() break end
-                end
-                if keep then
-                    for _,d in pairs(keep:GetDescendants()) do
-                        if d:IsA("LocalScript") or d:IsA("Script") then pcall(function() d.Disabled=true end) end
-                    end
-                    keep.Parent=bp
-                end
-            end)
-        end
         -- keep in inventory + auto-equip (so it stays and can be re-equipped)
         if got then
-            -- keep a copy in Backpack so it stays after unequip
-            pcall(function()
-                local keep=nil
-                for _,v in pairs(bp:GetChildren()) do
-                    if v:IsA("Tool") and v.Name:lower()==string.lower(name) then keep=v:Clone() break end
-                end
-                if not keep then
-                    for _,v in pairs(bp:GetChildren()) do if v:IsA("Tool") then keep=v:Clone() break end end
-                end
-                if keep then
-                    for _,d in pairs(keep:GetDescendants()) do
-                        if d:IsA("LocalScript") or d:IsA("Script") then pcall(function() d.Disabled=true end) end
-                    end
-                    keep.Parent=bp
-                end
-            end)
+            ST._givenItems=ST._givenItems or {}
+            ST._givenItems[name]=kind or "w"
             pcall(function()
                 task.delay(0.25, function()
                     pcall(function()
@@ -3532,15 +3595,6 @@ local function dealWeaponDamage(victim, hitPos)
     local mult=math.clamp(ST.weaponDmgMult or 1,1,10)
     local amt=ST.weaponDmg or 30
     popDmgNum(victim, math.floor(amt*mult))
-    pcall(function()
-        local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        local origin=my and my.Position or hitPos
-        local rf=findRemote("WeaponsSystem.Network.WeaponFired")
-        if rf then
-            grFire(rf,{origin,hitPos},"dmg")
-            if mult>=2 then grFire(rf,{origin,hitPos},"dmg") end
-        end
-    end)
     pcall(function()
         local part=victim.Character:FindFirstChild(ST.aimTargetPart) or victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
         local hits={
