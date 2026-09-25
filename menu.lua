@@ -118,7 +118,7 @@ pcall(function()
                 pcall(function()
                     local fn=self:GetFullName()
                     local fl=string.lower(fn)
-                    if string.find(fl,"inventory",1,true) or string.find(fl,"armory",1,true) or string.find(fl,"supermarket",1,true) or string.find(fl,"jobcenter",1,true) or string.find(fl,"changejob",1,true) or string.find(fl,"changeteam",1,true) or string.find(fl,"weaponhit",1,true) or string.find(fl,"weaponfired",1,true) or string.find(fl,"damage",1,true) or string.find(fl,"hurt",1,true) then
+                    if string.find(fl,"inventory",1,true) or string.find(fl,"armory",1,true) or string.find(fl,"supermarket",1,true) or string.find(fl,"jobcenter",1,true) or string.find(fl,"changejob",1,true) or string.find(fl,"changeteam",1,true) or string.find(fl,"weaponhit",1,true) or string.find(fl,"weaponfired",1,true) or string.find(fl,"damage",1,true) or string.find(fl,"hurt",1,true) or string.find(fl,"cardealer",1,true) or string.find(fl,"vehicle",1,true) or string.find(fl,"spawncar",1,true) then
                         local verb=""
                         for i=1,#args do
                             local a=args[i]
@@ -148,6 +148,10 @@ pcall(function()
                         if not ST._learnCT and (string.find(fl,"weaponhit",1,true) or string.find(fl,"weaponfired",1,true) or string.find(fl,"damage",1,true) or string.find(fl,"hurt",1,true)) then
                             ST._learnCT=true
                             ST._learnCPend=true
+                        end
+                        if not ST._learnVT and (string.find(fl,"cardealer",1,true) or string.find(fl,"spawncar",1,true)) then
+                            ST._learnVT=true
+                            ST._learnVPend=true
                         end
                     end
                 end)
@@ -929,10 +933,20 @@ local function setFreeCam(on)
             local cam=W.CurrentCamera or CAM
             CAM=cam
             if not cam then return end
-            ST.freeCamPos=cam.CFrame.Position
+            local p=cam.CFrame.Position
             local look=cam.CFrame.LookVector
-            ST.freeCamYaw=math.atan2(look.X,look.Z)
-            ST.freeCamPitch=math.clamp(math.asin(math.clamp(-look.Y,-1,1)),-1.45,1.45)
+            if p.X==p.X and p.Y==p.Y and p.Z==p.Z and look.X==look.X then
+                ST.freeCamPos=p
+                ST.freeCamYaw=math.atan2(look.X,look.Z)
+                ST.freeCamPitch=math.clamp(math.asin(math.clamp(-look.Y,-1,1)),-1.45,1.45)
+            else
+                local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                ST.freeCamPos=hrp and (hrp.Position+Vector3.new(0,5,0)) or Vector3.new(0,10,0)
+                ST.freeCamYaw=0
+                ST.freeCamPitch=0
+            end
+            if ST.freeCamYaw~=ST.freeCamYaw then ST.freeCamYaw=0 end
+            if ST.freeCamPitch~=ST.freeCamPitch then ST.freeCamPitch=0 end
             fcLastT=tick()
             cam.CameraType=Enum.CameraType.Scriptable
             cam.CFrame=CFrame.new(ST.freeCamPos)*CFrame.Angles(0,ST.freeCamYaw,0)*CFrame.Angles(ST.freeCamPitch,0,0)
@@ -952,7 +966,14 @@ local function setFreeCam(on)
                     end
                 end
                 return Enum.ContextActionResult.Sink
-            end,false,Enum.ContextActionPriority.High.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift)
+            end,false,Enum.ContextActionPriority.Max.Value,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Space,Enum.KeyCode.LeftControl,Enum.KeyCode.LeftShift)
+        end)
+        pcall(function()
+            if ST._axCamTick then
+                R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Last.Value+100,function(...)
+                    if ST._axCamTick then ST._axCamTick(...) end
+                end)
+            end
         end)
         ntf("FreeCam","ON - WASD to move (no RMB), hold RMB to look, Shift fast, Space/Ctrl up/down")
     else
@@ -962,7 +983,7 @@ local function setFreeCam(on)
         pcall(function() U.MouseBehavior=Enum.MouseBehavior.Default end)
         pcall(function() game:GetService("ContextActionService"):UnbindAction("AxFreecamSink") end)
         unfreezeLocalFromCam()
-        if not ST.spectateOverhead then restoreLocalCamera() end
+        restoreLocalCamera()
         ST.freeCamPos=nil
         if was then ntf("FreeCam","OFF") end
     end
@@ -984,6 +1005,7 @@ local function applyFreeCam(cam)
     -- RMB = look (LockCenter + delta), else free mouse
     local rmb=false
     pcall(function() rmb=U:IsKeyDown(Enum.UserInputType.MouseButton2) end)
+    if not rmb then pcall(function() rmb=U:IsMouseButtonPressed(Enum.MouseButton2) end) end
     if not rmb and ST._camRMB then rmb=true end
     if rmb then
         pcall(function() U.MouseBehavior=Enum.MouseBehavior.LockCenter end)
@@ -1022,16 +1044,14 @@ local function applyFreeCam(cam)
     pcall(function() right=U:IsKeyDown(Enum.KeyCode.D) end)
     pcall(function() up=U:IsKeyDown(Enum.KeyCode.Space) end)
     pcall(function() down=U:IsKeyDown(Enum.KeyCode.LeftControl) end)
-    -- fallback to FC_KEYS if IsKeyDown fails in some executors
-    if not fw and not back and not left and not right then
-        if FC_KEYS[Enum.KeyCode.W] then fw=true end
-        if FC_KEYS[Enum.KeyCode.S] then back=true end
-        if FC_KEYS[Enum.KeyCode.A] then left=true end
-        if FC_KEYS[Enum.KeyCode.D] then right=true end
-        if FC_KEYS[Enum.KeyCode.Space] then up=true end
-        if FC_KEYS[Enum.KeyCode.LeftControl] then down=true end
-        if FC_KEYS[Enum.KeyCode.LeftShift] then base=180 end
-    end
+    -- always OR with FC_KEYS (IsKeyDown can fail in some executors)
+    if not fw and FC_KEYS[Enum.KeyCode.W] then fw=true end
+    if not back and FC_KEYS[Enum.KeyCode.S] then back=true end
+    if not left and FC_KEYS[Enum.KeyCode.A] then left=true end
+    if not right and FC_KEYS[Enum.KeyCode.D] then right=true end
+    if not up and FC_KEYS[Enum.KeyCode.Space] then up=true end
+    if not down and FC_KEYS[Enum.KeyCode.LeftControl] then down=true end
+    if FC_KEYS[Enum.KeyCode.LeftShift] then base=180 end
     if fw then dir=dir+rot.LookVector end
     if back then dir=dir-rot.LookVector end
     if left then dir=dir-rot.RightVector end
@@ -1066,9 +1086,17 @@ local function applyOverhead(cam)
         return
     end
     local chT=ST.spectating.Character
-    if not chT then return end
-    local hrpT=chT:FindFirstChild("HumanoidRootPart") or chT:FindFirstChild("Head")
-    if not hrpT or not cam then return end
+    local hrpT=chT and (chT:FindFirstChild("HumanoidRootPart") or chT:FindFirstChild("Head"))
+    if not cam then return end
+    if not hrpT then
+        if not ST._ovhNoChar then ST._ovhNoChar=tick() return end
+        if tick()-ST._ovhNoChar<5 then return end
+        ST._ovhNoChar=nil
+        stopOverhead(false)
+        ntf("Spectate","Target character lost - overhead stopped",4)
+        return
+    end
+    ST._ovhNoChar=nil
     if cam.CameraType~=Enum.CameraType.Scriptable then cam.CameraType=Enum.CameraType.Scriptable end
     ensureCamInputConns()
     pcall(function()
@@ -1191,27 +1219,30 @@ local function applyAim(cam)
     local myHum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
     if myHum and not myHum.AutoRotate then myHum.AutoRotate=true end
 end
-pcall(function()
-    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Last.Value+100,function()
-        pcall(function()
-            local cam=W.CurrentCamera
-            if not cam then return end
-            CAM=cam
-            if ST.freeCam then
-                applyFreeCam(cam)
-            elseif ST.spectateOverhead then
-                applyOverhead(cam)
-            else
-                if not isAimActive() and cam.CameraType~=Enum.CameraType.Custom then
-                    pcall(function()
-                        cam.CameraType=Enum.CameraType.Custom
-                        local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-                        if hum then cam.CameraSubject=hum end
-                    end)
-                end
-                applyAim(cam)
+ST._axCamTick=function()
+    pcall(function()
+        local cam=W.CurrentCamera
+        if not cam then return end
+        CAM=cam
+        if ST.freeCam then
+            applyFreeCam(cam)
+        elseif ST.spectateOverhead then
+            applyOverhead(cam)
+        else
+            if not isAimActive() and cam.CameraType~=Enum.CameraType.Custom then
+                pcall(function()
+                    cam.CameraType=Enum.CameraType.Custom
+                    local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                    if hum then cam.CameraSubject=hum end
+                end)
             end
-        end)
+            applyAim(cam)
+        end
+    end)
+end
+pcall(function()
+    R:BindToRenderStep("AxCamCtrl",Enum.RenderPriority.Last.Value+100,function(...)
+        if ST._axCamTick then ST._axCamTick(...) end
     end)
 end)
 function findRemote(name)
@@ -1739,6 +1770,59 @@ local function spawnVehicle(name, pos)
     end
     local fired=0
     pcall(function()
+        local lg=ST._learnLog
+        if not lg then return end
+        if ST._learnVPend then
+            ST._learnVPend=nil
+            ntf("Vehicle","Vehicle args learned - Spawn now replays them",5)
+        end
+        local verbSet={buy=1,sell=1,spawn=1,respawn=1,select=1,use=1,set=1,get=1,open=1,park=1,add=1,save=1,create=1}
+        local replays=0
+        for path,arr in pairs(lg) do
+            if replays>=2 then break end
+            local lp=string.lower(path)
+            if string.find(lp,"cardealer",1,true) or string.find(lp,"spawncar",1,true) or string.find(lp,"vehicle",1,true) then
+                local rec=arr[1]
+                if rec and rec.inst then
+                    local function build(usePos)
+                        local na={} local sub=false
+                        for i,a in ipairs(rec.args) do
+                            if typeof(a)=="string" then
+                                local lv=string.lower(a)
+                                if verbSet[lv]==1 or string.find(a,"%d") or string.find(a,"_",1,true) then
+                                    na[i]=a
+                                else
+                                    na[i]=name sub=true
+                                end
+                            elseif usePos and typeof(a)=="Vector3" then
+                                na[i]=spawnPos sub=true
+                            elseif usePos and typeof(a)=="CFrame" then
+                                na[i]=CFrame.new(spawnPos) sub=true
+                            else
+                                na[i]=a
+                            end
+                        end
+                        return na,sub
+                    end
+                    local na1,sub1=build(false)
+                    if sub1 then
+                        grFire(rec.inst,na1,"lv"..replays) replays=replays+1
+                    end
+                    if replays<2 then
+                        local hasPos=false
+                        for _,a in ipairs(rec.args) do
+                            if typeof(a)=="Vector3" or typeof(a)=="CFrame" then hasPos=true break end
+                        end
+                        if hasPos then
+                            local na2,sub2=build(true)
+                            if sub2 then grFire(rec.inst,na2,"lv"..replays) replays=replays+1 end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    pcall(function()
         local rems={
             RS:FindFirstChild("Cars") and RS.Cars:FindFirstChild("CarDealer"),
             RS:FindFirstChild("CarDealer"),
@@ -1787,70 +1871,6 @@ local function spawnVehicle(name, pos)
         end)
         return parts,joints,anchored
     end
-    local function clientClone()
-        local ok=false
-        pcall(function()
-            local list=getVehicleList()
-            local cands={}
-            for _,m in ipairs(list) do
-                local mn=string.lower(m.Name)
-                local sc=3
-                if mn==q then sc=0
-                elseif string.find(mn,q,1,true)==1 then sc=1
-                elseif string.find(mn,q,1,true) then sc=2 end
-                table.insert(cands,{m=m,s=sc})
-            end
-            table.sort(cands,function(a,b) return a.s<b.s end)
-            local found=nil
-            for _,cand in ipairs(cands) do
-                if cand.s>=3 then break end
-                local parts,joints,anchored=vehStats(cand.m)
-                if parts>0 and not (joints==0 and anchored<parts) then
-                    found=cand.m
-                    break
-                end
-            end
-            if found then
-                local cl=found:Clone()
-                local seat=cl:FindFirstChildOfClass("VehicleSeat")
-                local pj=0
-                pcall(function()
-                    for _,d in pairs(cl:GetDescendants()) do
-                        if d:IsA("Weld") or d:IsA("WeldConstraint") or d:IsA("Motor6D") then pj=pj+1 end
-                    end
-                end)
-                if pj==0 and seat then
-                    pcall(function()
-                        for _,d in pairs(cl:GetDescendants()) do
-                            if d:IsA("BasePart") and d~=seat then
-                                local wc=Instance.new("WeldConstraint")
-                                wc.Part0=seat wc.Part1=d
-                                wc.Parent=d
-                            end
-                        end
-                    end)
-                end
-                pcall(function() if not cl.PrimaryPart and seat then cl.PrimaryPart=seat end end)
-                pcall(function() cl:SetPrimaryPartCFrame(CFrame.new(spawnPos)) end)
-                if not cl.PrimaryPart then
-                    pcall(function()
-                        for _,d in pairs(cl:GetChildren()) do
-                            if d:IsA("BasePart") then cl.PrimaryPart=d break end
-                        end
-                        if cl.PrimaryPart then cl:SetPrimaryPartCFrame(CFrame.new(spawnPos)) end
-                    end)
-                end
-                for _,d in pairs(cl:GetDescendants()) do
-                    if d:IsA("BasePart") then d.Anchored=false end
-                end
-                cl.Parent=W
-                ST._vehClone=cl
-                ntf("Vehicle","Spawned (client) "..found.Name.." - press E to enter",5)
-                ok=true
-            end
-        end)
-        return ok
-    end
     local function verify()
         local near=false
         pcall(function()
@@ -1872,8 +1892,7 @@ local function spawnVehicle(name, pos)
             ntf("Vehicle","Spawned "..tostring(name).." nearby - press E to enter",5)
             return
         end
-        if clientClone() then return end
-        ntf("Vehicle",tostring(name).." - server ignored, no intact template found",4)
+        ntf("Vehicle","Server ignored - spawn a car ONCE at the dealer with menu open, then Spawn replays it",7)
     end
     if fired>0 then
         ntf("Vehicle","Spawning "..tostring(name).." ...",3)
@@ -2740,9 +2759,16 @@ function giveGRItem(name, kind, noFire)
     return n
 end
 pcall(function()
+    pcall(function()
+        local bpc=LP:FindFirstChild("Backpack")
+        local oldx=bpc and bpc:FindFirstChild("AxWatch")
+        if oldx then oldx:Destroy() end
+    end)
     local function watchBp(bp)
-        if not bp or bp:FindFirstChild("AxWatch") then return end
-        local mk=Instance.new("Folder") mk.Name="AxWatch" mk.Parent=bp
+        if not bp then return end
+        ST._bpWatched=ST._bpWatched or {}
+        if ST._bpWatched[bp] then return end
+        ST._bpWatched[bp]=true
         bp.ChildRemoved:Connect(function(ch)
             if not ch or not ch:IsA("Tool") then return end
             if not ST._givenItems then return end
