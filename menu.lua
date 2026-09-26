@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx34")
+print("[Axynth] Loading... build=fx35")
 local ok, err = pcall(function()
 P = game:GetService("Players")
 U = game:GetService("UserInputService")
@@ -339,29 +339,77 @@ local hkOk,hkErr=pcall(function()
         return hookBody((type(XN)=="function") and XN() or "", oldNC, self, ...)
     end
     local p0ok,p0err=pcall(function()
-        ST._probe="dbg="..type(debug)
-        local dgm=nil
+        ST._probe="dbg["
         if type(debug)=="table" then
-            dgm=debug.getmetatable
-            ST._probe=ST._probe..",dgm="..type(dgm)
+            local ks={}
+            for k,v in pairs(debug) do ks[#ks+1]=tostring(k)..":"..type(v) end
+            table.sort(ks)
+            ST._probe=ST._probe..string.sub(table.concat(ks,","),1,300)
+        else
+            ST._probe=ST._probe..type(debug)
         end
-        if type(dgm)~="function" then error("dgm="..type(dgm),0) end
-        local okT,mtT=pcall(dgm,{})
-        ST._probe=ST._probe..",t="..((okT and type(mtT)) or "err")
-        local names={"game","ws","lp","re"}
-        local cands={game,workspace,LP,Instance.new("RemoteEvent")}
+        ST._probe=ST._probe.."]"
+        local cands={}
+        local function addc(nm,v) if type(v)=="function" then cands[#cands+1]={nm,v} end end
+        if type(debug)=="table" then
+            addc("dgm",debug.getmetatable)
+            addc("dgrm",debug.getrawmetatable)
+        end
+        local okg,g=pcall(getgenv)
+        if okg and type(g)=="table" then
+            addc("g.grm",g.getrawmetatable)
+            if type(g.debug)=="table" then addc("g.dbg.gm",g.debug.getmetatable) end
+            local ksg={}
+            for k in pairs(g) do if type(k)=="string" then ksg[#ksg+1]=k end end
+            table.sort(ksg)
+            ST._probe=ST._probe.."|genv["..string.sub(table.concat(ksg,","),1,700).."]"
+        end
+        local XT=xnapi("Xeno") or xnapi("xeno")
+        if type(XT)=="table" then
+            if type(XT.debug)=="table" then addc("X.dbg.gm",XT.debug.getmetatable) end
+            addc("X.grm",XT.getrawmetatable)
+            local ksk={}
+            for k in pairs(XT) do ksk[#ksk+1]=tostring(k) end
+            table.sort(ksk)
+            ST._probe=ST._probe.."|X["..string.sub(table.concat(ksk,","),1,400).."]"
+        end
+        addc("xn.grm",xnapi("getrawmetatable"))
+        ST._probe=ST._probe.."|cand="..#cands
         local mt=nil
-        for i=1,4 do
-            local okM,mT=pcall(dgm,cands[i])
-            local dsc=(okM and type(mT)) or "err"
+        local usedC="none"
+        for _,cd in ipairs(cands) do
+            local okM,mT=pcall(cd[2],game)
+            ST._probe=ST._probe..","..cd[1].."="..((okM and type(mT)) or "err")
             if okM and type(mT)=="table" and type(rawget(mT,"__namecall"))=="function" then
-                dsc=dsc.."+nc"
                 mt=mT
+                usedC=cd[1]
+                break
             end
-            ST._probe=ST._probe..","..names[i].."="..dsc
-            if mt then break end
         end
-        if not mt then error("no-namecall-mt",0) end
+        if not mt then
+            local okr,reg=pcall(getreg)
+            local rdesc=(not okr) and "err" or type(reg)
+            if okr and type(reg)=="table" then
+                local found=nil
+                local cnt=0
+                for _,v in pairs(reg) do
+                    cnt=cnt+1
+                    if type(v)=="table" and type(rawget(v,"__namecall"))=="function" then
+                        found=v
+                        break
+                    end
+                    if cnt>=40000 then break end
+                end
+                if found then
+                    mt=found
+                    usedC="reg"
+                end
+                rdesc=rdesc.."/"..cnt..(mt and "+NC" or "")
+            end
+            ST._probe=ST._probe.."|reg="..rdesc
+        end
+        if not mt then error("no-mt",0) end
+        ST._probe=ST._probe.."|USE:"..usedC
         if type(XS)=="function" then pcall(XS,mt,false) end
         local old=rawget(mt,"__namecall")
         local h=hookFn
@@ -741,7 +789,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx34 | "..string.sub(tostring(ST._probe or ""),1,60)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx35 | "..string.sub(tostring(ST._probe or ""),1,1600)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
