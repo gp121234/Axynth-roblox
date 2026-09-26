@@ -352,32 +352,87 @@ local hkOk,hkErr=pcall(function()
                 local dA=Instance.new("RemoteEvent")
                 local origA=dA.FireServer
                 if type(origA)~="function" then error("FireServer is "..type(origA),0) end
-                local wA=function(self,...)
-                    if ST._hiShape==nil then ST._hiShape=typeof(self) end
-                    return hookBody("FireServer",origA,self,...)
+                local function mkCb(method,orig)
+                    local w=function(self,...)
+                        if ST._hiShape==nil then
+                            local a2=select(1,...)
+                            ST._hiShape=typeof(self).."/"..typeof(a2)
+                        end
+                        return hookBody(method,orig,self,...)
+                    end
+                    if type(XC)=="function" then
+                        local o,r=pcall(XC,w)
+                        if o and type(r)=="function" then return r end
+                    end
+                    return w
                 end
-                local okA,eA=pcall(HI,dA,wA)
-                if not okA then error("f2:"..string.sub(tostring(eA),1,90),0) end
-                local v0=ST._ncAny or 0
-                pcall(function() dA:FireServer("axprobe") end)
-                if (ST._ncAny or 0)<=v0 then error("f2: no interception",0) end
-                if ST._hiShape~="Instance" then error("f2: shape="..tostring(ST._hiShape),0) end
+                local cbA=mkCb("FireServer",origA)
+                local tries={}
+                local hookedF={}
+                local function run(tag,...)
+                    local okR,ret=pcall(HI,...)
+                    if not okR then
+                        tries[#tries+1]=tag.."!:"..string.sub(tostring(ret),1,55)
+                        return false
+                    end
+                    ST._hiShape=nil
+                    local ferr=nil
+                    local okF,errF=pcall(function() dA:FireServer("axprobe") end)
+                    if not okF then ferr=tostring(errF) end
+                    if ST._hiShape~=nil then
+                        if ferr==nil then
+                            tries[#tries+1]=tag.." OK shape="..tostring(ST._hiShape)
+                            return true
+                        end
+                        tries[#tries+1]=tag.." hit+ERR shape="..tostring(ST._hiShape).." e="..string.sub(ferr,1,40)
+                        return false
+                    end
+                    tries[#tries+1]=tag..": ret="..type(ret)..",no-hit"
+                    return false
+                end
+                local winForm=nil
+                if run("A2",dA,cbA) then winForm="A2" end
+                if not winForm and run("B3",dA,"FireServer",cbA) then winForm="B3" end
+                if not winForm and run("Cfn",origA,cbA) then
+                    winForm="Cfn"
+                    hookedF[origA]=true
+                end
+                if not winForm and run("Dtb",dA,{cbA}) then winForm="Dtb" end
+                if not winForm then error("f2:"..table.concat(tries," | "),0) end
+                if string.sub(tostring(ST._hiShape),1,8)~="Instance" then
+                    error("f2:shape="..tostring(ST._hiShape).." "..table.concat(tries," | "),0)
+                end
+                local function apply(tag,target,method,fn,cb)
+                    local okH=false
+                    if tag=="A2" then okH=pcall(HI,target,cb)
+                    elseif tag=="B3" then okH=pcall(HI,target,method,cb)
+                    elseif tag=="Cfn" then
+                        if hookedF[fn] then return true end
+                        hookedF[fn]=true
+                        okH=pcall(HI,fn,cb)
+                    elseif tag=="Dtb" then okH=pcall(HI,target,{cb})
+                    end
+                    return okH
+                end
                 local dB=Instance.new("RemoteEvent")
+                local origB=dB.FireServer
+                local cbB=mkCb("FireServer",origB)
+                apply(winForm,dB,"FireServer",origB,cbB)
                 local v1=ST._ncAny or 0
                 pcall(function() dB:FireServer("axprobe") end)
                 if (ST._ncAny or 0)>v1 then
-                    local parts={"class:FireServer"}
+                    local parts={winForm..":FireServer"}
                     local dF=Instance.new("RemoteFunction")
                     local origF=dF.InvokeServer
                     if type(origF)=="function" then
-                        local wF=function(self,...) return hookBody("InvokeServer",origF,self,...) end
-                        if pcall(HI,dF,wF) then parts[#parts+1]="InvokeServer" end
+                        local cbF=mkCb("InvokeServer",origF)
+                        if apply(winForm,dF,"InvokeServer",origF,cbF) then parts[#parts+1]="InvokeServer" end
                     end
                     local dU=Instance.new("UnreliableRemoteEvent")
                     local origU=dU.FireServer
                     if type(origU)=="function" then
-                        local wU=function(self,...) return hookBody("FireServer",origU,self,...) end
-                        if pcall(HI,dU,wU) then parts[#parts+1]="UnreliableRE" end
+                        local cbU=mkCb("FireServer",origU)
+                        if apply(winForm,dU,"FireServer",origU,cbU) then parts[#parts+1]="UnreliableRE" end
                     end
                     HOOK_PATH="hookinstance["..table.concat(parts,",").."]"
                     return
@@ -395,9 +450,8 @@ local hkOk,hkErr=pcall(function()
                                     local m=(cn=="RemoteFunction") and "InvokeServer" or "FireServer"
                                     local fn=inst[m]
                                     if type(fn)=="function" then
-                                        local bx={orig=fn}
-                                        local w=function(self,...) return hookBody(m,bx.orig,self,...) end
-                                        if pcall(HI,inst,w) then n=n+1 end
+                                        local cb=mkCb(m,fn)
+                                        if apply(winForm,inst,m,fn,cb) then n=n+1 end
                                     end
                                 end
                             end
@@ -408,7 +462,7 @@ local hkOk,hkErr=pcall(function()
                     HOOK_PATH="hookinstance[instance x"..n.."]"
                     return
                 end
-                error("f2:class=no inst=0",0)
+                error("f2:"..table.concat(tries," | ").."; class=no inst=0",0)
             end)
             pHIdone=true
         end)
@@ -417,7 +471,7 @@ local hkOk,hkErr=pcall(function()
             task.wait(0.1)
         end
         if pHIok then
-            HOOK_PATH="hookinstance+namecall"
+            if type(HOOK_PATH)~="string" then HOOK_PATH="hookinstance" end
         else
         local p2ok,p2err=pcall(function()
             if type(XG)~="function" then error("getrawmetatable is "..type(XG),0) end
@@ -459,27 +513,55 @@ local hkOk,hkErr=pcall(function()
                         fn=inst0[mname]
                     end
                     if type(fn)~="function" then error(mname.." is "..type(fn),0) end
-                    local box={orig=fn}
-                    local wrapper=function(self,...) return hookBody(mname,box.orig,self,...) end
-                    local okh,ret=pcall(XHF,fn,wrapper)
-                    if not okh then error("hookfunction: "..tostring(ret),0) end
-                    if type(ret)=="function" and ret~=wrapper then box.orig=ret end
-                    if box.orig==wrapper then error(mname..": recursive hook",0) end
-                    local v0=ST._ncAny or 0
-                    local probeDone=false
-                    task.spawn(function()
-                        pcall(function()
-                            local pr=(cls=="Workspace") and workspace or Instance.new(cls)
-                            pr[mname](pr,"selftest")
-                        end)
-                        probeDone=true
-                    end)
-                    for i=1,7 do
-                        if (ST._ncAny or 0)>v0 or probeDone then break end
-                        task.wait(0.1)
+                    local box={orig=fn,probing=false,hit=false}
+                    local wrapper=function(self,...)
+                        if box.probing then box.hit=true end
+                        return hookBody(mname,box.orig,self,...)
                     end
-                    local d=(ST._ncAny or 0)-v0
-                    if d~=1 then error(mname..": closure did not run (delta="..tostring(d)..")",0) end
+                    local cands={}
+                    if type(XC)=="function" then
+                        local okc,rc=pcall(XC,wrapper)
+                        if okc and type(rc)=="function" then cands[#cands+1]={rc,"cc"} end
+                    end
+                    cands[#cands+1]={wrapper,"lc"}
+                    local hooked=false
+                    local herrs={}
+                    for _,cd in ipairs(cands) do
+                        local hw,hwtag=cd[1],cd[2]
+                        local okh,ret=pcall(XHF,fn,hw)
+                        if not okh then
+                            herrs[#herrs+1]=hwtag..":"..string.sub(tostring(ret),1,45)
+                        else
+                            if type(ret)=="function" and ret~=hw and ret~=wrapper then box.orig=ret end
+                            if box.orig==hw or box.orig==wrapper then
+                                herrs[#herrs+1]=hwtag..":recursive"
+                            else
+                                box.probing=true
+                                box.hit=false
+                                local probeDone=false
+                                task.spawn(function()
+                                    pcall(function()
+                                        local pr=(cls=="Workspace") and workspace or Instance.new(cls)
+                                        pr[mname](pr,"selftest")
+                                    end)
+                                    probeDone=true
+                                end)
+                                for i=1,7 do
+                                    if box.hit or probeDone then break end
+                                    task.wait(0.1)
+                                end
+                                box.probing=false
+                                if box.hit then
+                                    hooked=true
+                                    break
+                                end
+                                herrs[#herrs+1]=hwtag..":no-hit"
+                            end
+                        end
+                    end
+                    if not hooked then
+                        error(mname..": closure did not run ("..table.concat(herrs,",")..")",0)
+                    end
                     done[#done+1]=cls..":"..mname
                     if cls=="RemoteEvent" and mname=="FireServer" then path4FS=true end
                 end
@@ -496,7 +578,7 @@ local hkOk,hkErr=pcall(function()
                     end
                     if not ok then errs[#errs+1]=t[2]..":"..string.sub(tostring(e),1,60) end
                 end
-                if #done==0 then error("pHI["..string.sub(tostring(pHIerr),1,140).."] path4: "..table.concat(errs,"; "),0) end
+                if #done==0 then error("pHI["..string.sub(tostring(pHIerr),1,400).."] path4: "..table.concat(errs,"; "),0) end
                 HOOK_PATH="hookfunction["..table.concat(done,",").."]"..((#errs>0) and (" partial: "..table.concat(errs,"; ")) or "")
             end
         end
