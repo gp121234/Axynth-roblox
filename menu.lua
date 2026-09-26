@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx48")
+print("[Axynth] Loading... build=fx50")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1086,7 +1086,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx48 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx50 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
@@ -3447,7 +3447,8 @@ local function doFullHeal()
     ntf("Heal", fired>0 and ("Full heal + "..fired.." remote(s)") or "Full heal applied")
 end
 btn(tEx,"Full Heal Self",function() if cd() then doFullHeal() end end,"fheal")
-local function axPromptInteract(kws, clickName)
+local function axPromptInteract(kws, clickName, dlSec)
+    if kws and #kws>0 then
     pcall(function()
         local best,bestScore=nil,-1
         local okD,descs=pcall(function() return game:GetDescendants() end)
@@ -3514,6 +3515,7 @@ local function axPromptInteract(kws, clickName)
             ntf("Prompt","Begin failed: "..string.sub(tostring(eB),1,58),5)
         end
     end)
+    end
     if not clickName or clickName=="" then return end
     local want=string.lower(clickName)
     local found=nil
@@ -3547,7 +3549,7 @@ local function axPromptInteract(kws, clickName)
             end
         end)
     end
-    local dl=tick()+3.5
+    local dl=tick()+(dlSec or 3.5)
     while tick()<dl and not found do
         scanUI(want)
         if not found then
@@ -3584,6 +3586,15 @@ local function axPromptInteract(kws, clickName)
 end
 btn(tEx,"Spawn Car @Dealer",function() if cd() then local vs="" pcall(function() vs=string.match(tostring(vDropBtn.Text or "")," > (.+)") or "" end) axPromptInteract({"car","dealer","vehicle","garage"},vs) end end,"spcar")
 btn(tEx,"Interact Shop Prompt",function() if cd() then axPromptInteract({"shop","market","store","gunshop","armory"}) end end,"spshop")
+btn(tEx,"Set Job @JobCenter UI",function()
+    if not cd() then return end
+    local jn=ST.selectedJob
+    if not jn or jn=="" then
+        ntf("Job","Select a job in the Players tab first",5)
+        return
+    end
+    axPromptInteract({"job","career","jobcenter","center"},jn)
+end,"jobui")
 local function bindGodHC()
     pcall(function()
         if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end
@@ -4200,7 +4211,11 @@ btn(tEx,"Give Food+Medkit pack",function()
     if not cd() then return end
     local total=0
     for _,it in ipairs(GR_ITEMS) do total=total+giveGRItem(it,"item") end
-    ntf("Give","Items pack: "..total.." added (Bandage/Bread/Water/etc)",5)
+    ntf("Give","Items pack: "..total.." added - now buying via real shop UI",7)
+    axPromptInteract({"shop","market","store","supermarket"},nil)
+    for _,it in ipairs(GR_ITEMS) do
+        axPromptInteract(nil,it,1.2)
+    end
 end,"gpack")
 btn(tEx,"Give LockPick",function()
     if not cd() then return end
@@ -4535,7 +4550,7 @@ mkStroke(itemBox,Color3.fromRGB(60,60,90),1)
 itemBox.FocusLost:Connect(function(enter)
     if enter then giveGameItem(itemBox.Text) end
 end)
-btn(tEx,"Give typed item",function() giveGameItem(itemBox.Text) end,"giveitem")
+btn(tEx,"Give typed item",function() giveGameItem(itemBox.Text) if itemBox.Text~="" then axPromptInteract({"shop","market","store","supermarket","armory","gun"},itemBox.Text) end end,"giveitem")
 -- duplicate give buttons removed (use GIVE WORKING ITEMS above)
 btn(tEx,"Refresh item list",function()
     ST._gameTools=nil
