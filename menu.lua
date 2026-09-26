@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx57")
+print("[Axynth] Loading... build=fx58")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1086,7 +1086,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx57 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx58 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         ST._clipmsg=msg
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
@@ -2923,7 +2923,6 @@ local function spawnVehicle(name, pos)
     if fired>0 then
         ntf("Vehicle","Spawning "..tostring(name).." ...",3)
     end
-    task.delay(7,verify)
 end
 local vehBox
 local vDropBtn=Instance.new("TextButton") vDropBtn.Size=UDim2.new(1,-12,0,30) vDropBtn.Position=UDim2.new(0,6,0,0) vDropBtn.BackgroundColor3=TH.b vDropBtn.BorderSizePixel=0 vDropBtn.Text="  Select vehicle..." vDropBtn.TextColor3=TH.t vDropBtn.TextSize=11 vDropBtn.Font=Enum.Font.GothamMedium vDropBtn.TextXAlignment=Enum.TextXAlignment.Left vDropBtn.Parent=tW mkCorner(vDropBtn,6) mkStroke(vDropBtn,TH.a,1)
@@ -3148,7 +3147,7 @@ local function doForceJob(targetPl, jobName)
                 if ST._jobUIClick then ST._jobUIClick(jobName) end
             end)
         end)
-        task.wait(1.2)
+        task.wait(2.5)
     end
     pcall(function()
         local lg=ST._learnLog
@@ -3518,7 +3517,97 @@ local function doFullHeal()
 end
 btn(tEx,"Full Heal Self",function() if cd() then doFullHeal() end end,"fheal")
 local function axPromptInteract(kws, clickName, dlSec)
+    local want=(clickName and clickName~="") and string.lower(clickName) or ""
+    local found=nil
+    local function scanUI(bw)
+        pcall(function()
+            local g=LP:FindFirstChild("PlayerGui")
+            if not g then return end
+            for _,d in ipairs(g:GetDescendants()) do
+                local cn=d.ClassName
+                if cn=="TextButton" or cn=="ImageButton" then
+                    local blob=tostring(d.Text or "").." "..tostring(d.Name or "")
+                    pcall(function()
+                        for _,c2 in ipairs(d:GetChildren()) do
+                            if c2:IsA("TextLabel") then blob=blob.." "..tostring(c2.Text or "") end
+                        end
+                    end)
+                    blob=string.lower(blob)
+                    local ok=false
+                    if blob:find(bw,1,true) then ok=true end
+                    if not ok then
+                        local all=true
+                        local cnt=0
+                        for w in bw:gmatch("%S+") do
+                            cnt=cnt+1
+                            if not blob:find(w,1,true) then all=false break end
+                        end
+                        ok=all and cnt>0
+                    end
+                    if ok then found=d break end
+                end
+            end
+        end)
+    end
+    local trig=false
     if kws and #kws>0 then
+        pcall(function()
+            for _,d in ipairs(game:GetDescendants()) do
+                local okI,isP=pcall(function() return d:IsA("ProximityPrompt") end)
+                if okI and isP then
+                    local okf,fnm=pcall(function() return d:GetFullName() end)
+                    local pf=((okf and fnm) or ""):lower()
+                    if not pf:find("seat",1,true) and not pf:find("promptlocation",1,true) then
+                        local hit=false
+                        for _,k in ipairs(kws) do
+                            if pf:find(k,1,true) then hit=true break end
+                        end
+                        if not hit then
+                            local at=""
+                            pcall(function() at=(string.lower(tostring(d.ActionText or "")).." "..string.lower(tostring(d.ObjectText or ""))) end)
+                            for _,k in ipairs(kws) do
+                                if at:find(k,1,true) then hit=true break end
+                            end
+                        end
+                        if hit then
+                            pcall(function()
+                                for _,c in pairs(getconnections(d.Triggered)) do
+                                    pcall(function() c.Function(d) end)
+                                end
+                            end)
+                        end
+                    end
+                end
+            end
+        end)
+        pcall(function()
+            local g=LP:FindFirstChild("PlayerGui")
+            if not g then return end
+            for _,d in ipairs(g:GetDescendants()) do
+                local cn=d.ClassName
+                if cn=="Frame" or cn=="ScreenGui" or cn=="ScrollingFrame" or cn=="CanvasGroup" then
+                    local n=string.lower(tostring(d.Name or ""))
+                    for _,k in ipairs(kws) do
+                        if n:find(k,1,true) then
+                            pcall(function() d.Visible=true end)
+                            break
+                        end
+                    end
+                end
+            end
+        end)
+        if want=="" then
+            trig=true
+        else
+            local d0=tick()+1.2
+            while tick()<d0 and not found do
+                scanUI(want)
+                if not found then task.wait(0.2) end
+            end
+            trig=(not found)
+        end
+    end
+    if trig then
     pcall(function()
         local best,bestScore=nil,-1
         local okD,descs=pcall(function() return game:GetDescendants() end)
@@ -3553,23 +3642,6 @@ local function axPromptInteract(kws, clickName, dlSec)
             ntf("Prompt","No matching prompt in workspace",4)
             return
         end
-        pcall(function()
-            local pos=nil
-            local att=best.Attachment
-            if att then pos=att.WorldPosition end
-            if not pos then
-                local par=best.Parent
-                if par and par:IsA("BasePart") then pos=par.Position end
-            end
-            if pos then
-                local ch=LP.Character
-                local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
-                if hrp and (hrp.Position-pos).Magnitude>16 then
-                    safeTeleport(pos+Vector3.new(2,0,3))
-                end
-            end
-        end)
-        task.wait(0.6)
         pcall(function() best.Enabled=true end)
         pcall(function() best.RequiresLineOfSight=false end)
         pcall(function() best.MaxActivationDistance=40 end)
@@ -3587,39 +3659,8 @@ local function axPromptInteract(kws, clickName, dlSec)
         end
     end)
     end
-    if not clickName or clickName=="" then return end
-    local want=string.lower(clickName)
-    local found=nil
-    local function scanUI(bw)
-        pcall(function()
-            local g=LP:FindFirstChild("PlayerGui")
-            if not g then return end
-            for _,d in ipairs(g:GetDescendants()) do
-                local cn=d.ClassName
-                if cn=="TextButton" or cn=="ImageButton" then
-                    local blob=tostring(d.Text or "").." "..tostring(d.Name or "")
-                    pcall(function()
-                        for _,c2 in ipairs(d:GetChildren()) do
-                            if c2:IsA("TextLabel") then blob=blob.." "..tostring(c2.Text or "") end
-                        end
-                    end)
-                    blob=string.lower(blob)
-                    local ok=false
-                    if blob:find(bw,1,true) then ok=true end
-                    if not ok then
-                        local all=true
-                        local cnt=0
-                        for w in bw:gmatch("%S+") do
-                            cnt=cnt+1
-                            if not blob:find(w,1,true) then all=false break end
-                        end
-                        ok=all and cnt>0
-                    end
-                    if ok then found=d break end
-                end
-            end
-        end)
-    end
+    if want=="" then return end
+    found=nil
     local dl=tick()+(dlSec or 3.5)
     while tick()<dl and not found do
         scanUI(want)
@@ -3710,7 +3751,7 @@ local function axPromptInteract(kws, clickName, dlSec)
     end
 end
 ST._jobUIClick=function(jn)
-    axPromptInteract({"job","career","jobcenter","center"},jn)
+    axPromptInteract({"job","career","jobcenter","center","society","apply"},jn)
 end
 ST._vehUIClick=function(nm)
     axPromptInteract({"car","dealer","vehicle","garage"},nm)
@@ -4704,49 +4745,6 @@ itemBox.FocusLost:Connect(function(enter)
     if enter then giveGameItem(itemBox.Text) end
 end)
 btn(tEx,"Give typed item",function() giveGameItem(itemBox.Text) if itemBox.Text~="" then axPromptInteract({"shop","market","store","supermarket","armory","gun"},itemBox.Text) end end,"giveitem")
-btn(tEx,"Drop Item on ground (visible)",function()
-    if not cd() then return end
-    local nm=itemBox.Text
-    if nm=="" then
-        ntf("Drop","Type an item name first",4)
-        return
-    end
-    pcall(function()
-        local inv=findRemote("Inventory.Inventory")
-        if inv then
-            grFire(inv,{"drop",nm},"drop")
-            grFire(inv,{nm,"drop"},"drop")
-            grFire(inv,{"remove",nm},"drop")
-            grFire(inv,{"drop",nm,1},"drop")
-            grFire(inv,nm,"drop")
-        end
-        local rem=findRemote("remove") or findRemote("Remove")
-        if rem then
-            grFire(rem,{nm},"dropR")
-            grFire(rem,{nm,1},"dropR")
-        end
-        local sm=findRemote("SupermarketEvent.Triggered")
-        if sm then grFire(sm,{"drop",nm},"dropSM") end
-    end)
-    ntf("Drop","Dropping '"..nm.."' - checking ground...",4)
-    task.delay(1.2,function()
-        local ok=false
-        pcall(function()
-            local want=string.lower(nm)
-            for _,d in ipairs(workspace:GetDescendants()) do
-                if d:IsA("Tool") and string.find(string.lower(d.Name),want,1,true) then
-                    ok=true
-                    break
-                end
-            end
-        end)
-        if ok then
-            ntf("Drop","SERVER dropped '"..nm.."' - on the ground, VISIBLE to everyone",7)
-        else
-            ntf("Drop","'"..nm.."' not on ground - not confirmed. PASTE me",7)
-        end
-    end)
-end,"dropitem")
 -- duplicate give buttons removed (use GIVE WORKING ITEMS above)
 btn(tEx,"Refresh item list",function()
     ST._gameTools=nil
