@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx33")
+print("[Axynth] Loading... build=fx34")
 local ok, err = pcall(function()
 P = game:GetService("Players")
 U = game:GetService("UserInputService")
@@ -339,19 +339,35 @@ local hkOk,hkErr=pcall(function()
         return hookBody((type(XN)=="function") and XN() or "", oldNC, self, ...)
     end
     local p0ok,p0err=pcall(function()
-        local dgm=(type(debug)=="table") and debug.getmetatable
-        if type(dgm)~="function" then error("debug.getmetatable is "..type(dgm),0) end
-        local okM,mt=pcall(dgm,game)
-        if not okM then error("dgm(game) failed: "..tostring(mt),0) end
-        if type(mt)~="table" then error("dgm(game) is "..type(mt),0) end
-        ST._probe="mt:table"
+        ST._probe="dbg="..type(debug)
+        local dgm=nil
+        if type(debug)=="table" then
+            dgm=debug.getmetatable
+            ST._probe=ST._probe..",dgm="..type(dgm)
+        end
+        if type(dgm)~="function" then error("dgm="..type(dgm),0) end
+        local okT,mtT=pcall(dgm,{})
+        ST._probe=ST._probe..",t="..((okT and type(mtT)) or "err")
+        local names={"game","ws","lp","re"}
+        local cands={game,workspace,LP,Instance.new("RemoteEvent")}
+        local mt=nil
+        for i=1,4 do
+            local okM,mT=pcall(dgm,cands[i])
+            local dsc=(okM and type(mT)) or "err"
+            if okM and type(mT)=="table" and type(rawget(mT,"__namecall"))=="function" then
+                dsc=dsc.."+nc"
+                mt=mT
+            end
+            ST._probe=ST._probe..","..names[i].."="..dsc
+            if mt then break end
+        end
+        if not mt then error("no-namecall-mt",0) end
         if type(XS)=="function" then pcall(XS,mt,false) end
         local old=rawget(mt,"__namecall")
-        if type(old)~="function" then error("__namecall is "..type(old),0) end
         local h=hookFn
         if type(XC)=="function" then h=XC(hookFn) end
         local okW,errW=pcall(function() rawset(mt,"__namecall",h) end)
-        if not okW then error("write failed: "..tostring(errW),0) end
+        if not okW then error("write:"..string.sub(tostring(errW),1,70),0) end
         oldNC=old
         local v0=ST._ncAny or 0
         local ferr=nil
@@ -368,6 +384,9 @@ local hkOk,hkErr=pcall(function()
         if type(XS)=="function" then pcall(XS,mt,true) end
         error("no-hit nc="..tostring(ST._ncAny or 0).."/"..v0.." ferr="..tostring(ferr),0)
     end)
+    if not p0ok then
+        ST._probe=(ST._probe or "?").."|P0ERR:"..string.sub(tostring(p0err),1,110)
+    end
     local p1ok,p1err=false,"skipped"
     if not p0ok then
     p1ok,p1err=pcall(function()
@@ -722,7 +741,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx33 | "..string.sub(tostring(ST._probe or ""),1,60)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx34 | "..string.sub(tostring(ST._probe or ""),1,60)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
