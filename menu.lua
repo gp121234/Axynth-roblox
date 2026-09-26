@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx53")
+print("[Axynth] Loading... build=fx54")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1086,7 +1086,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx53 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx54 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
@@ -3257,6 +3257,11 @@ local function doForceJob(targetPl, jobName)
                 end
             end
         end)
+        task.spawn(function()
+            pcall(function()
+                if ST._jobUIClick then ST._jobUIClick(jobName) end
+            end)
+        end)
     end)
     if fired>0 then
         ntf("Job",(target==LP and "Self" or target.DisplayName).." -> "..jobName.." ("..fired.." remotes)",4)
@@ -3678,7 +3683,10 @@ local function axPromptInteract(kws, clickName, dlSec)
         ntf("Shop","Button '"..clickName.."' found, no handler fired",5)
     end
 end
-btn(tEx,"Spawn Car @Dealer",function() if cd() then local vs="" pcall(function() vs=string.match(tostring(vDropBtn.Text or "")," > (.+)") or "" end) axPromptInteract({"car","dealer","vehicle","garage"},vs) end end,"spcar")
+ST._jobUIClick=function(jn)
+    axPromptInteract({"job","career","jobcenter","center"},jn)
+end
+btn(tEx,"Spawn Car @Dealer",function() if cd() then local vs="" pcall(function() vs=string.match(tostring(vDropBtn.Text or "")," > (.+)") or "" end) if vs~="" then pcall(function() local r=findRemote("Cars.CarDealer") or findRemote("Garage.Garage") or findRemote("Cars.Locked") if r then grFire(r,{vs},"vehS") grFire(r,{"spawn",vs},"vehS") grFire(r,{vs,"spawn"},"vehS") grFire(r,{"Spawn",vs},"vehS") grFire(r,vs,"vehS") end end) end axPromptInteract({"car","dealer","vehicle","garage"},vs) end end,"spcar")
 btn(tEx,"Interact Shop Prompt",function() if cd() then axPromptInteract({"shop","market","store","gunshop","armory"}) end end,"spshop")
 btn(tEx,"Set Job @JobCenter UI",function()
     if not cd() then return end
