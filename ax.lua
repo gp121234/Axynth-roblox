@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx46")
+print("[Axynth] Loading... build=fx47")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -503,19 +503,19 @@ local hkOk,hkErr=pcall(function()
         local fetch={}
         local inF={}
         for _,i in ipairs(pool) do
-            if #fetch>=100 then break end
+            if #fetch>=80 then break end
             fetch[#fetch+1]=i
             inF[i]=true
         end
         for _,i in ipairs(clis) do
-            if #fetch>=160 then break end
+            if #fetch>=135 then break end
             if not inF[i] then
                 fetch[#fetch+1]=i
                 inF[i]=true
             end
         end
         for _,i in ipairs(phits) do
-            if #fetch>=180 then break end
+            if #fetch>=150 then break end
             if not inF[i] then
                 fetch[#fetch+1]=i
                 inF[i]=true
@@ -580,6 +580,7 @@ local hkOk,hkErr=pcall(function()
         local prList={}
         local cdList={}
         local btList={}
+        local bankN=0
         pcall(function()
             for _,d in ipairs(game:GetDescendants()) do
                 local cn=d.ClassName
@@ -590,9 +591,23 @@ local hkOk,hkErr=pcall(function()
                         p=string.sub(p,18)
                     end
                     if cn=="ProximityPrompt" then
-                        prList[#prList+1]=string.sub(p,1,80)
+                        if string.sub(p,1,18)=="ReplicatedStorage." then
+                            p=string.sub(p,19)
+                        end
+                        if p:find("Bank Robbery",1,true) then
+                            bankN=bankN+1
+                        else
+                            local at=""
+                            pcall(function() at=tostring(d.ActionText or "") end)
+                            if at~="" and #at<=18 then
+                                at="{"..at.."}"
+                            else
+                                at=""
+                            end
+                            prList[#prList+1]=string.sub(p,1,64)..at
+                        end
                     else
-                        cdList[#cdList+1]=string.sub(p,1,80)
+                        cdList[#cdList+1]=string.sub(p,1,78)
                     end
                 end
             end
@@ -613,8 +628,8 @@ local hkOk,hkErr=pcall(function()
                                 break
                             end
                         end
-                        if hit and not le:find("vmenu",1,true) and not le:find("anticheat",1,true) then
-                            btList[#btList+1]=string.sub(p,1,80)
+                        if hit and not le:find("vmenu",1,true) and not le:find("anticheat",1,true) and not le:find("hdadmin",1,true) then
+                            btList[#btList+1]=string.sub(p,1,78)
                         end
                     end
                 end
@@ -623,7 +638,7 @@ local hkOk,hkErr=pcall(function()
         table.sort(prList)
         table.sort(cdList)
         table.sort(btList)
-        ST._probe=ST._probe..string.format("|cit=%.1f",tick()-tCI).."|PR:"..string.sub(table.concat(prList,";"),1,1080).."|CD:"..string.sub(table.concat(cdList,";"),1,260).."|BT:"..string.sub(table.concat(btList,";"),1,330)
+        ST._probe=ST._probe..string.format("|cit=%.1f",tick()-tCI).."|PR:"..#prList.."+b"..bankN..":"..string.sub(table.concat(prList,";"),1,950).."|CD:"..string.sub(table.concat(cdList,";"),1,400).."|BT:"..string.sub(table.concat(btList,";"),1,300)
     end)
     local p0ok,p0err=pcall(function()
         ST._probe=(ST._probe or "").."|dbg=nogm"
@@ -1071,7 +1086,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx46 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx47 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
@@ -3432,6 +3447,76 @@ local function doFullHeal()
     ntf("Heal", fired>0 and ("Full heal + "..fired.." remote(s)") or "Full heal applied")
 end
 btn(tEx,"Full Heal Self",function() if cd() then doFullHeal() end end,"fheal")
+local function axPromptInteract(kws)
+    pcall(function()
+        local best,bestScore=nil,-1
+        local okD,descs=pcall(function() return game:GetDescendants() end)
+        if not okD or type(descs)~="table" then
+            ntf("Prompt","scan failed",4)
+            return
+        end
+        for _,d in ipairs(descs) do
+            local okI,isP=pcall(function() return d:IsA("ProximityPrompt") end)
+            if okI and isP then
+                local okW,isW=pcall(function() return d:IsDescendantOf(workspace) end)
+                if okW and isW then
+                    local okf,fnm=pcall(function() return d:GetFullName() end)
+                    local p=((okf and fnm) or "?"):lower()
+                    local sc=0
+                    for _,k in ipairs(kws) do
+                        if p:find(k,1,true) then sc=sc+1 end
+                    end
+                    local at=""
+                    pcall(function() at=(tostring(d.ActionText or "").." "..tostring(d.ObjectText or "")):lower() end)
+                    for _,k in ipairs(kws) do
+                        if at:find(k,1,true) then sc=sc+3 end
+                    end
+                    if sc>bestScore then
+                        bestScore=sc
+                        best=d
+                    end
+                end
+            end
+        end
+        if not best or bestScore<=0 then
+            ntf("Prompt","No matching prompt in workspace",4)
+            return
+        end
+        pcall(function()
+            local pos=nil
+            local att=best.Attachment
+            if att then pos=att.WorldPosition end
+            if not pos then
+                local par=best.Parent
+                if par and par:IsA("BasePart") then pos=par.Position end
+            end
+            if pos then
+                local ch=LP.Character
+                local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+                if hrp and (hrp.Position-pos).Magnitude>16 then
+                    safeTeleport(pos+Vector3.new(2,0,3))
+                end
+            end
+        end)
+        pcall(function() best.Enabled=true end)
+        pcall(function() best.RequiresLineOfSight=false end)
+        pcall(function() best.MaxActivationDistance=40 end)
+        pcall(function() best.HoldDuration=0 end)
+        local okB,eB=pcall(function() best:InputHoldBegin() end)
+        task.delay(1.2,function()
+            pcall(function() best:InputHoldEnd() end)
+        end)
+        local okf,fnm=pcall(function() return best:GetFullName() end)
+        local short=string.sub(okf and fnm or "?",1,58)
+        if okB then
+            ntf("Prompt","Triggered: "..short.." - check if ALL players see it",6)
+        else
+            ntf("Prompt","Begin failed: "..string.sub(tostring(eB),1,58),5)
+        end
+    end)
+end
+btn(tEx,"Spawn Car @Dealer",function() if cd() then axPromptInteract({"car","dealer","vehicle","garage"}) end end,"spcar")
+btn(tEx,"Interact Shop Prompt",function() if cd() then axPromptInteract({"shop","market","store","gunshop","armory"}) end end,"spshop")
 local function bindGodHC()
     pcall(function()
         if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end
