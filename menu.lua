@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx58")
+print("[Axynth] Loading... build=fx59")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1086,7 +1086,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx58 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx59 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         ST._clipmsg=msg
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
@@ -3766,29 +3766,6 @@ btn(tF["set"],"Copy diagnostics to clipboard",function()
         end
     end)
 end,"copydiag")
-btn(tEx,"Interact Shop Prompt",function() if cd() then axPromptInteract({"shop","market","store","gunshop","armory"}) end end,"spshop")
-btn(tEx,"Free Armory (job weapons)",function() if cd() then axPromptInteract({"armory","armoury","weapon","locker"},nil) end end,"freearm")
-btn(tEx,"Grab Bank Gold (money)",function() if cd() then axPromptInteract({"gold","grab","vault","drill"},nil) end end,"bankgold")
-btn(tEx,"Free Clothes (click givers)",function()
-    if not cd() then return end
-    local n=0
-    pcall(function()
-        local cg=workspace:FindFirstChild("ClothingGivers")
-        if cg then
-            for _,d in ipairs(cg:GetDescendants()) do
-                if d.ClassName=="ClickDetector" then
-                    pcall(function() fireclickdetector(d) n=n+1 end)
-                end
-            end
-        end
-    end)
-    if n>0 then
-        ntf("Clothes","Clicked "..n.." givers - clothes should be VISIBLE on you",6)
-    else
-        ntf("Clothes","No givers found",4)
-    end
-end,"freeclothes")
-btn(tEx,"Claim Free Drops/Crates",function() if cd() then axPromptInteract({"crate","drop","claim","loot","box"},nil) end end,"freedrop")
 local function bindGodHC()
     pcall(function()
         if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end
