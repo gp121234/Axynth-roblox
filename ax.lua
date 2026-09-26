@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx45")
+print("[Axynth] Loading... build=fx46")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -439,7 +439,6 @@ local hkOk,hkErr=pcall(function()
                 table.sort(rems)
                 local rkw={"shop","invent","spawn","super","weapon","team","job","sell","buy","market","store","drug","food","give","drop","crate","item","garage","mafia","armory","claim","fuel","vehicle"}
                 local kwr={}
-                local otr={}
                 for _,e in ipairs(rems) do
                     local le=e:lower()
                     local hit=false
@@ -451,11 +450,9 @@ local hkOk,hkErr=pcall(function()
                     end
                     if hit then
                         kwr[#kwr+1]=e
-                    else
-                        otr[#otr+1]=e
                     end
                 end
-                ST._probe=ST._probe..string.format("|tr=%.1f rems=%d(ms%d,pl%d,cj%d,hd%d):",tick()-tR,#rems+msN+plN+cjN+hdN,msN,plN,cjN,hdN).."K:"..string.sub(table.concat(kwr,";"),1,850).."~o:"..string.sub(table.concat(otr,";"),1,220)
+                ST._probe=ST._probe..string.format("|tr=%.1f rems=%d(ms%d,pl%d,cj%d,hd%d):",tick()-tR,#rems+msN+plN+cjN+hdN,msN,plN,cjN,hdN).."K:"..string.sub(table.concat(kwr,";"),1,750)
             else
                 ST._probe=ST._probe.."|rems="..((okR and type(insts)) or "e")
             end
@@ -550,7 +547,7 @@ local hkOk,hkErr=pcall(function()
                 for _,k in ipairs(khl) do
                     if b:find(k,1,true) then
                         score[i]=score[i]+3
-                        if #khidx<8 then khidx[#khidx+1]={i,k} end
+                        if #khidx<6 then khidx[#khidx+1]={i,k} end
                         break
                     end
                 end
@@ -564,7 +561,7 @@ local hkOk,hkErr=pcall(function()
             for _,ent in ipairs(khidx) do
                 t2[#t2+1]=string.sub(paths[ent[1]] or "?",1,28).."+"..ent[2]
             end
-            ST._probe=ST._probe.."|kh:"..string.sub(table.concat(t2,";"),1,320)
+            ST._probe=ST._probe.."|kh:"..string.sub(table.concat(t2,";"),1,260)
         end
         local dumps={}
         local seenP={}
@@ -578,126 +575,55 @@ local hkOk,hkErr=pcall(function()
             end
             if #dumps>=6 then break end
         end
-        ST._probe=ST._probe.."|dumps:"..string.sub(table.concat(dumps," ## "),1,2500)
+        ST._probe=ST._probe.."|dumps:"..string.sub(table.concat(dumps," ## "),1,2250)
         local tCI=tick()
-        local ciOut={}
-        local function ciDump(tag, sig)
-            if #ciOut>=2 then return end
-            local gcn=xnapi("getconnections")
-            if type(gcn)~="function" then
-                ciOut[#ciOut+1]="gc=nil"
-                return
-            end
-            local okc,conns=pcall(gcn,sig)
-            if not okc or type(conns)~="table" then
-                ciOut[#ciOut+1]=tag.."::e:"..string.sub(tostring(conns),1,40)
-                return
-            end
-            local n=#conns
-            local fnv=nil
-            for _,c in ipairs(conns) do
-                local okf,f=pcall(function() return c.Function end)
-                if okf and type(f)=="function" then
-                    fnv=f
-                    break
-                end
-            end
-            if not fnv then
-                ciOut[#ciOut+1]=tag.."::n="..n..",nofn"
-                return
-            end
-            local kpart=""
-            local okk,kt=pcall(debug.getconstants,fnv)
-            if okk and type(kt)=="table" then
-                local ss={}
-                local cnt=0
-                for _,v in pairs(kt) do
-                    cnt=cnt+1
-                    if type(v)=="string" and #v>=2 then
-                        ss[#ss+1]=v
-                    end
-                    if #ss>=26 or cnt>80 then break end
-                end
-                kpart="k:"..string.sub(table.concat(ss,","),1,700)
-            else
-                kpart="k="..((okk and type(kt)) or string.sub(tostring(kt),1,30))
-            end
-            local upart=""
-            local ok2u,up=pcall(function()
-                local o2={}
-                for i2=1,12 do
-                    local ok1,nm,val=pcall(debug.getupvalue,fnv,i2)
-                    if not ok1 or nm==nil then break end
-                    local t=typeof(val)
-                    local ex=""
-                    if t=="Instance" then ex="="..val.ClassName.."."..val.Name end
-                    o2[#o2+1]=tostring(nm)..":"..t..ex
-                end
-                return string.sub(table.concat(o2,","),1,380)
-            end)
-            if ok2u and up~="" then upart=" u:"..up end
-            ciOut[#ciOut+1]=tag.."::n="..n.." "..kpart..upart
-        end
+        local prList={}
+        local cdList={}
+        local btList={}
         pcall(function()
-            local prs={}
-            local bts={}
-            pcall(function()
-                for _,d in ipairs(game:GetDescendants()) do
-                    local cn=d.ClassName
+            for _,d in ipairs(game:GetDescendants()) do
+                local cn=d.ClassName
+                if cn=="ProximityPrompt" or cn=="ClickDetector" then
+                    local okf,f=pcall(function() return d:GetFullName() end)
+                    local p=okf and f or "?"
+                    if string.sub(p,1,17)=="Workspace.UIParts." then
+                        p=string.sub(p,18)
+                    end
                     if cn=="ProximityPrompt" then
-                        prs[#prs+1]=d
-                    elseif cn=="TextButton" or cn=="ImageButton" then
-                        bts[#bts+1]=d
+                        prList[#prList+1]=string.sub(p,1,80)
+                    else
+                        cdList[#cdList+1]=string.sub(p,1,80)
                     end
                 end
-            end)
-            local function pthOf(d)
-                local okf,f=pcall(function() return d:GetFullName() end)
-                return okf and f or "?"
-            end
-            local bestP=nil
-            local bestPs=-1
-            for _,d in ipairs(prs) do
-                local p=pthOf(d):lower()
-                local sc3=0
-                for _,k in ipairs({"dealer","shop","buy","garage","market","armory","job","super","spawn","claim","hire","rent","work"}) do
-                    if p:find(k,1,true) then sc3=sc3+2 end
-                end
-                if sc3>bestPs then
-                    bestPs=sc3
-                    bestP=d
-                end
-            end
-            if bestP and bestPs>0 then
-                ciDump("P:"..string.sub(pthOf(bestP),1,44), bestP.Triggered)
-            end
-            local lpGui=LP:FindFirstChild("PlayerGui")
-            local bestB=nil
-            local bestBs=-1
-            if lpGui then
-                for _,d in ipairs(bts) do
-                    local p=pthOf(d):lower()
-                    if p:find("playergui",1,true) then
-                        local sc3=0
-                        for _,k in ipairs({"buy","spawn","purchase","hire","rent","collect","claim","confirm","accept","equip","equipall"}) do
-                            if p:find(k,1,true) then sc3=sc3+2 end
-                        end
-                        if sc3>bestBs then
-                            bestBs=sc3
-                            bestB=d
-                        end
-                    end
-                end
-            end
-            if bestB and bestBs>0 then
-                ciDump("B:"..string.sub(pthOf(bestB),1,44), bestB.MouseButton1Click)
             end
         end)
-        local ciPart="|ci=none"
-        if #ciOut>0 then
-            ciPart="|"..string.sub(table.concat(ciOut," ## "),1,1400)
-        end
-        ST._probe=ST._probe..string.format("|cit=%.1f",tick()-tCI)..ciPart
+        pcall(function()
+            local lpGui=LP:FindFirstChild("PlayerGui")
+            if lpGui then
+                for _,d in ipairs(lpGui:GetDescendants()) do
+                    local cn=d.ClassName
+                    if cn=="TextButton" or cn=="ImageButton" then
+                        local okf,f=pcall(function() return d:GetFullName() end)
+                        local p=okf and f or "?"
+                        local le=p:lower()
+                        local hit=false
+                        for _,k in ipairs({"buy","spawn","purchase","hire","rent","collect","claim","confirm","accept","equip","shop","car","garage","dealer","sell","apply","get"}) do
+                            if le:find(k,1,true) then
+                                hit=true
+                                break
+                            end
+                        end
+                        if hit and not le:find("vmenu",1,true) and not le:find("anticheat",1,true) then
+                            btList[#btList+1]=string.sub(p,1,80)
+                        end
+                    end
+                end
+            end
+        end)
+        table.sort(prList)
+        table.sort(cdList)
+        table.sort(btList)
+        ST._probe=ST._probe..string.format("|cit=%.1f",tick()-tCI).."|PR:"..string.sub(table.concat(prList,";"),1,1080).."|CD:"..string.sub(table.concat(cdList,";"),1,260).."|BT:"..string.sub(table.concat(btList,";"),1,330)
     end)
     local p0ok,p0err=pcall(function()
         ST._probe=(ST._probe or "").."|dbg=nogm"
@@ -1145,7 +1071,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx45 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx46 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
