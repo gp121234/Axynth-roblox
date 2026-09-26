@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx54")
+print("[Axynth] Loading... build=fx55")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1086,7 +1086,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx54 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx55 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
@@ -3258,6 +3258,7 @@ local function doForceJob(targetPl, jobName)
             end
         end)
         task.spawn(function()
+            task.wait(0.6)
             pcall(function()
                 if ST._jobUIClick then ST._jobUIClick(jobName) end
             end)
@@ -3563,6 +3564,7 @@ local function axPromptInteract(kws, clickName, dlSec)
                 end
             end
         end)
+        task.wait(0.6)
         pcall(function() best.Enabled=true end)
         pcall(function() best.RequiresLineOfSight=false end)
         pcall(function() best.MaxActivationDistance=40 end)
@@ -3629,6 +3631,7 @@ local function axPromptInteract(kws, clickName, dlSec)
         ntf("Shop","No UI button for '"..clickName.."' (BT list shows buttons)",6)
         return
     end
+    task.wait(0.4)
     local n=0
     pcall(function()
         for _,c in pairs(getconnections(found.MouseButton1Click)) do
