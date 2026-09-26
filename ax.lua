@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx47")
+print("[Axynth] Loading... build=fx48")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1086,7 +1086,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx47 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx48 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
@@ -3447,7 +3447,7 @@ local function doFullHeal()
     ntf("Heal", fired>0 and ("Full heal + "..fired.." remote(s)") or "Full heal applied")
 end
 btn(tEx,"Full Heal Self",function() if cd() then doFullHeal() end end,"fheal")
-local function axPromptInteract(kws)
+local function axPromptInteract(kws, clickName)
     pcall(function()
         local best,bestScore=nil,-1
         local okD,descs=pcall(function() return game:GetDescendants() end)
@@ -3514,8 +3514,75 @@ local function axPromptInteract(kws)
             ntf("Prompt","Begin failed: "..string.sub(tostring(eB),1,58),5)
         end
     end)
+    if not clickName or clickName=="" then return end
+    local want=string.lower(clickName)
+    local found=nil
+    local function scanUI(bw)
+        pcall(function()
+            local g=LP:FindFirstChild("PlayerGui")
+            if not g then return end
+            for _,d in ipairs(g:GetDescendants()) do
+                local cn=d.ClassName
+                if cn=="TextButton" or cn=="ImageButton" then
+                    local blob=tostring(d.Text or "").." "..tostring(d.Name or "")
+                    pcall(function()
+                        for _,c2 in ipairs(d:GetChildren()) do
+                            if c2:IsA("TextLabel") then blob=blob.." "..tostring(c2.Text or "") end
+                        end
+                    end)
+                    blob=string.lower(blob)
+                    local ok=false
+                    if blob:find(bw,1,true) then ok=true end
+                    if not ok then
+                        local all=true
+                        local cnt=0
+                        for w in bw:gmatch("%S+") do
+                            cnt=cnt+1
+                            if not blob:find(w,1,true) then all=false break end
+                        end
+                        ok=all and cnt>0
+                    end
+                    if ok then found=d break end
+                end
+            end
+        end)
+    end
+    local dl=tick()+3.5
+    while tick()<dl and not found do
+        scanUI(want)
+        if not found then
+            local lw=""
+            for w in want:gmatch("%S+") do
+                if #w>=4 and #w>#lw then lw=w end
+            end
+            if lw~="" then scanUI(lw) end
+        end
+        if not found then task.wait(0.3) end
+    end
+    if not found then
+        ntf("Shop","No UI button for '"..clickName.."' (BT list shows buttons)",6)
+        return
+    end
+    local n=0
+    pcall(function()
+        for _,c in pairs(getconnections(found.MouseButton1Click)) do
+            pcall(function() c.Function(found) n=n+1 end)
+        end
+    end)
+    if n==0 then
+        pcall(function()
+            for _,c in pairs(getconnections(found.Activated)) do
+                pcall(function() c.Function(found) n=n+1 end)
+            end
+        end)
+    end
+    if n>0 then
+        ntf("Shop","Clicked '"..clickName.."' x"..n.." via REAL handler - server side, all players",7)
+    else
+        ntf("Shop","Button '"..clickName.."' found, no handler fired",5)
+    end
 end
-btn(tEx,"Spawn Car @Dealer",function() if cd() then axPromptInteract({"car","dealer","vehicle","garage"}) end end,"spcar")
+btn(tEx,"Spawn Car @Dealer",function() if cd() then local vs="" pcall(function() vs=string.match(tostring(vDropBtn.Text or "")," > (.+)") or "" end) axPromptInteract({"car","dealer","vehicle","garage"},vs) end end,"spcar")
 btn(tEx,"Interact Shop Prompt",function() if cd() then axPromptInteract({"shop","market","store","gunshop","armory"}) end end,"spshop")
 local function bindGodHC()
     pcall(function()
@@ -4113,18 +4180,21 @@ btn(tEx,"Give FN FAL (working)",function()
     local n=giveGRItem("FN FAL","weapon")
     fireWeaponActivated()
     ntf("Give","FN FAL x"..n.." - Armory+Inventory+clone+WeaponActivated",4)
+    axPromptInteract({"gun","shop","armory","armoury","weapon","store","market"},"FN FAL")
 end,"gfnfal")
 btn(tEx,"Give M4A5 (working)",function()
     if not cd() then return end
     local n=giveGRItem("M4A5","weapon")
     fireWeaponActivated()
     ntf("Give","M4A5 x"..n.." sent",4)
+    axPromptInteract({"gun","shop","armory","armoury","weapon","store","market"},"M4A5")
 end,"gm4a5")
 btn(tEx,"Give Police Glock",function()
     if not cd() then return end
     local n=giveGRItem("Police Glock","weapon")
     fireWeaponActivated()
     ntf("Give","Police Glock x"..n.." sent",4)
+    axPromptInteract({"gun","shop","armory","armoury","weapon","store","market"},"Police Glock")
 end,"gglock")
 btn(tEx,"Give Food+Medkit pack",function()
     if not cd() then return end
@@ -4136,6 +4206,7 @@ btn(tEx,"Give LockPick",function()
     if not cd() then return end
     local n=giveGRItem("LockPick","item")
     ntf("Give","LockPick x"..n,4)
+    axPromptInteract({"shop","market","store","hardware","tool"},"LockPick")
 end,"glockpick")
 table.insert(allToggles,tog(tEx,"Auto Steal Loop",function() return ST.autoSteal end,function() ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON - nearest every 0.6s") else ntf("Steal","Loop OFF") end end,"autosteal"))
 sep(tEx)
