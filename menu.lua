@@ -1,4 +1,5 @@
-print("[Axynth] Loading... build=fx39")
+print("[Axynth] Loading... build=fx40")
+local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
 U = game:GetService("UserInputService")
@@ -352,29 +353,38 @@ local hkOk,hkErr=pcall(function()
         end
         ST._probe=ST._probe.."|n="..#L
         local fsb=xnapi("getscriptbytecode")
-        local PAT="["..string.char(32).."-"..string.char(126).."]{4,}"
+        local PAT="["..string.char(32).."-"..string.char(126).."]+"
         local nkw={"inventory","shop","market","store","buy","sell","spawn","give","item","weapon","drug","atm","bank","car","vehicle","job"}
-        local khl={"OnServerEvent","InvokeServer","BuyItem","SpawnItem","GiveItem","GiveWeapon","SpawnCar","WaitForChild"}
+        local khl={"OnServerEvent","InvokeServer","BuyItem","SpawnItem","GiveItem","GiveWeapon","SpawnCar","OnClientEvent","RemoteEvent","AddItem","EquipItem"}
         local score={}
-        local khits={}
+        local khidx={}
         local scanned=0
         local errs=0
         for i=1,#L do
-            local ok2,b=pcall(fsb,L[i])
+            local sc=L[i]
+            local ok2,b=pcall(fsb,sc)
             if ok2 and type(b)=="string" then
                 scanned=scanned+1
-                local okn,fnm=pcall(function() return L[i]:GetFullName() end)
-                local fl=((okn and fnm) or "?"):lower()
+                local fl=tostring(sc.Name):lower()
                 for _,k in ipairs(nkw) do
                     if fl:find(k,1,true) then
                         score[i]=(score[i] or 0)+1
                         break
                     end
                 end
+                if fl:find("shop",1,true) or fl:find("invent",1,true) then
+                    score[i]=(score[i] or 0)+2
+                end
+                local okA,anc=pcall(function()
+                    local a2=sc:FindFirstAncestorOfClass("PlayerScripts")
+                    if not a2 then a2=sc:FindFirstAncestorOfClass("PlayerGui") end
+                    return a2
+                end)
+                if okA and anc then score[i]=(score[i] or 0)+2 end
                 for _,k in ipairs(khl) do
                     if b:find(k,1,true) then
                         score[i]=(score[i] or 0)+3
-                        if #khits<8 then khits[#khits+1]=string.sub((okn and fnm) or "?",1,34).."+"..k end
+                        if #khidx<8 then khidx[#khidx+1]=i end
                         break
                     end
                 end
@@ -383,73 +393,86 @@ local hkOk,hkErr=pcall(function()
             end
         end
         ST._probe=ST._probe.."|scan="..scanned.."/e"..errs
-        if #khits>0 then
-            ST._probe=ST._probe.."|kh:"..string.sub(table.concat(khits,";"),1,440)
+        if #khidx>0 then
+            local t2={}
+            for _,idx in ipairs(khidx) do
+                local okp,fnm=pcall(function() return L[idx]:GetFullName() end)
+                t2[#t2+1]=string.sub(okp and fnm or "?",1,30)
+            end
+            ST._probe=ST._probe.."|kh:"..string.sub(table.concat(t2,";"),1,330)
         end
         local ord={}
         for i,v in pairs(score) do ord[#ord+1]={i,v} end
         table.sort(ord,function(x,y) return x[2]>y[2] end)
         local dumps={}
-        for n=1,math.min(5,#ord) do
+        local seenP={}
+        local added=0
+        for n=1,math.min(10,#ord) do
             local idx=ord[n][1]
             local okn,fnm=pcall(function() return L[idx]:GetFullName() end)
-            local okb,b=pcall(fsb,L[idx])
-            if okb and type(b)=="string" then
-                local strs={}
-                for seg in b:gmatch(PAT) do
-                    if #seg<90 and not seg:match("^[%d%.%-]+$") then
-                        strs[#strs+1]=seg
-                    end
-                    if #strs>=34 then break end
-                end
-                dumps[#dumps+1]=string.sub((okn and fnm) or "?",1,38).."::"..string.sub(table.concat(strs,"|"),1,420)
-                if n==1 then
-                    local fcl=xnapi("getscriptclosure")
-                    if type(fcl)=="function" then
-                        local okc,cl=pcall(fcl,L[idx])
-                        if okc and type(cl)=="function" then
-                            local okk,cons=pcall(debug.getconstants,cl)
-                            if okk and type(cons)=="table" then
-                                local cv={}
-                                local ci=0
-                                for _,v in pairs(cons) do
-                                    ci=ci+1
-                                    if ci>60 then break end
-                                    cv[#cv+1]=tostring(v)
-                                end
-                                dumps[#dumps+1]="dk["..string.sub(table.concat(cv,","),1,440).."]"
-                            else
-                                dumps[#dumps+1]="dk="..((okk and type(cons)) or string.sub(tostring(cons),1,36))
-                            end
-                            local oku,up=pcall(function()
-                                local o2={}
-                                for i2=1,12 do
-                                    local ok1,nm,val=pcall(debug.getupvalue,cl,i2)
-                                    if not ok1 or nm==nil then break end
-                                    local t=typeof(val)
-                                    local ex=""
-                                    if t=="Instance" then ex="="..val.ClassName.."."..val.Name end
-                                    o2[#o2+1]=tostring(nm)..":"..t..ex
-                                end
-                                return string.sub(table.concat(o2,","),1,340)
-                            end)
-                            if oku and up~="" then dumps[#dumps+1]="sup="..up end
+            fnm=okn and fnm or "?"
+            if not seenP[fnm] then
+                seenP[fnm]=true
+                local okb,b=pcall(fsb,L[idx])
+                if okb and type(b)=="string" then
+                    local strs={}
+                    for seg in b:gmatch(PAT) do
+                        if #seg>=4 and #seg<90 and not seg:match("^[%d%.%-]+$") then
+                            strs[#strs+1]=seg
                         end
+                        if #strs>=36 then break end
                     end
-                    local gsf=xnapi("getscriptfunction")
-                    if type(gsf)=="function" then
-                        local ok2f,fnv=pcall(gsf,L[idx])
-                        dumps[#dumps+1]="sf="..((ok2f and type(fnv)) or "e")
-                    end
-                    local gsh=xnapi("getscripthash")
-                    if type(gsh)=="function" then
-                        local osh,hsh=pcall(gsh,L[idx])
-                        dumps[#dumps+1]="h="..((osh and string.sub(tostring(hsh),1,22)) or "e")
+                    dumps[#dumps+1]=string.sub(fnm,1,40).."::"..string.sub(table.concat(strs,"|"),1,430)
+                    added=added+1
+                    if added==1 then
+                        local fcl=xnapi("getscriptclosure")
+                        if type(fcl)=="function" then
+                            local okc,cl=pcall(fcl,L[idx])
+                            if okc and type(cl)=="function" then
+                                local okk,cons=pcall(debug.getconstants,cl)
+                                if okk and type(cons)=="table" then
+                                    local cv={}
+                                    local ci=0
+                                    for _,v in pairs(cons) do
+                                        ci=ci+1
+                                        if ci>60 then break end
+                                        cv[#cv+1]=tostring(v)
+                                    end
+                                    dumps[#dumps+1]="dk["..string.sub(table.concat(cv,","),1,440).."]"
+                                else
+                                    dumps[#dumps+1]="dk="..((okk and type(cons)) or string.sub(tostring(cons),1,36))
+                                end
+                                local oku,up=pcall(function()
+                                    local o2={}
+                                    for i2=1,12 do
+                                        local ok1,nm,val=pcall(debug.getupvalue,cl,i2)
+                                        if not ok1 or nm==nil then break end
+                                        local t=typeof(val)
+                                        local ex=""
+                                        if t=="Instance" then ex="="..val.ClassName.."."..val.Name end
+                                        o2[#o2+1]=tostring(nm)..":"..t..ex
+                                    end
+                                    return string.sub(table.concat(o2,","),1,340)
+                                end)
+                                if oku and up~="" then dumps[#dumps+1]="sup="..up end
+                            end
+                        end
+                        local gsf=xnapi("getscriptfunction")
+                        if type(gsf)=="function" then
+                            local ok2f,fnv=pcall(gsf,L[idx])
+                            dumps[#dumps+1]="sf="..((ok2f and type(fnv)) or "e")
+                        end
+                        local gsh=xnapi("getscripthash")
+                        if type(gsh)=="function" then
+                            local osh,hsh=pcall(gsh,L[idx])
+                            dumps[#dumps+1]="h="..((osh and string.sub(tostring(hsh),1,22)) or "e")
+                        end
                     end
                 end
             end
+            if added>=5 then break end
         end
-        ST._probe=ST._probe.."|dumps:"..string.sub(table.concat(dumps," ## "),1,2700)
+        ST._probe=ST._probe.."|dumps:"..string.sub(table.concat(dumps," ## "),1,2800)
     end)
     local p0ok,p0err=pcall(function()
         ST._probe=(ST._probe or "").."dbg["
@@ -567,8 +590,10 @@ local hkOk,hkErr=pcall(function()
     elseif p1ok then
         HOOK_PATH=(type(XC)=="function") and "hookmetamethod+cclosure" or "hookmetamethod+lclosure"
     else
-        local pHIok,pHIerr=false,"hookinstance not run"
-        local pHIdone=false
+        local pHIok,pHIerr=false,"dead(inst-swap,no-cb)"
+        local pHIdone=true
+        local _skipHI=true
+        if not _skipHI then
         task.spawn(function()
             pHIok,pHIerr=pcall(function()
                 local HI=xnapi("hookinstance") or xnapi("hook_instance")
@@ -752,6 +777,7 @@ local hkOk,hkErr=pcall(function()
             end)
             pHIdone=true
         end)
+        end
         for i=1,30 do
             if pHIdone then break end
             task.wait(0.1)
@@ -759,6 +785,7 @@ local hkOk,hkErr=pcall(function()
         if pHIok then
             if type(HOOK_PATH)~="string" then HOOK_PATH="hookinstance" end
         else
+        if _skipHI then error("pHI["..pHIerr.."] path4:dead(hookfunction-noop)",0) end
         local p2ok,p2err=pcall(function()
             if type(XG)~="function" then error("getrawmetatable is "..type(XG),0) end
             local mt=XG(game)
@@ -902,7 +929,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx39 | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx40 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
