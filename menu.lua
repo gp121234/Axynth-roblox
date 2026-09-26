@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx32")
+print("[Axynth] Loading... build=fx33")
 local ok, err = pcall(function()
 P = game:GetService("Players")
 U = game:GetService("UserInputService")
@@ -329,9 +329,48 @@ local hkOk,hkErr=pcall(function()
         return res
     end
     local hookFn=function(self,...)
+        if (ST._n1c or 0)<4 then
+            ST._n1c=(ST._n1c or 0)+1
+            local a1=select(1,...)
+            local t1=typeof(a1)
+            local v1=(t1=="string") and (":"..string.sub(a1,1,20)) or ""
+            ST._probe1=(ST._probe1 or "")..(((ST._n1c>1) and "," or "")..t1..v1)
+        end
         return hookBody((type(XN)=="function") and XN() or "", oldNC, self, ...)
     end
-    local p1ok,p1err=pcall(function()
+    local p0ok,p0err=pcall(function()
+        local dgm=(type(debug)=="table") and debug.getmetatable
+        if type(dgm)~="function" then error("debug.getmetatable is "..type(dgm),0) end
+        local okM,mt=pcall(dgm,game)
+        if not okM then error("dgm(game) failed: "..tostring(mt),0) end
+        if type(mt)~="table" then error("dgm(game) is "..type(mt),0) end
+        ST._probe="mt:table"
+        if type(XS)=="function" then pcall(XS,mt,false) end
+        local old=rawget(mt,"__namecall")
+        if type(old)~="function" then error("__namecall is "..type(old),0) end
+        local h=hookFn
+        if type(XC)=="function" then h=XC(hookFn) end
+        local okW,errW=pcall(function() rawset(mt,"__namecall",h) end)
+        if not okW then error("write failed: "..tostring(errW),0) end
+        oldNC=old
+        local v0=ST._ncAny or 0
+        local ferr=nil
+        local okF=pcall(function()
+            local r=Instance.new("RemoteEvent") r.Name="AxMtProbe"
+            r:FireServer("mtprobe")
+        end)
+        if not okF then ferr="fire-error" end
+        if (ST._ncAny or 0)>v0 and ferr==nil then
+            ST._probe=ST._probe.."|HIT"
+            return
+        end
+        pcall(function() rawset(mt,"__namecall",old) end)
+        if type(XS)=="function" then pcall(XS,mt,true) end
+        error("no-hit nc="..tostring(ST._ncAny or 0).."/"..v0.." ferr="..tostring(ferr),0)
+    end)
+    local p1ok,p1err=false,"skipped"
+    if not p0ok then
+    p1ok,p1err=pcall(function()
         if type(XM)~="function" then error("hookmetamethod is "..type(XM),0) end
         local h=hookFn
         if type(XC)=="function" then h=XC(hookFn) end
@@ -339,7 +378,13 @@ local hkOk,hkErr=pcall(function()
         if type(r)~="function" then error("hookmetamethod returned "..type(r),0) end
         oldNC=r
     end)
-    if p1ok then
+    end
+    if not p0ok and not p1ok then
+        p1err="p0["..string.sub(tostring(p0err),1,44).."] p1["..string.sub(tostring(p1err),1,54).."]"
+    end
+    if p0ok then
+        HOOK_PATH="debug-mt rawset __namecall"
+    elseif p1ok then
         HOOK_PATH=(type(XC)=="function") and "hookmetamethod+cclosure" or "hookmetamethod+lclosure"
     else
         local pHIok,pHIerr=false,"hookinstance not run"
@@ -677,7 +722,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx32 | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx33 | "..string.sub(tostring(ST._probe or ""),1,60)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
