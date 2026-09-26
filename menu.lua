@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx29")
+print("[Axynth] Loading... build=fx30")
 local ok, err = pcall(function()
 P = game:GetService("Players")
 U = game:GetService("UserInputService")
@@ -372,7 +372,7 @@ local hkOk,hkErr=pcall(function()
                 local function run(tag,...)
                     local okR,ret=pcall(HI,...)
                     if not okR then
-                        tries[#tries+1]=tag.."!:"..string.sub(tostring(ret),1,55)
+                        tries[#tries+1]=tag.."!:"..string.sub(tostring(ret),1,220)
                         return false
                     end
                     ST._hiShape=nil
@@ -398,6 +398,18 @@ local hkOk,hkErr=pcall(function()
                     hookedF[origA]=true
                 end
                 if not winForm and run("Dtb",dA,{cbA}) then winForm="Dtb" end
+                if not winForm then
+                    local addrT=nil
+                    local gi=xnapi("getinstanceaddress")
+                    if type(gi)=="function" then
+                        local oT,rT=pcall(gi,dA)
+                        if oT then addrT=rT end
+                    end
+                    tries[#tries+1]="addr="..type(addrT)
+                    if addrT~=nil and run("Ead",dA,addrT) then winForm="Ead" end
+                    if not winForm and run("E0",dA,0) then winForm="E0" end
+                    if not winForm and run("Enl",dA,nil) then winForm="Enl" end
+                end
                 if not winForm then error("f2:"..table.concat(tries," | "),0) end
                 if string.sub(tostring(ST._hiShape),1,8)~="Instance" then
                     error("f2:shape="..tostring(ST._hiShape).." "..table.concat(tries," | "),0)
@@ -616,7 +628,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx29 | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx30 | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
