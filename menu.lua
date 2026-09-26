@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx43")
+print("[Axynth] Loading... build=fx44")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -352,17 +352,20 @@ local hkOk,hkErr=pcall(function()
             return
         end
         ST._probe=ST._probe.."|n="..#L
-        local MSvc=game:GetService("MaterialService")
         local nkw={"inventory","shop","market","store","buy","sell","spawn","give","item","weapon","drug","atm","bank","car","vehicle","job","crate","drop","tool","box"}
         local tC=tick()
         local score={}
         local pool={}
         local phits={}
+        local clis={}
+        local paths={}
         local skipped=0
         for i=1,#L do
             local sc=L[i]
-            local okD,isd=pcall(MSvc.IsDescendantOf,MSvc,sc)
-            if okD and isd then
+            local okp,fnm=pcall(function() return sc:GetFullName() end)
+            fnm=okp and fnm or "?"
+            paths[i]=fnm
+            if string.sub(fnm,1,16)=="MaterialService." then
                 skipped=skipped+1
             else
                 local fl=tostring(sc.Name):lower()
@@ -392,13 +395,16 @@ local hkOk,hkErr=pcall(function()
                     if not a2 then a2=sc:FindFirstAncestorOfClass("PlayerGui") end
                     return a2
                 end)
-                if okA and anc then sc2=sc2+2 end
+                if okA and anc then
+                    sc2=sc2+2
+                    clis[#clis+1]=i
+                end
                 score[i]=sc2
                 if pHit then phits[#phits+1]=i end
                 if nameHit or pHit or sc2>=2 then pool[#pool+1]=i end
             end
         end
-        ST._probe=ST._probe..string.format("|tp=%.1f pool=%d ms=%d",tick()-tC,#pool,skipped)
+        ST._probe=ST._probe..string.format("|tp=%.1f pool=%d ms=%d cli=%d",tick()-tC,#pool,skipped,#clis)
         local tR=tick()
         local gi=xnapi("getinstances")
         if type(gi)=="function" then
@@ -408,17 +414,20 @@ local hkOk,hkErr=pcall(function()
                 local plN=0
                 local msN=0
                 local cjN=0
+                local hdN=0
                 for _,inst in pairs(insts) do
                     local cn=inst.ClassName
                     if cn=="RemoteEvent" or cn=="RemoteFunction" or cn=="UnreliableRemoteEvent" then
-                        local okp,fnm=pcall(function() return inst:GetFullName() end)
-                        fnm=okp and fnm or "?"
+                        local ok2r,fnm=pcall(function() return inst:GetFullName() end)
+                        fnm=ok2r and fnm or "?"
                         if string.sub(fnm,1,16)=="MaterialService." then
                             msN=msN+1
                         elseif string.sub(fnm,1,8)=="Players." then
                             plN=plN+1
                         elseif fnm:find(".Cars.Cars.",1,true) then
                             cjN=cjN+1
+                        elseif fnm:find("HDAdminHDClient.Signals.",1,true) then
+                            hdN=hdN+1
                         else
                             if string.sub(fnm,1,18)=="ReplicatedStorage." then
                                 fnm=string.sub(fnm,19)
@@ -428,7 +437,25 @@ local hkOk,hkErr=pcall(function()
                     end
                 end
                 table.sort(rems)
-                ST._probe=ST._probe..string.format("|tr=%.1f rems=%d(ms%d,pl%d,cj%d):",tick()-tR,#rems+msN+plN+cjN,msN,plN,cjN)..string.sub(table.concat(rems,";"),1,1650)
+                local rkw={"shop","invent","spawn","super","weapon","team","job","sell","buy","market","store","drug","food","give","drop","crate","item","garage","mafia","armory","claim","fuel","vehicle"}
+                local kwr={}
+                local otr={}
+                for _,e in ipairs(rems) do
+                    local le=e:lower()
+                    local hit=false
+                    for _,k in ipairs(rkw) do
+                        if le:find(k,1,true) then
+                            hit=true
+                            break
+                        end
+                    end
+                    if hit then
+                        kwr[#kwr+1]=e
+                    else
+                        otr[#otr+1]=e
+                    end
+                end
+                ST._probe=ST._probe..string.format("|tr=%.1f rems=%d(ms%d,pl%d,cj%d,hd%d):",tick()-tR,#rems+msN+plN+cjN+hdN,msN,plN,cjN,hdN).."K:"..string.sub(table.concat(kwr,";"),1,1400).."~o:"..string.sub(table.concat(otr,";"),1,350)
             else
                 ST._probe=ST._probe.."|rems="..((okR and type(insts)) or "e")
             end
@@ -457,12 +484,19 @@ local hkOk,hkErr=pcall(function()
         local fetch={}
         local inF={}
         for _,i in ipairs(pool) do
-            if #fetch>=140 then break end
+            if #fetch>=100 then break end
             fetch[#fetch+1]=i
             inF[i]=true
         end
-        for _,i in ipairs(phits) do
+        for _,i in ipairs(clis) do
             if #fetch>=160 then break end
+            if not inF[i] then
+                fetch[#fetch+1]=i
+                inF[i]=true
+            end
+        end
+        for _,i in ipairs(phits) do
+            if #fetch>=180 then break end
             if not inF[i] then
                 fetch[#fetch+1]=i
                 inF[i]=true
@@ -510,32 +544,30 @@ local hkOk,hkErr=pcall(function()
         if #khidx>0 then
             local t2={}
             for _,ent in ipairs(khidx) do
-                local okp,fnm=pcall(function() return L[ent[1]]:GetFullName() end)
-                t2[#t2+1]=string.sub(okp and fnm or "?",1,28).."+"..ent[2]
+                t2[#t2+1]=string.sub(paths[ent[1]] or "?",1,28).."+"..ent[2]
             end
             ST._probe=ST._probe.."|kh:"..string.sub(table.concat(t2,";"),1,400)
         end
         local tD=tick()
-        local gList={}
+        local gIdx={}
         for n=1,math.min(30,#ord) do
             local idx=ord[n][1]
             if genDump[idx] then
-                gList[#gList+1]=idx
-            elseif #gList<3 then
+                gIdx[#gIdx+1]=idx
+            elseif #gIdx<3 then
                 local okb,b=pcall(fsb,L[idx])
                 if okb and type(b)=="string" then
                     genDump[idx]=mkstr(b)
-                    gList[#gList+1]=idx
+                    gIdx[#gIdx+1]=idx
                 end
             end
-            if #gList>=3 then break end
+            if #gIdx>=3 then break end
         end
         local dumps={}
         local seenP={}
         for _,kw in ipairs(kwl) do
             if kwDump[kw] then
-                local okn,fnm=pcall(function() return L[kwF[kw]]:GetFullName() end)
-                fnm=okn and fnm or "?"
+                local fnm=paths[kwF[kw]] or "?"
                 if not seenP[fnm] then
                     seenP[fnm]=true
                     dumps[#dumps+1]="W:"..kw.."@"..string.sub(fnm,1,34).."::"..kwDump[kw]
@@ -543,16 +575,31 @@ local hkOk,hkErr=pcall(function()
             end
             if #dumps>=5 then break end
         end
-        for _,idx in ipairs(gList) do
-            if #dumps>=8 then break end
-            local okn,fnm=pcall(function() return L[idx]:GetFullName() end)
-            fnm=okn and fnm or "?"
+        for _,ent in ipairs(khidx) do
+            if #dumps>=7 then break end
+            local idx=ent[1]
+            local fnm=paths[idx] or "?"
+            if not seenP[fnm] then
+                local strv=genDump[idx]
+                if not strv then
+                    local okb,b=pcall(fsb,L[idx])
+                    if okb and type(b)=="string" then strv=mkstr(b) end
+                end
+                if strv then
+                    seenP[fnm]=true
+                    dumps[#dumps+1]="K:"..ent[2].."@"..string.sub(fnm,1,32).."::"..strv
+                end
+            end
+        end
+        for _,idx in ipairs(gIdx) do
+            if #dumps>=9 then break end
+            local fnm=paths[idx] or "?"
             if not seenP[fnm] then
                 seenP[fnm]=true
                 dumps[#dumps+1]=string.sub(fnm,1,40).."::"..genDump[idx]
             end
         end
-        ST._probe=ST._probe..string.format(" td=%.1f",tick()-tD).."|dumps:"..string.sub(table.concat(dumps," ## "),1,3000)
+        ST._probe=ST._probe..string.format(" td=%.1f",tick()-tD).."|dumps:"..string.sub(table.concat(dumps," ## "),1,2700)
     end)
     local p0ok,p0err=pcall(function()
         ST._probe=(ST._probe or "").."|dbg=nogm"
@@ -1000,7 +1047,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx43 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx44 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
