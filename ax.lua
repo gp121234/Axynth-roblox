@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx41")
+print("[Axynth] Loading... build=fx42")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -356,15 +356,25 @@ local hkOk,hkErr=pcall(function()
         local tC=tick()
         local score={}
         local pool={}
+        local phits={}
         for i=1,#L do
             local sc=L[i]
             local fl=tostring(sc.Name):lower()
+            local pl=tostring(sc.Parent and sc.Parent.Name):lower()
             local sc2=0
             local nameHit=false
             for _,k in ipairs(nkw) do
                 if fl:find(k,1,true) then
-                    sc2=sc2+1
+                    sc2=sc2+3
                     nameHit=true
+                    break
+                end
+            end
+            local pHit=false
+            for _,k in ipairs(nkw) do
+                if pl:find(k,1,true) then
+                    sc2=sc2+2
+                    pHit=true
                     break
                 end
             end
@@ -378,7 +388,8 @@ local hkOk,hkErr=pcall(function()
             end)
             if okA and anc then sc2=sc2+2 end
             score[i]=sc2
-            if nameHit or sc2>=2 then pool[#pool+1]=i end
+            if pHit then phits[#phits+1]=i end
+            if nameHit or pHit or sc2>=2 then pool[#pool+1]=i end
         end
         ST._probe=ST._probe..string.format("|tp=%.1f pool=%d",tick()-tC,#pool)
         local tR=tick()
@@ -388,20 +399,26 @@ local hkOk,hkErr=pcall(function()
             if okR and type(insts)=="table" then
                 local rems={}
                 local plN=0
+                local msN=0
                 for _,inst in pairs(insts) do
                     local cn=inst.ClassName
                     if cn=="RemoteEvent" or cn=="RemoteFunction" or cn=="UnreliableRemoteEvent" then
                         local okp,fnm=pcall(function() return inst:GetFullName() end)
                         fnm=okp and fnm or "?"
-                        if string.sub(fnm,1,7)=="Players." then
+                        if string.sub(fnm,1,16)=="MaterialService." then
+                            msN=msN+1
+                        elseif string.sub(fnm,1,7)=="Players." then
                             plN=plN+1
                         else
-                            rems[#rems+1]=string.sub(fnm,1,72)
+                            if string.sub(fnm,1,20)=="ReplicatedStorage." then
+                                fnm=string.sub(fnm,21)
+                            end
+                            rems[#rems+1]=string.sub(fnm,1,74)
                         end
                     end
                 end
                 table.sort(rems)
-                ST._probe=ST._probe..string.format("|tr=%.1f rems=%d+%dp:",tick()-tR,#rems,plN)..string.sub(table.concat(rems,";"),1,1500)
+                ST._probe=ST._probe..string.format("|tr=%.1f rems=%d(ms%d,pl%d):",tick()-tR,#rems+msN+plN,msN,plN)..string.sub(table.concat(rems,";"),1,1550)
             else
                 ST._probe=ST._probe.."|rems="..((okR and type(insts)) or "e")
             end
@@ -409,21 +426,53 @@ local hkOk,hkErr=pcall(function()
         local tB=tick()
         local fsb=xnapi("getscriptbytecode")
         local PAT="["..string.char(32).."-"..string.char(126).."]+"
+        local function mkstr(b)
+            local strs={}
+            for seg in b:gmatch(PAT) do
+                if #seg>=4 and #seg<90 and not seg:match("^[%d%.%-]+$") then
+                    strs[#strs+1]=seg
+                end
+                if #strs>=40 then break end
+            end
+            return string.sub(table.concat(strs,"|"),1,340)
+        end
+        local kwl={"CarDealer","BuyItem","GiveItem","CrateDrop","ClaimEvent","Inventory"}
         local khl={"OnServerEvent","InvokeServer","BuyItem","SpawnItem","GiveItem","GiveWeapon","SpawnCar","OnClientEvent","RemoteEvent","AddItem","EquipItem","CrateDrop","DropItem"}
         table.sort(pool,function(x,y) return score[x]>score[y] end)
+        local fetch={}
+        local inF={}
+        for _,i in ipairs(pool) do
+            if #fetch>=180 then break end
+            fetch[#fetch+1]=i
+            inF[i]=true
+        end
+        for _,i in ipairs(phits) do
+            if #fetch>=220 then break end
+            if not inF[i] then
+                fetch[#fetch+1]=i
+                inF[i]=true
+            end
+        end
+        local bc={}
         local khidx={}
+        local kwF={}
         local bok=0
         local bfail=0
-        for _,i in ipairs(pool) do
-            if bok>=160 then break end
+        for _,i in ipairs(fetch) do
             local ok2,b=pcall(fsb,L[i])
             if ok2 and type(b)=="string" then
+                bc[i]=b
                 bok=bok+1
                 for _,k in ipairs(khl) do
                     if b:find(k,1,true) then
                         score[i]=score[i]+3
                         if #khidx<8 then khidx[#khidx+1]={i,k} end
                         break
+                    end
+                end
+                for _,kw in ipairs(kwl) do
+                    if not kwF[kw] and b:find(kw,1,true) then
+                        kwF[kw]=i
                     end
                 end
             else
@@ -439,32 +488,42 @@ local hkOk,hkErr=pcall(function()
             end
             ST._probe=ST._probe.."|kh:"..string.sub(table.concat(t2,";"),1,400)
         end
-        local ord={}
-        for i,v in pairs(score) do if v>0 then ord[#ord+1]={i,v} end end
-        table.sort(ord,function(x,y) return x[2]>y[2] end)
         local dumps={}
         local seenP={}
         local added=0
-        for n=1,math.min(20,#ord) do
+        for _,kw in ipairs(kwl) do
+            local idx=kwF[kw]
+            if idx then
+                local okn,fnm=pcall(function() return L[idx]:GetFullName() end)
+                fnm=okn and fnm or "?"
+                if not seenP[fnm] then
+                    seenP[fnm]=true
+                    dumps[#dumps+1]="W:"..kw.."@"..string.sub(fnm,1,34).."::"..mkstr(bc[idx])
+                    added=added+1
+                end
+            end
+            if added>=5 then break end
+        end
+        local ord={}
+        for i,v in pairs(score) do if v>0 then ord[#ord+1]={i,v} end end
+        table.sort(ord,function(x,y) return x[2]>y[2] end)
+        for n=1,#ord do
+            if added>=8 then break end
             local idx=ord[n][1]
             local okn,fnm=pcall(function() return L[idx]:GetFullName() end)
             fnm=okn and fnm or "?"
             if not seenP[fnm] then
-                seenP[fnm]=true
-                local okb,b=pcall(fsb,L[idx])
-                if okb and type(b)=="string" then
-                    local strs={}
-                    for seg in b:gmatch(PAT) do
-                        if #seg>=4 and #seg<90 and not seg:match("^[%d%.%-]+$") then
-                            strs[#strs+1]=seg
-                        end
-                        if #strs>=40 then break end
-                    end
-                    dumps[#dumps+1]=string.sub(fnm,1,40).."::"..string.sub(table.concat(strs,"|"),1,370)
+                local b=bc[idx]
+                if not b then
+                    local okb,b2=pcall(fsb,L[idx])
+                    if okb and type(b2)=="string" then b=b2 end
+                end
+                if type(b)=="string" then
+                    seenP[fnm]=true
+                    dumps[#dumps+1]=string.sub(fnm,1,40).."::"..mkstr(b)
                     added=added+1
                 end
             end
-            if added>=8 then break end
         end
         ST._probe=ST._probe.."|dumps:"..string.sub(table.concat(dumps," ## "),1,3000)
     end)
@@ -914,7 +973,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx41 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx42 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
