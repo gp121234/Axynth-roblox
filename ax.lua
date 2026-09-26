@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx59")
+print("[Axynth] Loading... build=fx60")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1086,7 +1086,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx59 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx60 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         ST._clipmsg=msg
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
@@ -3642,6 +3642,23 @@ local function axPromptInteract(kws, clickName, dlSec)
             ntf("Prompt","No matching prompt in workspace",4)
             return
         end
+        pcall(function()
+            local pos=nil
+            local att=best.Attachment
+            if att then pos=att.WorldPosition end
+            if not pos then
+                local par=best.Parent
+                if par and par:IsA("BasePart") then pos=par.Position end
+            end
+            if pos then
+                local ch=LP.Character
+                local hrp=ch and ch:FindFirstChild("HumanoidRootPart")
+                if hrp and (hrp.Position-pos).Magnitude>16 then
+                    safeTeleport(pos+Vector3.new(2,0,3))
+                end
+            end
+        end)
+        task.wait(0.8)
         pcall(function() best.Enabled=true end)
         pcall(function() best.RequiresLineOfSight=false end)
         pcall(function() best.MaxActivationDistance=40 end)
