@@ -1,4 +1,4 @@
-print("[Axynth] Loading...")
+print("[Axynth] Loading... build=fx28")
 local ok, err = pcall(function()
 P = game:GetService("Players")
 U = game:GetService("UserInputService")
