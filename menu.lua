@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx36")
+print("[Axynth] Loading... build=fx37")
 local ok, err = pcall(function()
 P = game:GetService("Players")
 U = game:GetService("UserInputService")
@@ -340,63 +340,95 @@ local hkOk,hkErr=pcall(function()
     end
     pcall(function()
         local extra={}
-        for _,n in ipairs({"getloadedmodules","getnilinstances","getrenv","getsenv","getconnections","firesignal","setreadonly","islclosure","iscclosure","hookfunction","getreg","decompile","getfunctions","getcallingscript","request","readfile","getinstances","getthreadidentity"}) do
+        for _,n in ipairs({"getloadedmodules","getnilinstances","getrenv","getsenv","getconnections","setreadonly","islclosure","iscclosure","hookfunction","decompile","getfunctions","getcallingscript","request","readfile","getinstances","getthreadidentity","newcclosure","clonefunction","gethiddenproperty"}) do
             extra[#extra+1]=n.."="..type(xnapi(n))
         end
         ST._probe="T["..string.sub(table.concat(extra,","),1,700).."]"
-        local okr,rege=pcall(getreg)
-        ST._probe=ST._probe.."|reg="..(okr and type(rege) or ("e:"..string.sub(tostring(rege),1,70)))
-        local okg,g=pcall(getgenv)
-        if okg and type(g)=="table" then
-            ST._probe=ST._probe.."|gd="..type(g.debug)..((g.debug==debug) and "=same" or "")
-        end
         local hf="none"
         local XHF2=xnapi("hookfunction")
+        local XC2=xnapi("newcclosure")
         if type(XHF2)=="function" then
             local okh,r=pcall(function()
                 local a=function() return 1 end
                 local rr=XHF2(a,function() return 2 end)
                 local oka,ra=pcall(a)
-                return "ret="..type(rr)..",call="..(oka and tostring(ra) or "err")
+                local s1="n:"..type(rr).."/"..(oka and tostring(ra) or "e")
+                local b=function() return 10 end
+                local rc=XHF2(b,function() return 20 end)
+                local okb,rb=pcall(b)
+                local s2="n:"..type(rc).."/"..(okb and tostring(rb) or "e")
+                local s3="skip"
+                if type(XC2)=="function" then
+                    local c=function() return 100 end
+                    local rcc=XHF2(c,XC2(function() return 200 end))
+                    local okc2,rc2=pcall(c)
+                    s3="n:"..type(rcc).."/"..(okc2 and tostring(rc2) or "e")
+                end
+                return s1.." sw:"..s2.." cc:"..s3
             end)
-            hf=okh and r or ("e:"..string.sub(tostring(r),1,50))
+            hf=okh and r or ("e:"..string.sub(tostring(r),1,60))
         end
-        ST._probe=ST._probe.."|hfL="..hf
-        local okc,cs=pcall(function()
-            if type(getconnections)~="function" then error("gc="..type(getconnections),0) end
+        ST._probe=ST._probe.."|hf="..hf
+        local fn=nil
+        pcall(function()
             local c=getconnections(game:GetService("RunService").Heartbeat)
-            if type(c)~="table" then return "t="..type(c) end
-            if c[1]==nil then return "n=0" end
-            local f=c[1]
-            local ks={}
-            local okp,pe=pcall(function()
-                for k,v in pairs(f) do ks[#ks+1]=tostring(k)..":"..type(v) end
+            if type(c)=="table" and c[1]~=nil then fn=c[1].Function end
+        end)
+        if type(fn)~="function" then
+            pcall(function()
+                for _,o in ipairs(LP.PlayerGui:GetDescendants()) do
+                    if o:IsA("GuiButton") then
+                        local c=getconnections(o.MouseButton1Click)
+                        if type(c)=="table" and c[1]~=nil and type(c[1].Function)=="function" then
+                            fn=c[1].Function
+                            break
+                        end
+                    end
+                end
             end)
-            if not okp then return "pairE:"..string.sub(tostring(pe),1,40) end
-            table.sort(ks)
-            local okf2,fnt=pcall(function() return type(f.Function) end)
-            return "n="..#c.."["..string.sub(table.concat(ks,","),1,150).."]fn="..(okf2 and fnt or "err")
-        end)
-        ST._probe=ST._probe.."|conn="..(okc and cs or ("e:"..string.sub(tostring(cs),1,60)))
-        local okd,dp=pcall(function()
-            if type(decompile)~="function" then error("dec="..type(decompile),0) end
-            local r=decompile(function(x) return x+1 end)
-            return type(r)..":"..string.sub(tostring(r),1,70)
-        end)
-        ST._probe=ST._probe.."|dec="..(okd and dp or ("e:"..string.sub(tostring(dp),1,60)))
-        local okf3,fr=pcall(function()
-            if type(getfunctions)~="function" then error("gf="..type(getfunctions),0) end
-            local r=getfunctions(game)
-            if type(r)~="table" then return type(r) end
-            local ks,n={},0
-            for k,v in pairs(r) do
-                n=n+1
-                ks[#ks+1]=tostring(k)..":"..type(v)
-                if n>=8 then break end
+        end
+        ST._probe=ST._probe.."|fn="..type(fn)
+        if type(fn)=="function" then
+            local okd,dp=pcall(function()
+                if type(decompile)~="function" then error("no-dec",0) end
+                local r=decompile(fn)
+                return type(r)..":"..string.sub(tostring(r),1,500)
+            end)
+            ST._probe=ST._probe.."|dec="..(okd and dp or ("e:"..string.sub(tostring(dp),1,70)))
+            local oki,ip=pcall(function()
+                if type(debug)~="table" or type(debug.info)~="function" then error("no-info",0) end
+                return string.sub(tostring(debug.info(fn,"s")),1,140)
+            end)
+            ST._probe=ST._probe.."|inf="..(oki and ip or ("e:"..string.sub(tostring(ip),1,50)))
+            local oku,up=pcall(function()
+                local out={}
+                for i=1,12 do
+                    local ok1,nm,val=pcall(debug.getupvalue,fn,i)
+                    if not ok1 or nm==nil then break end
+                    local t=typeof(val)
+                    local ex=""
+                    if t=="Instance" then ex="="..val.ClassName.."."..val.Name end
+                    out[#out+1]=tostring(nm)..":"..t..ex
+                end
+                return string.sub(table.concat(out,","),1,500)
+            end)
+            ST._probe=ST._probe.."|upv="..(oku and up or ("e:"..string.sub(tostring(up),1,50)))
+        end
+        local okb2,bd=pcall(function()
+            local best=nil
+            for _,o in ipairs(LP.PlayerGui:GetDescendants()) do
+                if o:IsA("GuiButton") then
+                    local c=getconnections(o.MouseButton1Click)
+                    if type(c)=="table" and c[1]~=nil and type(c[1].Function)=="function" then
+                        best=c[1].Function
+                        local r=(type(decompile)=="function") and decompile(best) or nil
+                        return string.sub(o:GetFullName(),1,80).."|"..type(r)..":"..string.sub(tostring(r),1,500)
+                    end
+                end
             end
-            return "n="..#r.."["..table.concat(ks,",").."]"
+            return "no-btn"
         end)
-        ST._probe=ST._probe.."|gf="..(okf3 and fr or ("e:"..string.sub(tostring(fr),1,60)))
+        ST._probe=ST._probe.."|btn="..(okb2 and bd or ("e:"..string.sub(tostring(bd),1,60)))
     end)
     local p0ok,p0err=pcall(function()
         ST._probe=(ST._probe or "").."dbg["
@@ -422,7 +454,7 @@ local hkOk,hkErr=pcall(function()
             local ksg={}
             for k in pairs(g) do if type(k)=="string" then ksg[#ksg+1]=k end end
             table.sort(ksg)
-            ST._probe=ST._probe.."|genv["..string.sub(table.concat(ksg,","),1,700).."]"
+            ST._probe=ST._probe.."|genv["..string.sub(table.concat(ksg,","),1,2500).."]"
         end
         local XT=xnapi("Xeno") or xnapi("xeno")
         if type(XT)=="table" then
@@ -849,7 +881,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx36 | "..string.sub(tostring(ST._probe or ""),1,4000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx37 | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
