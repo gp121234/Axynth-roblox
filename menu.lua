@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx44")
+print("[Axynth] Loading... build=fx45")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -341,7 +341,7 @@ local hkOk,hkErr=pcall(function()
     end
     pcall(function()
         local extra={}
-        for _,n in ipairs({"getscripts","getrunningscripts","getloadedmodules","getscriptbytecode","getscriptclosure","getscriptfunction","getscripthash","setscriptbytecode","saveinstance","require","getinstances"}) do
+        for _,n in ipairs({"getscripts","getrunningscripts","getloadedmodules","getscriptbytecode","getscriptclosure","getscriptfunction","getscripthash","setscriptbytecode","saveinstance","require","getinstances","getconnections"}) do
             extra[#extra+1]=n.."="..type(xnapi(n))
         end
         ST._probe="T2["..string.sub(table.concat(extra,","),1,430).."]"
@@ -455,16 +455,11 @@ local hkOk,hkErr=pcall(function()
                         otr[#otr+1]=e
                     end
                 end
-                ST._probe=ST._probe..string.format("|tr=%.1f rems=%d(ms%d,pl%d,cj%d,hd%d):",tick()-tR,#rems+msN+plN+cjN+hdN,msN,plN,cjN,hdN).."K:"..string.sub(table.concat(kwr,";"),1,1400).."~o:"..string.sub(table.concat(otr,";"),1,350)
+                ST._probe=ST._probe..string.format("|tr=%.1f rems=%d(ms%d,pl%d,cj%d,hd%d):",tick()-tR,#rems+msN+plN+cjN+hdN,msN,plN,cjN,hdN).."K:"..string.sub(table.concat(kwr,";"),1,850).."~o:"..string.sub(table.concat(otr,";"),1,220)
             else
                 ST._probe=ST._probe.."|rems="..((okR and type(insts)) or "e")
             end
         end
-        local ord={}
-        for i,v in pairs(score) do if v>0 then ord[#ord+1]={i,v} end end
-        table.sort(ord,function(x,y) return x[2]>y[2] end)
-        local topSet={}
-        for n=1,math.min(30,#ord) do topSet[ord[n][1]]=true end
         local tB=tick()
         local fsb=xnapi("getscriptbytecode")
         local PAT="["..string.char(32).."-"..string.char(126).."]+"
@@ -476,9 +471,36 @@ local hkOk,hkErr=pcall(function()
                 end
                 if #strs>=40 then break end
             end
-            return string.sub(table.concat(strs,"|"),1,340)
+            return string.sub(table.concat(strs,"|"),1,440)
         end
-        local kwl={"CarDealer","BuyItem","GiveItem","CrateDrop","ClaimEvent","Inventory"}
+        local function mkctx(b, kw)
+            local function win(pos)
+                if not pos then return nil end
+                local a1=math.max(1,pos-800)
+                local a2=math.min(#b,pos+1000)
+                local strs={}
+                for seg in b:sub(a1,a2):gmatch(PAT) do
+                    if #seg>=4 and #seg<90 and not seg:match("^[%d%.%-]+$") then
+                        strs[#strs+1]=seg
+                    end
+                    if #strs>=30 then break end
+                end
+                return string.sub(table.concat(strs,"|"),1,430)
+            end
+            local parts={}
+            local seenW={}
+            for _,w in ipairs({kw,"FireServer","InvokeServer"}) do
+                local v=win(b:find(w,1,true))
+                if v and not seenW[v] then
+                    seenW[v]=true
+                    parts[#parts+1]=v
+                end
+                if #parts>=2 then break end
+            end
+            if #parts==0 then return mkstr(b) end
+            return string.sub(table.concat(parts," ~~ "),1,450)
+        end
+        local kwl={"CarDealer","Inventory","BuyItem","Supermarket","JobCenter","GiveItem","CrateDrop","ClaimEvent"}
         local khl={"OnServerEvent","InvokeServer","BuyItem","SpawnItem","GiveItem","GiveWeapon","SpawnCar","OnClientEvent","RemoteEvent","AddItem","EquipItem","CrateDrop","DropItem"}
         table.sort(pool,function(x,y) return score[x]>score[y] end)
         local fetch={}
@@ -504,7 +526,6 @@ local hkOk,hkErr=pcall(function()
         end
         local kwF={}
         local kwDump={}
-        local genDump={}
         local khidx={}
         local bok=0
         local bfail=0
@@ -519,13 +540,10 @@ local hkOk,hkErr=pcall(function()
                         newKw=true
                     end
                 end
-                local need=topSet[i] or newKw
-                if need then
-                    local strv=mkstr(b)
-                    if topSet[i] then genDump[i]=strv end
+                if newKw then
                     for _,kw in ipairs(kwl) do
                         if kwF[kw]==i and not kwDump[kw] then
-                            kwDump[kw]=strv
+                            kwDump[kw]=mkctx(b,kw)
                         end
                     end
                 end
@@ -546,22 +564,7 @@ local hkOk,hkErr=pcall(function()
             for _,ent in ipairs(khidx) do
                 t2[#t2+1]=string.sub(paths[ent[1]] or "?",1,28).."+"..ent[2]
             end
-            ST._probe=ST._probe.."|kh:"..string.sub(table.concat(t2,";"),1,400)
-        end
-        local tD=tick()
-        local gIdx={}
-        for n=1,math.min(30,#ord) do
-            local idx=ord[n][1]
-            if genDump[idx] then
-                gIdx[#gIdx+1]=idx
-            elseif #gIdx<3 then
-                local okb,b=pcall(fsb,L[idx])
-                if okb and type(b)=="string" then
-                    genDump[idx]=mkstr(b)
-                    gIdx[#gIdx+1]=idx
-                end
-            end
-            if #gIdx>=3 then break end
+            ST._probe=ST._probe.."|kh:"..string.sub(table.concat(t2,";"),1,320)
         end
         local dumps={}
         local seenP={}
@@ -573,33 +576,128 @@ local hkOk,hkErr=pcall(function()
                     dumps[#dumps+1]="W:"..kw.."@"..string.sub(fnm,1,34).."::"..kwDump[kw]
                 end
             end
-            if #dumps>=5 then break end
+            if #dumps>=6 then break end
         end
-        for _,ent in ipairs(khidx) do
-            if #dumps>=7 then break end
-            local idx=ent[1]
-            local fnm=paths[idx] or "?"
-            if not seenP[fnm] then
-                local strv=genDump[idx]
-                if not strv then
-                    local okb,b=pcall(fsb,L[idx])
-                    if okb and type(b)=="string" then strv=mkstr(b) end
-                end
-                if strv then
-                    seenP[fnm]=true
-                    dumps[#dumps+1]="K:"..ent[2].."@"..string.sub(fnm,1,32).."::"..strv
+        ST._probe=ST._probe.."|dumps:"..string.sub(table.concat(dumps," ## "),1,2500)
+        local tCI=tick()
+        local ciOut={}
+        local function ciDump(tag, sig)
+            if #ciOut>=2 then return end
+            local gcn=xnapi("getconnections")
+            if type(gcn)~="function" then
+                ciOut[#ciOut+1]="gc=nil"
+                return
+            end
+            local okc,conns=pcall(gcn,sig)
+            if not okc or type(conns)~="table" then
+                ciOut[#ciOut+1]=tag.."::e:"..string.sub(tostring(conns),1,40)
+                return
+            end
+            local n=#conns
+            local fnv=nil
+            for _,c in ipairs(conns) do
+                local okf,f=pcall(function() return c.Function end)
+                if okf and type(f)=="function" then
+                    fnv=f
+                    break
                 end
             end
-        end
-        for _,idx in ipairs(gIdx) do
-            if #dumps>=9 then break end
-            local fnm=paths[idx] or "?"
-            if not seenP[fnm] then
-                seenP[fnm]=true
-                dumps[#dumps+1]=string.sub(fnm,1,40).."::"..genDump[idx]
+            if not fnv then
+                ciOut[#ciOut+1]=tag.."::n="..n..",nofn"
+                return
             end
+            local kpart=""
+            local okk,kt=pcall(debug.getconstants,fnv)
+            if okk and type(kt)=="table" then
+                local ss={}
+                local cnt=0
+                for _,v in pairs(kt) do
+                    cnt=cnt+1
+                    if type(v)=="string" and #v>=2 then
+                        ss[#ss+1]=v
+                    end
+                    if #ss>=26 or cnt>80 then break end
+                end
+                kpart="k:"..string.sub(table.concat(ss,","),1,700)
+            else
+                kpart="k="..((okk and type(kt)) or string.sub(tostring(kt),1,30))
+            end
+            local upart=""
+            local ok2u,up=pcall(function()
+                local o2={}
+                for i2=1,12 do
+                    local ok1,nm,val=pcall(debug.getupvalue,fnv,i2)
+                    if not ok1 or nm==nil then break end
+                    local t=typeof(val)
+                    local ex=""
+                    if t=="Instance" then ex="="..val.ClassName.."."..val.Name end
+                    o2[#o2+1]=tostring(nm)..":"..t..ex
+                end
+                return string.sub(table.concat(o2,","),1,380)
+            end)
+            if ok2u and up~="" then upart=" u:"..up end
+            ciOut[#ciOut+1]=tag.."::n="..n.." "..kpart..upart
         end
-        ST._probe=ST._probe..string.format(" td=%.1f",tick()-tD).."|dumps:"..string.sub(table.concat(dumps," ## "),1,2700)
+        pcall(function()
+            local prs={}
+            local bts={}
+            pcall(function()
+                for _,d in ipairs(game:GetDescendants()) do
+                    local cn=d.ClassName
+                    if cn=="ProximityPrompt" then
+                        prs[#prs+1]=d
+                    elseif cn=="TextButton" or cn=="ImageButton" then
+                        bts[#bts+1]=d
+                    end
+                end
+            end)
+            local function pthOf(d)
+                local okf,f=pcall(function() return d:GetFullName() end)
+                return okf and f or "?"
+            end
+            local bestP=nil
+            local bestPs=-1
+            for _,d in ipairs(prs) do
+                local p=pthOf(d):lower()
+                local sc3=0
+                for _,k in ipairs({"dealer","shop","buy","garage","market","armory","job","super","spawn","claim","hire","rent","work"}) do
+                    if p:find(k,1,true) then sc3=sc3+2 end
+                end
+                if sc3>bestPs then
+                    bestPs=sc3
+                    bestP=d
+                end
+            end
+            if bestP and bestPs>0 then
+                ciDump("P:"..string.sub(pthOf(bestP),1,44), bestP.Triggered)
+            end
+            local lpGui=LP:FindFirstChild("PlayerGui")
+            local bestB=nil
+            local bestBs=-1
+            if lpGui then
+                for _,d in ipairs(bts) do
+                    local p=pthOf(d):lower()
+                    if p:find("playergui",1,true) then
+                        local sc3=0
+                        for _,k in ipairs({"buy","spawn","purchase","hire","rent","collect","claim","confirm","accept","equip","equipall"}) do
+                            if p:find(k,1,true) then sc3=sc3+2 end
+                        end
+                        if sc3>bestBs then
+                            bestBs=sc3
+                            bestB=d
+                        end
+                    end
+                end
+            end
+            if bestB and bestBs>0 then
+                ciDump("B:"..string.sub(pthOf(bestB),1,44), bestB.MouseButton1Click)
+            end
+        end)
+        local ciPart="|ci=none"
+        if #ciOut>0 then
+            ciPart="|"..string.sub(table.concat(ciOut," ## "),1,1400)
+        end
+        ST._probe=ST._probe..string.format("|cit=%.1f",tick()-tCI)..ciPart
     end)
     local p0ok,p0err=pcall(function()
         ST._probe=(ST._probe or "").."|dbg=nogm"
@@ -1047,7 +1145,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx44 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx45 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
