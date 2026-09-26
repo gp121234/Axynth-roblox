@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx64")
+print("[Axynth] Loading... build=fx65")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -362,6 +362,7 @@ local hkOk,hkErr=pcall(function()
         local paths={}
         local skipped=0
         for i=1,#L do
+            if i%80==0 then task.wait() end
             local sc=L[i]
             local okp,fnm=pcall(function() return sc:GetFullName() end)
             fnm=okp and fnm or "?"
@@ -416,7 +417,10 @@ local hkOk,hkErr=pcall(function()
                 local msN=0
                 local cjN=0
                 local hdN=0
+                local ii2=0
                 for _,inst in pairs(insts) do
+                    ii2=ii2+1
+                    if ii2%250==0 then task.wait() end
                     local cn=inst.ClassName
                     if cn=="RemoteEvent" or cn=="RemoteFunction" or cn=="UnreliableRemoteEvent" then
                         local ok2r,fnm=pcall(function() return inst:GetFullName() end)
@@ -527,7 +531,10 @@ local hkOk,hkErr=pcall(function()
         local khidx={}
         local bok=0
         local bfail=0
+        local bi2=0
         for _,i in ipairs(fetch) do
+            bi2=bi2+1
+            if bi2%5==0 then task.wait() end
             local ok2,b=pcall(fsb,L[i])
             if ok2 and type(b)=="string" then
                 bok=bok+1
@@ -583,7 +590,10 @@ local hkOk,hkErr=pcall(function()
         local btList={}
         local bankN=0
         pcall(function()
+            local ci2=0
             for _,d in ipairs(game:GetDescendants()) do
+                ci2=ci2+1
+                if ci2%300==0 then task.wait() end
                 local cn=d.ClassName
                 if cn=="ProximityPrompt" or cn=="ClickDetector" then
                     local okf,f=pcall(function() return d:GetFullName() end)
@@ -616,7 +626,10 @@ local hkOk,hkErr=pcall(function()
         pcall(function()
             local lpGui=LP:FindFirstChild("PlayerGui")
             if lpGui then
+                local gi2=0
                 for _,d in ipairs(lpGui:GetDescendants()) do
+                    gi2=gi2+1
+                    if gi2%300==0 then task.wait() end
                     local cn=d.ClassName
                     if cn=="TextButton" or cn=="ImageButton" then
                         local okf,f=pcall(function() return d:GetFullName() end)
@@ -647,7 +660,10 @@ local hkOk,hkErr=pcall(function()
         task.spawn(function()
             pcall(function()
                 local cnt=0
+                local wi2=0
                 for _,inst in ipairs(game:GetDescendants()) do
+                    wi2=wi2+1
+                    if wi2%400==0 then task.wait() end
                     if cnt>=40 then break end
                     local cn=inst.ClassName
                     if cn=="RemoteEvent" or cn=="UnreliableRemoteEvent" then
@@ -1135,7 +1151,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx64 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")
+        local msg="build=fx65 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")
         ST._clipmsg=msg
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
@@ -1749,11 +1765,17 @@ local function safeTeleport(targetPos)
 end
 ST.goNear=function(pn,afterWait)
     local tgt=nil
-    pcall(function()
-        for _,d in ipairs(workspace:GetDescendants()) do
-            if d.Name==pn and d:IsA("BasePart") then tgt=d.Position+Vector3.new(0,2,0) break end
-        end
-    end)
+    if type(pn)=="Instance" then
+        pcall(function()
+            if pn:IsA("BasePart") then tgt=pn.Position+Vector3.new(0,2,0) end
+        end)
+    else
+        pcall(function()
+            for _,d in ipairs(workspace:GetDescendants()) do
+                if d.Name==pn and d:IsA("BasePart") then tgt=d.Position+Vector3.new(0,2,0) break end
+            end
+        end)
+    end
     if not tgt then return false end
     local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
@@ -2984,7 +3006,7 @@ local function spawnVehicle(name, pos)
             for _,d in pairs(W:GetDescendants()) do
                 if d:IsA("VehicleSeat") then
                     local m=d:FindFirstAncestorOfClass("Model")
-                    if m then
+                    if m and not m:GetAttribute("AxLocal") then
                         local parts,joints,anchored=vehStats(m)
                         if parts>0 and (joints>0 or anchored>=parts) then
                             local okd=false
@@ -2996,11 +3018,18 @@ local function spawnVehicle(name, pos)
             end
         end)
         if near then
-            ntf("Vehicle","Spawned "..tostring(name).." nearby - press E to enter",5)
+            ntf("Vehicle","SERVER car spawned - others see it too. Press E",6)
             return
         end
-        ntf("Vehicle","No car near you - see chain notifs (Triggered / SERVER OK / not confirmed)",7)
+        ntf("Vehicle","Only LOCAL clone - others cant see it. Server did not accept spawn",7)
     end
+    task.spawn(function()
+        pcall(function()
+            if ST._vehUIClick then
+                ST._vehUIClick(name)
+            end
+        end)
+    end)
     pcall(function()
         local list=getVehicleList()
         local lq=string.lower(name or "")
@@ -3019,8 +3048,9 @@ local function spawnVehicle(name, pos)
             local cl=src:Clone()
             ST._vehClone=cl
             cl.Parent=W
+            pcall(function() cl:SetAttribute("AxLocal",true) end)
             pcall(function() cl:PivotTo(CFrame.new(spawnPos)) end)
-            ntf("Vehicle","Parked "..cl.Name.." next to you (local) + server spawn attempted",6)
+            ntf("Vehicle","Local clone parked (yours only) + server spawn attempted",6)
         end
     end)
     if fired>0 then
@@ -3030,7 +3060,7 @@ local function spawnVehicle(name, pos)
         pcall(function() verify() end)
     end)
     task.delay(3.0,function()
-        pcall(function() if ST.goHome then ST.goHome() end end)
+        pcall(function() if not ST._engBusy and ST.goHome then ST.goHome() end end)
     end)
 end
 local vehBox
@@ -3280,9 +3310,38 @@ local function doForceJob(targetPl, jobName)
     end
     local jobBefore=readJob()
     if target==LP then
-        ntf("Job","Going to Job Center (server requires proximity)...",3)
-        if ST.goNear then ST.goNear("JobCenterPart",0.8) end
-        task.wait(0.4)
+        pcall(function()
+            local r=findRemote("Teams.ChangeJob") or findRemote("ChangeJob")
+            if r then
+                local teamObj=nil
+                pcall(function()
+                    for _,tm in pairs(game:GetService("Teams"):GetTeams()) do
+                        if tm.Name==jobName then
+                            teamObj=tm
+                            break
+                        end
+                    end
+                end)
+                if grFire(r,{teamObj or jobName},"jobDir") then
+                    fired=fired+1
+                end
+            end
+        end)
+        task.wait(0.9)
+        local j1=readJob()
+        if j1 and j1~=jobBefore then
+            ntf("Job","SERVER OK -> "..j1.." (direct)",7)
+            return
+        end
+        ntf("Job","Looking for the right place for "..jobName.."...",3)
+        task.spawn(function()
+            pcall(function()
+                if ST._jobUIClick then
+                    ST._jobUIClick(jobName)
+                end
+            end)
+        end)
+        task.wait(5.5)
     end
     pcall(function()
         local lg=ST._learnLog
@@ -3337,7 +3396,7 @@ local function doForceJob(targetPl, jobName)
             end
         end
         task.wait(0.3)
-        if not replayFor("jobcenter") then
+        if target~=LP and not replayFor("jobcenter") then
             local jc=findRemote("JobCenter.JobCenter") or findRemote("JobCenter")
             if jc then
                 if grFire(jc,{jobName},"jobJC") then fired=fired+1 end
@@ -3404,13 +3463,17 @@ local function doForceJob(targetPl, jobName)
         end)
     end)
     if target==LP then
-        task.wait(1.6)
+        local bw0=tick()
+        while ST._engBusy and tick()-bw0<14 do
+            task.wait(0.2)
+        end
+        task.wait(0.8)
         local jobNow=readJob()
         if ST.goHome then ST.goHome() end
         if jobNow and jobNow~=jobBefore then
             ntf("Job","SERVER OK -> "..jobNow.." (others see it too)",7)
         else
-            ntf("Job",""..fired.." remotes at Job Center, job unchanged. Game error toast above = reason",7)
+            ntf("Job",""..fired.." remotes sent, job NOT changed - server refused ("..tostring(jobName).."). Game toast above = reason",8)
         end
         return
     end
@@ -3662,9 +3725,153 @@ local function doFullHeal()
     ntf("Heal", fired>0 and ("Full heal + "..fired.." remote(s)") or "Full heal applied")
 end
 btn(tEx,"Full Heal Self",function() if cd() then doFullHeal() end end,"fheal")
-local function axPromptInteract(kws, clickName, dlSec)
+local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
     local want=(clickName and clickName~="") and string.lower(clickName) or ""
     want=string.gsub(want,"[_%-]+"," ")
+    local engGUI=nil
+    ST._engBusy=true
+    pcall(function()
+        local best=nil
+        local bestScore=nil
+        local toks={}
+        pcall(function()
+            local lo=string.lower(clickName or "")
+            for w in lo:gmatch("%a+") do
+                if #w>=3 then toks[#toks+1]=w end
+            end
+        end)
+        local npr=0
+        pcall(function()
+            for _,pr in ipairs(workspace:GetDescendants()) do
+                if pr:IsA("ProximityPrompt") then
+                    npr=npr+1
+                    if npr<=400 then
+                        local pth=string.lower(pr:GetFullName())
+                        local sc=nil
+                        for _,t in ipairs(toks) do
+                            if #t>=5 then
+                                local hi=#t
+                                while hi>=5 do
+                                    if string.find(pth,t:sub(1,hi),1,true) then
+                                        sc=-1
+                                        break
+                                    end
+                                    hi=hi-1
+                                end
+                            elseif #t>=3 then
+                                if string.find(pth,t,1,true) then
+                                    sc=-1
+                                end
+                            end
+                            if sc then break end
+                        end
+                        if not sc and kws then
+                            for i,k in ipairs(kws) do
+                                if string.find(pth,string.lower(k),1,true) then
+                                    sc=i
+                                    break
+                                end
+                            end
+                        end
+                        if sc and (not bestScore or sc<bestScore) then
+                            bestScore=sc
+                            best=pr
+                        end
+                    end
+                end
+            end
+        end)
+        if best and (not strictPrompt or bestScore==-1) then
+            local part=best.Parent
+            if not (part and part:IsA("BasePart")) then
+                part=best:FindFirstAncestorOfClass("BasePart") or part
+            end
+            if part and part:IsA("BasePart") and ST.goNear then
+                ST.goNear(part,0.7)
+            end
+            local pre={}
+            pcall(function()
+                local g0=LP:FindFirstChild("PlayerGui")
+                if g0 then
+                    for _,sg in ipairs(g0:GetChildren()) do
+                        if sg:IsA("ScreenGui") then pre[sg]=true end
+                    end
+                end
+            end)
+            local nc=0
+            pcall(function()
+                for _,c in pairs(getconnections(best.Triggered)) do
+                    pcall(function()
+                        c.Function(best,LP)
+                        nc=nc+1
+                    end)
+                end
+            end)
+            if nc>0 then
+                local t0=tick()
+                while tick()-t0<1.8 and not engGUI do
+                    pcall(function()
+                        local g=LP:FindFirstChild("PlayerGui")
+                        if g then
+                            for _,sg in ipairs(g:GetChildren()) do
+                                if sg:IsA("ScreenGui") and sg.Enabled and not pre[sg] then
+                                    local sn=string.lower(tostring(sg.Name or ""))
+                                    if not string.find(sn,"axynth",1,true) and not string.find(sn,"remotescanner",1,true) and not string.find(sn,"axpalette",1,true) then
+                                        local hit=false
+                                        for _,d in ipairs(sg:GetDescendants()) do
+                                            local cn=d.ClassName
+                                            if cn=="TextButton" or cn=="TextLabel" or cn=="ImageButton" then
+                                                local tx=string.lower(tostring(d.Text or "").." "..tostring(d.Name or ""))
+                                                if (want~="" and #want>=3 and tx:find(want,1,true)) or tx:find("apply",1,true) or tx:find("purchase",1,true) or tx:find("buy",1,true) or tx:find("confirm",1,true) then
+                                                    hit=true
+                                                    break
+                                                end
+                                            end
+                                        end
+                                        if hit then
+                                            engGUI=sg
+                                            break
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                    if not engGUI then
+                        task.wait(0.15)
+                    end
+                end
+                if engGUI then
+                    pcall(function() engGUI.Enabled=false end)
+                end
+            end
+        end
+    end)
+    local function cleanup()
+        ST._engBusy=false
+        pcall(function()
+            if engGUI and engGUI.Parent then
+                local closed=false
+                for _,d in ipairs(engGUI:GetDescendants()) do
+                    if not closed and (d:IsA("TextButton") or d:IsA("ImageButton")) then
+                        local al=string.gsub(string.lower(tostring(d.Text or "").." "..tostring(d.Name or "")),"[^%w]","")
+                        if al:find("close",1,true) or al:find("exit",1,true) or al:find("cancel",1,true) or al=="x" or al=="back" or al=="return" then
+                            pcall(function()
+                                for _,c in pairs(getconnections(d.MouseButton1Click)) do
+                                    pcall(function() c.Function(d) end)
+                                end
+                            end)
+                            closed=true
+                        end
+                    end
+                end
+                pcall(function() engGUI.Enabled=false end)
+            end
+        end)
+        if ST._tpBack and ST.goHome then
+            pcall(function() ST.goHome() end)
+        end
+    end
     local found=nil
     local function scanUI(bw)
         pcall(function()
@@ -3744,7 +3951,10 @@ local function axPromptInteract(kws, clickName, dlSec)
             end
         end)
     end
-    if want=="" then return end
+    if want=="" then
+        cleanup()
+        return
+    end
     found=nil
     local dl=tick()+(dlSec or 3.5)
     while tick()<dl and not found do
@@ -3759,6 +3969,7 @@ local function axPromptInteract(kws, clickName, dlSec)
         if not found then task.wait(0.3) end
     end
     if not found then
+        cleanup()
         return
     end
     task.wait(0.4)
@@ -3873,12 +4084,13 @@ local function axPromptInteract(kws, clickName, dlSec)
     else
         ntf("Shop","Button '"..clickName.."' found, no handler fired",5)
     end
+    cleanup()
 end
 ST._jobUIClick=function(jn)
-    axPromptInteract({"job","career","jobcenter","center","society","apply"},jn)
+    axPromptInteract({"job","career","jobcenter","center","society","apply"},jn,nil,true)
 end
 ST._vehUIClick=function(nm)
-    axPromptInteract({"car","dealer","vehicle","garage"},nm)
+    axPromptInteract({"garage","car","dealer","vehicle"},nm)
 end
 btn(tF["set"],"Copy diagnostics to clipboard",function()
     pcall(function()
@@ -4037,7 +4249,7 @@ function giveGRItem(name, kind, noFire)
     if not noFire then
         if ST.goNear then ST.goNear("ShopOpen",0.5) end
         task.delay(3.5,function()
-            pcall(function() if ST.goHome then ST.goHome() end end)
+            pcall(function() if not ST._engBusy and ST.goHome then ST.goHome() end end)
         end)
     end
     pcall(function()
@@ -4106,132 +4318,20 @@ function giveGRItem(name, kind, noFire)
             if didReplay then
                 ntf("Give","Using real shop remote (learned) - if others dont see the item, server rejected the replay",6)
             else
-                ntf("Give","remotes sent + local clone spawned (yours until server accepts)",7)
+                ntf("Give","remotes + hidden shop flow sent (others see it only if server accepts)",7)
             end
         end)
     end
-    pcall(function()
-        local bp=LP:FindFirstChild("Backpack")
-        if not bp then return end
-        ST._toolCache=ST._toolCache or {}
-        local function findTemplate(nm)
-            if ST._toolCache[nm] and ST._toolCache[nm].Parent then return ST._toolCache[nm] end
-            local lower=string.lower(nm)
-            local exact=nil
-            local partial=nil
-            local function consider(obj)
-                if not obj or not obj:IsA("Tool") then return end
-                local on=string.lower(obj.Name)
-                if on==lower then exact=obj
-                elseif not partial and string.find(on,lower,1,true) then partial=obj end
-            end
-            local roots={}
-            pcall(function() table.insert(roots,game:GetService("StarterPack")) end)
-            pcall(function() table.insert(roots,game:GetService("StarterGear")) end)
-            pcall(function() table.insert(roots,RS) end)
-            pcall(function() table.insert(roots,W) end)
-            pcall(function() local ss=game:GetService("ServerStorage") if ss then table.insert(roots,ss) end end)
-            pcall(function() local sa=game:GetService("ServerScriptService") if sa then table.insert(roots,sa) end end)
-            pcall(function() local sp=game:GetService("StarterPlayer") if sp then local sc=sp:FindFirstChild("StarterCharacterTools") if sc then table.insert(roots,sc) end end end)
-            for _,src in ipairs(roots) do
-                pcall(function()
-                    for _,obj in pairs(src:GetDescendants()) do
-                        consider(obj)
-                        if exact then break end
-                    end
-                end)
-                if exact then break end
-            end
-            if not exact then
-                pcall(function()
-                    for _,pl in pairs(P:GetPlayers()) do
-                        if pl~=LP then
-                            local pb=pl:FindFirstChild("Backpack")
-                            if pb then
-                                for _,obj in pairs(pb:GetChildren()) do consider(obj) end
-                            end
-                            if pl.Character then
-                                for _,obj in pairs(pl.Character:GetChildren()) do consider(obj) end
-                            end
-                        end
-                        if exact then break end
-                    end
-                end)
-            end
-            local found=exact or partial
-            if found then ST._toolCache[nm]=found end
-            return found
-        end
-        local tpl=findTemplate(name)
-        local got=false
-        if tpl and cloneToolFull(tpl, bp) then n=n+1 got=true end
-        if not got then
-            local alt=nil
-            pcall(function() alt=findTemplate(string.lower(name)) end)
-            if alt and cloneToolFull(alt, bp) then n=n+1 got=true end
-        end
-        if not got then
-            -- fallback visible placeholder so it at least appears and can be equipped
+    if not noFire then
+        task.delay(1.0,function()
             pcall(function()
-                local t=Instance.new("Tool")
-                t.Name=name
-                t.CanBeDropped=true
-                t.RequiresHandle=true
-                t.ManualActivationOnly=false
-                t.Enabled=true
-                local h=Instance.new("Part")
-                h.Name="Handle"
-                h.Size=Vector3.new(0.5,0.7,0.4)
-                h.CanCollide=false
-                h.Massless=true
-                local m=Instance.new("SpecialMesh")
-                m.MeshType=Enum.MeshType.Brick
-                m.Scale=Vector3.new(0.4,0.4,0.4)
-                m.Parent=h
-                h.Parent=t
-                t.Parent=bp
-                n=n+1
-                got=true
+                local inv=findRemote("Inventory.Inventory")
+                if inv then
+                    grFire(inv,{"equip",name},"equip")
+                end
             end)
-        end
-        -- keep in inventory + auto-equip (so it stays and can be re-equipped)
-        if got then
-            ST._givenItems=ST._givenItems or {}
-            ST._givenItems[name]=kind or "w"
-            pcall(function()
-                task.delay(0.25, function()
-                    pcall(function()
-                        if LP.Character and not LP.Character:FindFirstChildOfClass("Tool") then
-                            local hum=LP.Character:FindFirstChildOfClass("Humanoid")
-                            if hum then
-                                local toEquip=nil
-                                for _,v in pairs(bp:GetChildren()) do
-                                    if v:IsA("Tool") and v.Name:lower()==string.lower(name) then toEquip=v break end
-                                end
-                                if not toEquip then
-                                    for _,v in pairs(bp:GetChildren()) do if v:IsA("Tool") then toEquip=v break end end
-                                end
-                                if toEquip then
-                                    hum:EquipTool(toEquip)
-                                    if not LP.Character:FindFirstChild(toEquip.Name) then
-                                        pcall(function() toEquip.Parent=LP.Character end)
-                                    end
-                                end
-                            end
-                        end
-                    end)
-                    -- also try Inventory equip remote for custom inventory
-                    if not noFire then pcall(function()
-                        local inv=findRemote("Inventory.Inventory")
-                        if inv then
-                            grFire(inv,{"equip",name},"equip")
-                            grFire(inv,{"use",name},"equip")
-                        end
-                    end) end
-                end)
-            end)
-        end
-    end)
+        end)
+    end
     return n
 end
 pcall(function()
@@ -4491,28 +4591,28 @@ btn(tEx,"Give FN FAL (working)",function()
     if not cd() then return end
     local n=giveGRItem("FN FAL","weapon")
     fireWeaponActivated()
-    ntf("Give","FN FAL: local clone + remotes + shop click",4)
+    ntf("Give","FN FAL: remotes + hidden shop flow (server decides)",4)
     axPromptInteract({"gun","shop","armory","armoury","weapon","store","market"},"FN FAL")
 end,"gfnfal")
 btn(tEx,"Give M4A5 (working)",function()
     if not cd() then return end
     local n=giveGRItem("M4A5","weapon")
     fireWeaponActivated()
-    ntf("Give","M4A5: local clone + remotes + shop click",4)
+    ntf("Give","M4A5: remotes + hidden shop flow (server decides)",4)
     axPromptInteract({"gun","shop","armory","armoury","weapon","store","market"},"M4A5")
 end,"gm4a5")
 btn(tEx,"Give Police Glock",function()
     if not cd() then return end
     local n=giveGRItem("Police Glock","weapon")
     fireWeaponActivated()
-    ntf("Give","Police Glock: local clone + remotes + shop click",4)
+    ntf("Give","Police Glock: remotes + hidden shop flow (server decides)",4)
     axPromptInteract({"gun","shop","armory","armoury","weapon","store","market"},"Police Glock")
 end,"gglock")
 btn(tEx,"Give Food+Medkit pack",function()
     if not cd() then return end
     local total=0
     for _,it in ipairs(GR_ITEMS) do total=total+giveGRItem(it,"item") end
-    ntf("Give","Pack: local clones + remotes sent",7)
+    ntf("Give","Pack: remotes sent (hidden shop flow per item)",7)
     axPromptInteract({"shop","market","store","supermarket"},nil)
     for _,it in ipairs(GR_ITEMS) do
         axPromptInteract(nil,it,1.2)
@@ -4521,7 +4621,7 @@ end,"gpack")
 btn(tEx,"Give LockPick",function()
     if not cd() then return end
     local n=giveGRItem("LockPick","item")
-    ntf("Give","LockPick: local clone + remotes + shop click",4)
+    ntf("Give","LockPick: remotes + hidden shop flow (server decides)",4)
     axPromptInteract({"shop","market","store","hardware","tool"},"LockPick")
 end,"glockpick")
 table.insert(allToggles,tog(tEx,"Auto Steal Loop",function() return ST.autoSteal end,function() ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON - nearest every 0.6s") else ntf("Steal","Loop OFF") end end,"autosteal"))
