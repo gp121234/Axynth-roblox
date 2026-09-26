@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx55")
+print("[Axynth] Loading... build=fx57")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1086,9 +1086,9 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx55 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
-        setclipboard(msg)
-        print("[Axynth][Hook] result copied to clipboard")
+        local msg="build=fx57 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        ST._clipmsg=msg
+        print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
 end)
 local function spoofVelocity()
@@ -2913,14 +2913,17 @@ local function spawnVehicle(name, pos)
             ntf("Vehicle","Spawned "..tostring(name).." nearby - press E to enter",5)
             return
         end
-        ntf("Vehicle","Server ignored - spawn a car ONCE at the dealer with menu open, then Spawn replays it",7)
+        ntf("Vehicle","No car near you - see chain notifs (Triggered / SERVER OK / not confirmed)",7)
     end
+    task.spawn(function()
+        pcall(function()
+            if ST._vehUIClick then ST._vehUIClick(name) end
+        end)
+    end)
     if fired>0 then
         ntf("Vehicle","Spawning "..tostring(name).." ...",3)
-        task.delay(1.2,verify)
-    else
-        verify()
     end
+    task.delay(7,verify)
 end
 local vehBox
 local vDropBtn=Instance.new("TextButton") vDropBtn.Size=UDim2.new(1,-12,0,30) vDropBtn.Position=UDim2.new(0,6,0,0) vDropBtn.BackgroundColor3=TH.b vDropBtn.BorderSizePixel=0 vDropBtn.Text="  Select vehicle..." vDropBtn.TextColor3=TH.t vDropBtn.TextSize=11 vDropBtn.Font=Enum.Font.GothamMedium vDropBtn.TextXAlignment=Enum.TextXAlignment.Left vDropBtn.Parent=tW mkCorner(vDropBtn,6) mkStroke(vDropBtn,TH.a,1)
@@ -3139,6 +3142,14 @@ local function doForceJob(targetPl, jobName)
     local target=targetPl or LP
     local jobPos=nil
     local fired=0
+    if target==LP then
+        task.spawn(function()
+            pcall(function()
+                if ST._jobUIClick then ST._jobUIClick(jobName) end
+            end)
+        end)
+        task.wait(1.2)
+    end
     pcall(function()
         local lg=ST._learnLog
         local verbs={apply=1,change=1,set=1,select=1,join=1,choose=1,get=1,switch=1,work=1,accept=1,job=1,team=1,setjob=1,changejob=1,start=1,enter=1}
@@ -3256,12 +3267,6 @@ local function doForceJob(targetPl, jobName)
                     if grFire(hd,args,"staffJ") then fired=fired+1 end
                 end
             end
-        end)
-        task.spawn(function()
-            task.wait(0.6)
-            pcall(function()
-                if ST._jobUIClick then ST._jobUIClick(jobName) end
-            end)
         end)
     end)
     if fired>0 then
@@ -3649,17 +3654,35 @@ local function axPromptInteract(kws, clickName, dlSec)
         ntf("Shop","Clicked '"..clickName.."' x"..n.." via REAL handler - checking server...",7)
         task.delay(0.5,function()
             local ok=false
+            local toolOk=false
             pcall(function()
                 local want=string.lower(clickName)
                 local function scan(c)
                     if not c then return end
                     for _,v in ipairs(c:GetChildren()) do
-                        if v:IsA("Tool") and string.find(string.lower(v.Name),want,1,true) then ok=true end
+                        if v:IsA("Tool") and string.find(string.lower(v.Name),want,1,true) then
+                            ok=true
+                            toolOk=true
+                        end
                     end
                 end
                 scan(LP:FindFirstChild("Backpack"))
                 scan(LP.Character)
             end)
+            if toolOk then
+                pcall(function()
+                    local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                    local bp=LP:FindFirstChild("Backpack")
+                    if hum and bp then
+                        for _,v in ipairs(bp:GetChildren()) do
+                            if v:IsA("Tool") and string.find(string.lower(v.Name),string.lower(clickName),1,true) then
+                                hum:EquipTool(v)
+                                break
+                            end
+                        end
+                    end
+                end)
+            end
             if not ok then
                 pcall(function()
                     local tm=LP.Team
@@ -3689,17 +3712,20 @@ end
 ST._jobUIClick=function(jn)
     axPromptInteract({"job","career","jobcenter","center"},jn)
 end
-btn(tEx,"Spawn Car @Dealer",function() if cd() then local vs="" pcall(function() vs=string.match(tostring(vDropBtn.Text or "")," > (.+)") or "" end) if vs~="" then pcall(function() local r=findRemote("Cars.CarDealer") or findRemote("Garage.Garage") or findRemote("Cars.Locked") if r then grFire(r,{vs},"vehS") grFire(r,{"spawn",vs},"vehS") grFire(r,{vs,"spawn"},"vehS") grFire(r,{"Spawn",vs},"vehS") grFire(r,vs,"vehS") end end) end axPromptInteract({"car","dealer","vehicle","garage"},vs) end end,"spcar")
+ST._vehUIClick=function(nm)
+    axPromptInteract({"car","dealer","vehicle","garage"},nm)
+end
+btn(tF["set"],"Copy diagnostics to clipboard",function()
+    pcall(function()
+        if setclipboard and ST._clipmsg then
+            setclipboard(ST._clipmsg)
+            ntf("Diag","Copied to clipboard",4)
+        else
+            ntf("Diag","No diagnostics yet",4)
+        end
+    end)
+end,"copydiag")
 btn(tEx,"Interact Shop Prompt",function() if cd() then axPromptInteract({"shop","market","store","gunshop","armory"}) end end,"spshop")
-btn(tEx,"Set Job @JobCenter UI",function()
-    if not cd() then return end
-    local jn=ST.selectedJob
-    if not jn or jn=="" then
-        ntf("Job","Select a job in the Players tab first",5)
-        return
-    end
-    axPromptInteract({"job","career","jobcenter","center"},jn)
-end,"jobui")
 btn(tEx,"Free Armory (job weapons)",function() if cd() then axPromptInteract({"armory","armoury","weapon","locker"},nil) end end,"freearm")
 btn(tEx,"Grab Bank Gold (money)",function() if cd() then axPromptInteract({"gold","grab","vault","drill"},nil) end end,"bankgold")
 btn(tEx,"Free Clothes (click givers)",function()
@@ -4678,6 +4704,49 @@ itemBox.FocusLost:Connect(function(enter)
     if enter then giveGameItem(itemBox.Text) end
 end)
 btn(tEx,"Give typed item",function() giveGameItem(itemBox.Text) if itemBox.Text~="" then axPromptInteract({"shop","market","store","supermarket","armory","gun"},itemBox.Text) end end,"giveitem")
+btn(tEx,"Drop Item on ground (visible)",function()
+    if not cd() then return end
+    local nm=itemBox.Text
+    if nm=="" then
+        ntf("Drop","Type an item name first",4)
+        return
+    end
+    pcall(function()
+        local inv=findRemote("Inventory.Inventory")
+        if inv then
+            grFire(inv,{"drop",nm},"drop")
+            grFire(inv,{nm,"drop"},"drop")
+            grFire(inv,{"remove",nm},"drop")
+            grFire(inv,{"drop",nm,1},"drop")
+            grFire(inv,nm,"drop")
+        end
+        local rem=findRemote("remove") or findRemote("Remove")
+        if rem then
+            grFire(rem,{nm},"dropR")
+            grFire(rem,{nm,1},"dropR")
+        end
+        local sm=findRemote("SupermarketEvent.Triggered")
+        if sm then grFire(sm,{"drop",nm},"dropSM") end
+    end)
+    ntf("Drop","Dropping '"..nm.."' - checking ground...",4)
+    task.delay(1.2,function()
+        local ok=false
+        pcall(function()
+            local want=string.lower(nm)
+            for _,d in ipairs(workspace:GetDescendants()) do
+                if d:IsA("Tool") and string.find(string.lower(d.Name),want,1,true) then
+                    ok=true
+                    break
+                end
+            end
+        end)
+        if ok then
+            ntf("Drop","SERVER dropped '"..nm.."' - on the ground, VISIBLE to everyone",7)
+        else
+            ntf("Drop","'"..nm.."' not on ground - not confirmed. PASTE me",7)
+        end
+    end)
+end,"dropitem")
 -- duplicate give buttons removed (use GIVE WORKING ITEMS above)
 btn(tEx,"Refresh item list",function()
     ST._gameTools=nil
