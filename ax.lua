@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx50")
+print("[Axynth] Loading... build=fx53")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1086,7 +1086,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx50 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx53 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
@@ -3198,6 +3198,65 @@ local function doForceJob(targetPl, jobName)
                 if grFire(jc,{jobName},"jobJC") then fired=fired+1 end
             end
         end
+        pcall(function()
+            local sets={
+                {"setjob",jobName},
+                {"setjob",LP.Name,jobName},
+                {"setjob",jobName,LP.Name},
+                {"setjob",jobName,target},
+                {"setjob",target,jobName},
+                {"setjob",jobName,LP.UserId},
+                {"setjob",LP.UserId,jobName},
+                {"setteam",jobName},
+                {"job",jobName},
+                {"changejob",jobName},
+                {"forcejob",jobName},
+                {jobName,target},
+                {target,jobName},
+                {LP,jobName},
+                {jobName,LP},
+                {LP.UserId,jobName},
+                {jobName,LP.UserId},
+                {":setjob "..LP.Name.." "..jobName},
+                {"setjob "..LP.Name.." "..jobName}
+            }
+            local budget=10
+            pcall(function()
+                local gi=xnapi("getinstances")
+                if type(gi)~="function" then return end
+                local ok,insts=pcall(gi)
+                if not (ok and type(insts)=="table") then return end
+                for _,inst in pairs(insts) do
+                    if budget<=0 then break end
+                    local cn=inst.ClassName
+                    if cn=="RemoteEvent" or cn=="RemoteFunction" then
+                        local okf,fnm=pcall(function() return inst:GetFullName() end)
+                        local lf=string.lower(okf and fnm or "")
+                        if lf:find("hdadmin",1,true) or lf:find("setjob",1,true) or lf:find("changejob",1,true) or lf:find("changeteam",1,true) or lf:find("setteam",1,true) then
+                            for _,args in ipairs(sets) do
+                                if grFire(inst,args,"staffJ") then
+                                    fired=fired+1
+                                    budget=budget-1
+                                end
+                                if budget<=0 then break end
+                            end
+                        end
+                    end
+                end
+            end)
+            local r=findRemote("Teams.ChangeJob") or findRemote("Teams.ChangeTeam") or findRemote("ChangeJob")
+            if r then
+                for _,args in ipairs({{jobName,target},{target,jobName},{LP,jobName},{jobName,LP}}) do
+                    if grFire(r,args,"staffJ") then fired=fired+1 end
+                end
+            end
+            local hd=findRemote("HDAdmin") or findRemote("HDAdminRemote") or findRemote("AdminCommands")
+            if hd then
+                for _,args in ipairs({{"setjob",jobName},{"setjob",LP.Name,jobName},{":setjob "..LP.Name.." "..jobName}}) do
+                    if grFire(hd,args,"staffJ") then fired=fired+1 end
+                end
+            end
+        end)
     end)
     if fired>0 then
         ntf("Job",(target==LP and "Self" or target.DisplayName).." -> "..jobName.." ("..fired.." remotes)",4)
@@ -3579,7 +3638,42 @@ local function axPromptInteract(kws, clickName, dlSec)
         end)
     end
     if n>0 then
-        ntf("Shop","Clicked '"..clickName.."' x"..n.." via REAL handler - server side, all players",7)
+        ntf("Shop","Clicked '"..clickName.."' x"..n.." via REAL handler - checking server...",7)
+        task.delay(0.5,function()
+            local ok=false
+            pcall(function()
+                local want=string.lower(clickName)
+                local function scan(c)
+                    if not c then return end
+                    for _,v in ipairs(c:GetChildren()) do
+                        if v:IsA("Tool") and string.find(string.lower(v.Name),want,1,true) then ok=true end
+                    end
+                end
+                scan(LP:FindFirstChild("Backpack"))
+                scan(LP.Character)
+            end)
+            if not ok then
+                pcall(function()
+                    local tm=LP.Team
+                    if tm and string.lower(tm.Name)==string.lower(clickName) then ok=true end
+                end)
+            end
+            if not ok then
+                pcall(function()
+                    local want=string.lower(clickName)
+                    for _,m in ipairs(workspace:GetChildren()) do
+                        if m:IsA("Model") and string.lower(m.Name)==want and m:FindFirstChildWhichIsA("VehicleSeat",true) then
+                            ok=true
+                        end
+                    end
+                end)
+            end
+            if ok then
+                ntf("Shop","SERVER OK: '"..clickName.."' - VISIBLE to everyone",7)
+            else
+                ntf("Shop","'"..clickName.."' not confirmed - no money / wrong button / need job. PASTE me",8)
+            end
+        end)
     else
         ntf("Shop","Button '"..clickName.."' found, no handler fired",5)
     end
@@ -3595,6 +3689,28 @@ btn(tEx,"Set Job @JobCenter UI",function()
     end
     axPromptInteract({"job","career","jobcenter","center"},jn)
 end,"jobui")
+btn(tEx,"Free Armory (job weapons)",function() if cd() then axPromptInteract({"armory","armoury","weapon","locker"},nil) end end,"freearm")
+btn(tEx,"Grab Bank Gold (money)",function() if cd() then axPromptInteract({"gold","grab","vault","drill"},nil) end end,"bankgold")
+btn(tEx,"Free Clothes (click givers)",function()
+    if not cd() then return end
+    local n=0
+    pcall(function()
+        local cg=workspace:FindFirstChild("ClothingGivers")
+        if cg then
+            for _,d in ipairs(cg:GetDescendants()) do
+                if d.ClassName=="ClickDetector" then
+                    pcall(function() fireclickdetector(d) n=n+1 end)
+                end
+            end
+        end
+    end)
+    if n>0 then
+        ntf("Clothes","Clicked "..n.." givers - clothes should be VISIBLE on you",6)
+    else
+        ntf("Clothes","No givers found",4)
+    end
+end,"freeclothes")
+btn(tEx,"Claim Free Drops/Crates",function() if cd() then axPromptInteract({"crate","drop","claim","loot","box"},nil) end end,"freedrop")
 local function bindGodHC()
     pcall(function()
         if ST._godHC then pcall(function() ST._godHC:Disconnect() end) ST._godHC=nil end
