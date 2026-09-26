@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx30")
+print("[Axynth] Loading... build=fx31")
 local ok, err = pcall(function()
 P = game:GetService("Players")
 U = game:GetService("UserInputService")
@@ -409,6 +409,35 @@ local hkOk,hkErr=pcall(function()
                     if addrT~=nil and run("Ead",dA,addrT) then winForm="Ead" end
                     if not winForm and run("E0",dA,0) then winForm="E0" end
                     if not winForm and run("Enl",dA,nil) then winForm="Enl" end
+                    if not winForm then
+                        local giF=xnapi("getinstancefunctions")
+                        if type(giF)=="function" then
+                            local oF,rF=pcall(giF,dA)
+                            if not oF then
+                                tries[#tries+1]="iFnE="..string.sub(tostring(rF),1,90)
+                            elseif type(rF)=="table" then
+                                local ks,n2={},0
+                                for k,v in pairs(rF) do
+                                    n2=n2+1 ks[#ks+1]=tostring(k)..":"..type(v)
+                                    if n2>=8 then break end
+                                end
+                                tries[#tries+1]="iFn="..string.sub(table.concat(ks,","),1,160)
+                            else
+                                tries[#tries+1]="iFn="..type(rF)
+                            end
+                        end
+                        if run("Fin",dA,Instance.new("RemoteEvent")) then winForm="Fin" end
+                        if not winForm then
+                            local oL,rL=pcall(function() return HI(dA,cbA) end)
+                            if oL then
+                                ST._hiShape=nil
+                                pcall(function() dA:FireServer("axprobe") end)
+                                tries[#tries+1]="LitA2:ret="..type(rL)..((ST._hiShape~=nil) and ",HIT" or ",no-hit")
+                            else
+                                tries[#tries+1]="LitA2!:"..string.sub(tostring(rL),1,220)
+                            end
+                        end
+                    end
                 end
                 if not winForm then error("f2:"..table.concat(tries," | "),0) end
                 if string.sub(tostring(ST._hiShape),1,8)~="Instance" then
@@ -590,7 +619,7 @@ local hkOk,hkErr=pcall(function()
                     end
                     if not ok then errs[#errs+1]=t[2]..":"..string.sub(tostring(e),1,60) end
                 end
-                if #done==0 then error("pHI["..string.sub(tostring(pHIerr),1,400).."] path4: "..table.concat(errs,"; "),0) end
+                if #done==0 then error("pHI["..tostring(pHIerr).."] path4: "..table.concat(errs,"; "),0) end
                 HOOK_PATH="hookfunction["..table.concat(done,",").."]"..((#errs>0) and (" partial: "..table.concat(errs,"; ")) or "")
             end
         end
@@ -628,7 +657,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx30 | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx31 | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
