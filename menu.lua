@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx61")
+print("[Axynth] Loading... build=fx62")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -659,11 +659,13 @@ local hkOk,hkErr=pcall(function()
                             local okc=false
                             pcall(function()
                                 inst.OnClientEvent:Connect(function(...)
+                                    local wArgc=select("#",...)
+                                    local wArgs={...}
                                     pcall(function()
                                         if #ST._whisp>=8 then return end
                                         local t={string.sub(fnm,-46)}
-                                        for i=1,math.min(4,select("#",...)) do
-                                            local v=select(i,...)
+                                        for i=1,math.min(4,wArgc) do
+                                            local v=wArgs[i]
                                             local tv=type(v)
                                             if tv=="string" then
                                                 t[#t+1]=string.sub(v,1,56)
@@ -1131,7 +1133,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx61 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")
+        local msg="build=fx62 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")
         ST._clipmsg=msg
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
