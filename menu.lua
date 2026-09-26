@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx28")
+print("[Axynth] Loading... build=fx29")
 local ok, err = pcall(function()
 P = game:GetService("Players")
 U = game:GetService("UserInputService")
@@ -614,6 +614,13 @@ else
     HOOK_OK=false HOOK_ERR=tostring(hkErr)
     pcall(function() print("[Axynth][Hook] namecall FAILED: "..HOOK_ERR) end)
 end
+pcall(function()
+    if type(setclipboard)=="function" then
+        local msg="build=fx29 | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        setclipboard(msg)
+        print("[Axynth][Hook] result copied to clipboard")
+    end
+end)
 local function spoofVelocity()
     pcall(function()
         if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
