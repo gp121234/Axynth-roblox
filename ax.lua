@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx31")
+print("[Axynth] Loading... build=fx32")
 local ok, err = pcall(function()
 P = game:GetService("Players")
 U = game:GetService("UserInputService")
@@ -437,6 +437,21 @@ local hkOk,hkErr=pcall(function()
                                 tries[#tries+1]="LitA2!:"..string.sub(tostring(rL),1,220)
                             end
                         end
+                        if not winForm then
+                            local dA2=Instance.new("RemoteEvent")
+                            if run("F3",dA,dA2,cbA) then winForm="F3" end
+                            if not winForm and run("Fs2",dA,dA,cbA) then winForm="Fs2" end
+                            if not winForm and run("Fg",dA,game,cbA) then winForm="Fg" end
+                            if not winForm and run("Fp",dA,LP,cbA) then winForm="Fp" end
+                            if not winForm and run("Fsw",game,dA,cbA) then winForm="Fsw" end
+                            if not winForm then
+                                local giA=xnapi("getinstanceaddress")
+                                if type(giA)=="function" then
+                                    local oA,rA=pcall(giA,dA)
+                                    if oA then tries[#tries+1]="adrs="..string.sub(tostring(rA),1,40) end
+                                end
+                            end
+                        end
                     end
                 end
                 if not winForm then error("f2:"..table.concat(tries," | "),0) end
@@ -452,6 +467,11 @@ local hkOk,hkErr=pcall(function()
                         hookedF[fn]=true
                         okH=pcall(HI,fn,cb)
                     elseif tag=="Dtb" then okH=pcall(HI,target,{cb})
+                    elseif tag=="F3" then okH=pcall(HI,target,Instance.new("RemoteEvent"),cb)
+                    elseif tag=="Fs2" then okH=pcall(HI,target,target,cb)
+                    elseif tag=="Fg" then okH=pcall(HI,target,game,cb)
+                    elseif tag=="Fp" then okH=pcall(HI,target,LP,cb)
+                    elseif tag=="Fsw" then okH=pcall(HI,game,target,cb)
                     end
                     return okH
                 end
@@ -657,7 +677,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx31 | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
+        local msg="build=fx32 | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))
         setclipboard(msg)
         print("[Axynth][Hook] result copied to clipboard")
     end
