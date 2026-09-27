@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx66")
+print("[Axynth] Loading... build=fx67")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -619,7 +619,7 @@ local hkOk,hkErr=pcall(function()
                                     ST._capN=(ST._capN or 0)+1
                                     if ST._capN<=40 and (not ST._capT or tick()-ST._capT>1.5) then
                                         ST._capT=tick()
-                                        ntf("CAP","captured client->server: "..string.sub(ST._capLog,1,160),7)
+                                        ntf("CAP","captured client->server: "..string.sub(ST._capLog,1,160),14)
                                         ST._capLog=""
                                     end
                                 end)
@@ -779,7 +779,7 @@ local hkOk,hkErr=pcall(function()
                                         pcall(function()
                                             if tick()-(ST._lastFire or 0)<8 and (not ST._whT or tick()-ST._whT>1.2) then
                                                 ST._whT=tick()
-                                                ntf("SRV",string.sub(table.concat(t," "),1,170),8)
+                                                ntf("SRV",string.sub(table.concat(t," "),1,170),16)
                                             end
                                         end)
                                     end)
@@ -1239,7 +1239,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx66 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")
+        local msg="build=fx67 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")
         ST._clipmsg=msg
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
@@ -1897,11 +1897,11 @@ ST.ask=function(rn,...)
     pcall(function()
         local r=findRemote(rn)
         if not r then
-            ntf("SRV",rn.." not found",5)
+            ntf("SRV",rn.." not found",12)
             return
         end
         if not r:IsA("RemoteFunction") then
-            ntf("SRV",rn.." = RemoteEvent (no answer channel)",5)
+            ntf("SRV",rn.." = RemoteEvent (no answer channel)",12)
             return
         end
         local variants={base}
@@ -1916,7 +1916,7 @@ ST.ask=function(rn,...)
             end
         end
         if out==nil then
-            ntf("SRV",rn.." gave no answer",6)
+            ntf("SRV",rn.." gave no answer",12)
             return
         end
         local shown=""
@@ -1951,7 +1951,7 @@ ST.ask=function(rn,...)
         else
             shown=type(out)..": "..tostring(out)
         end
-        ntf("SRV",rn.." -> "..string.sub(shown,1,190),9)
+        ntf("SRV",rn.." -> "..string.sub(shown,1,190),20)
     end)
     return out
 end
@@ -3032,10 +3032,6 @@ local function getVehicleList()
 end
 local function spawnVehicle(name, pos)
     pcall(function() if ST._vehClone and ST._vehClone.Parent then ST._vehClone:Destroy() end ST._vehClone=nil end)
-    if ST.goNear then
-        ntf("Vehicle","Going to Car Dealer (server requires proximity)...",3)
-        ST.goNear("CarDealererPart",0.8)
-    end
     local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     local spawnPos=pos or (hrp and hrp.Position + hrp.CFrame.LookVector*10 + Vector3.new(0,2,0) or Vector3.new(0,5,0))
     name=string.match(name or "","^%s*(.-)%s*$") or name
@@ -3078,7 +3074,7 @@ local function spawnVehicle(name, pos)
             end
         end
         if owned~=nil then
-            ntf("Vehicle","Garage data matched "..ownedShow.." - server spawn attempt",6)
+            ntf("Vehicle","Garage data matched "..ownedShow.." - server spawn attempt",10)
             local r=findRemote("Garage.Garage")
             if r then
                 for _,ca in ipairs({{owned},{owned,LP},{"spawn",owned},{LP,owned,"spawn"}}) do
@@ -3207,26 +3203,16 @@ local function spawnVehicle(name, pos)
             end
         end)
         if near then
-            ntf("Vehicle","SERVER car spawned - others see it too. Press E",6)
+            ntf("Vehicle","SERVER car spawned - others see it too. Press E",12)
             return
         end
-        ntf("Vehicle","NO server car - spawn rejected (see SRV/Flow/CAP toasts above)",7)
+        ntf("Vehicle","NO server car - spawn rejected ("..fired.." remotes sent standing still). SRV/CAP toasts above = reason",20)
     end
-    task.spawn(function()
-        pcall(function()
-            if ST._vehUIClick then
-                ST._vehUIClick(name)
-            end
-        end)
-    end)
     if fired>0 then
         ntf("Vehicle","Spawning "..tostring(name).." ...",3)
     end
-    task.delay(2.0,function()
-        pcall(function() verify() end)
-    end)
     task.delay(3.0,function()
-        pcall(function() if not ST._engBusy and ST.goHome then ST.goHome() end end)
+        pcall(function() verify() end)
     end)
 end
 local vehBox
@@ -3536,18 +3522,9 @@ local function doForceJob(targetPl, jobName)
         task.wait(0.9)
         local j1=readJob()
         if j1 and j1~=jobBefore then
-            ntf("Job","SERVER OK -> "..j1.." (direct)",7)
+            ntf("Job","SERVER OK -> "..j1.." (direct)",12)
             return
         end
-        ntf("Job","Looking for the right place for "..jobName.."...",3)
-        task.spawn(function()
-            pcall(function()
-                if ST._jobUIClick then
-                    ST._jobUIClick(jobName)
-                end
-            end)
-        end)
-        task.wait(5.5)
     end
     pcall(function()
         local lg=ST._learnLog
@@ -3669,17 +3646,12 @@ local function doForceJob(targetPl, jobName)
         end)
     end)
     if target==LP then
-        local bw0=tick()
-        while ST._engBusy and tick()-bw0<14 do
-            task.wait(0.2)
-        end
-        task.wait(0.8)
+        task.wait(0.9)
         local jobNow=readJob()
-        if ST.goHome then ST.goHome() end
         if jobNow and jobNow~=jobBefore then
-            ntf("Job","SERVER OK -> "..jobNow.." (others see it too)",7)
+            ntf("Job","SERVER OK -> "..jobNow.." (others see it too)",12)
         else
-            ntf("Job",""..fired.." remotes sent, job NOT changed - server refused ("..tostring(jobName).."). Game toast above = reason",8)
+            ntf("Job",""..fired.." remotes sent standing still, job NOT changed - server refused ("..tostring(jobName).."), was: "..tostring(jobBefore),20)
         end
         return
     end
@@ -4468,16 +4440,12 @@ function giveGRItem(name, kind, noFire)
     local n=0
     local didReplay=false
     if not noFire then
-        if ST.goNear then ST.goNear("ShopOpen",0.5) end
         if not ST._invAsked then
             ST._invAsked=true
             pcall(function()
                 ST._srvInv=ST.ask("Inventory.Inventory")
             end)
         end
-        task.delay(3.5,function()
-            pcall(function() if not ST._engBusy and ST.goHome then ST.goHome() end end)
-        end)
     end
     pcall(function()
         if noFire then return end
@@ -4543,9 +4511,9 @@ function giveGRItem(name, kind, noFire)
     if not noFire then
         pcall(function()
             if didReplay then
-                ntf("Give","Using real shop remote (learned) - if others dont see the item, server rejected the replay",6)
+                ntf("Give","Using real shop remote (learned) - if others dont see the item, server rejected the replay",12)
             else
-                ntf("Give","remotes + hidden shop flow sent (others see it only if server accepts)",7)
+                ntf("Give","remotes sent standing still (others see it only if server accepts)",12)
             end
         end)
     end
@@ -4818,38 +4786,30 @@ btn(tEx,"Give FN FAL (working)",function()
     if not cd() then return end
     local n=giveGRItem("FN FAL","weapon")
     fireWeaponActivated()
-    ntf("Give","FN FAL: remotes + hidden shop flow (server decides)",4)
-    axPromptInteract({"gun","shop","armory","armoury","weapon","store","market"},"FN FAL")
+    ntf("Give","FN FAL: remotes sent standing still (server decides)",10)
 end,"gfnfal")
 btn(tEx,"Give M4A5 (working)",function()
     if not cd() then return end
     local n=giveGRItem("M4A5","weapon")
     fireWeaponActivated()
-    ntf("Give","M4A5: remotes + hidden shop flow (server decides)",4)
-    axPromptInteract({"gun","shop","armory","armoury","weapon","store","market"},"M4A5")
+    ntf("Give","M4A5: remotes sent standing still (server decides)",10)
 end,"gm4a5")
 btn(tEx,"Give Police Glock",function()
     if not cd() then return end
     local n=giveGRItem("Police Glock","weapon")
     fireWeaponActivated()
-    ntf("Give","Police Glock: remotes + hidden shop flow (server decides)",4)
-    axPromptInteract({"gun","shop","armory","armoury","weapon","store","market"},"Police Glock")
+    ntf("Give","Police Glock: remotes sent standing still (server decides)",10)
 end,"gglock")
 btn(tEx,"Give Food+Medkit pack",function()
     if not cd() then return end
     local total=0
     for _,it in ipairs(GR_ITEMS) do total=total+giveGRItem(it,"item") end
-    ntf("Give","Pack: remotes sent (hidden shop flow per item)",7)
-    axPromptInteract({"shop","market","store","supermarket"},nil)
-    for _,it in ipairs(GR_ITEMS) do
-        axPromptInteract(nil,it,1.2)
-    end
+    ntf("Give","Pack: "..total.." item remotes sent standing still",12)
 end,"gpack")
 btn(tEx,"Give LockPick",function()
     if not cd() then return end
     local n=giveGRItem("LockPick","item")
-    ntf("Give","LockPick: remotes + hidden shop flow (server decides)",4)
-    axPromptInteract({"shop","market","store","hardware","tool"},"LockPick")
+    ntf("Give","LockPick: remotes sent standing still (server decides)",10)
 end,"glockpick")
 table.insert(allToggles,tog(tEx,"Auto Steal Loop",function() return ST.autoSteal end,function() ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON - nearest every 0.6s") else ntf("Steal","Loop OFF") end end,"autosteal"))
 sep(tEx)
@@ -5178,7 +5138,7 @@ mkStroke(itemBox,Color3.fromRGB(60,60,90),1)
 itemBox.FocusLost:Connect(function(enter)
     if enter then giveGRItem(itemBox.Text,"item") end
 end)
-btn(tEx,"Give typed item",function() giveGRItem(itemBox.Text,"item") if itemBox.Text~="" then axPromptInteract({"shop","market","store","supermarket","armory","gun"},itemBox.Text) end end,"giveitem")
+btn(tEx,"Give typed item",function() if itemBox.Text=="" then ntf("Give","Type an item name first",4) return end giveGRItem(itemBox.Text,"item") end,"giveitem")
 -- duplicate give buttons removed (use GIVE WORKING ITEMS above)
 btn(tEx,"Refresh item list",function()
     ST._gameTools=nil
