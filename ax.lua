@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx69")
+print("[Axynth] Loading... build=fx70")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -502,7 +502,7 @@ local hkOk,hkErr=pcall(function()
             if #parts==0 then return mkstr(b) end
             return string.sub(table.concat(parts," ~~ "),1,450)
         end
-        local kwl={"CarDealer","Inventory","BuyItem","Supermarket","JobCenter","GiveItem","CrateDrop","ClaimEvent"}
+        local kwl={"CarDealer","Inventory","BuyItem","Supermarket","JobCenter","GiveItem","CrateDrop","ClaimEvent","Garage","ChangeJob"}
         local khl={"OnServerEvent","InvokeServer","BuyItem","SpawnItem","GiveItem","GiveWeapon","SpawnCar","OnClientEvent","RemoteEvent","AddItem","EquipItem","CrateDrop","DropItem"}
         table.sort(pool,function(x,y) return score[x]>score[y] end)
         local fetch={}
@@ -529,6 +529,39 @@ local hkOk,hkErr=pcall(function()
         local kwF={}
         local kwDump={}
         local khidx={}
+        local function kwScan(i,b)
+            local hit=false
+            local news={}
+            for _,kw in ipairs(kwl) do
+                if not kwF[kw] and b:find(kw,1,true) then
+                    kwF[kw]=i
+                    hit=true
+                    news[#news+1]=kw
+                    pcall(function() kwDump[kw]=mkctx(b,kw) end)
+                end
+            end
+            if hit then
+                pcall(function()
+                    local tk={}
+                    local seenT={}
+                    for sg in b:gmatch(PAT) do
+                        if #sg>=3 and #sg<=24 and sg:match("^[%w_%-]+$") then
+                            local lt=string.lower(sg)
+                            if not seenT[lt] then
+                                seenT[lt]=true
+                                tk[#tk+1]=lt
+                            end
+                        end
+                    end
+                    local tt=ST._bcTok
+                    if type(tt)~="table" then tt={} ST._bcTok=tt end
+                    for _,kw in ipairs(news) do
+                        tt[kw]=tk
+                    end
+                end)
+            end
+            return hit
+        end
         local bok=0
         local bfail=0
         local bi2=0
@@ -538,20 +571,7 @@ local hkOk,hkErr=pcall(function()
             local ok2,b=pcall(fsb,L[i])
             if ok2 and type(b)=="string" then
                 bok=bok+1
-                local newKw=false
-                for _,kw in ipairs(kwl) do
-                    if not kwF[kw] and b:find(kw,1,true) then
-                        kwF[kw]=i
-                        newKw=true
-                    end
-                end
-                if newKw then
-                    for _,kw in ipairs(kwl) do
-                        if kwF[kw]==i and not kwDump[kw] then
-                            kwDump[kw]=mkctx(b,kw)
-                        end
-                    end
-                end
+                local newKw=kwScan(i,b)
                 for _,k in ipairs(khl) do
                     if b:find(k,1,true) then
                         score[i]=score[i]+3
@@ -584,6 +604,41 @@ local hkOk,hkErr=pcall(function()
             if #dumps>=6 then break end
         end
         ST._probe=ST._probe.."|dumps:"..string.sub(table.concat(dumps," ## "),1,2250)
+        task.delay(15,function()
+            pcall(function()
+                local inFs={}
+                for _,idx in ipairs(fetch) do
+                    if L[idx] then inFs[L[idx]]=true end
+                end
+                local L2=L
+                pcall(function()
+                    local okN,Ln=pcall(fgs)
+                    if okN and type(Ln)=="table" then L2=Ln end
+                end)
+                local added=0
+                for i=1,#L2 do
+                    local miss=false
+                    for _,kw in ipairs(kwl) do
+                        if not kwF[kw] then miss=true break end
+                    end
+                    if not miss then break end
+                    local sc=L2[i]
+                    if sc and not inFs[sc] then
+                        inFs[sc]=true
+                        local okp,fnm=pcall(function() return sc:GetFullName() end)
+                        if not (okp and fnm and string.sub(tostring(fnm),1,16)=="MaterialService.") then
+                            added=added+1
+                            if added>=80 then break end
+                            if added%5==0 then task.wait() end
+                            local ok2,b=pcall(fsb,sc)
+                            if ok2 and type(b)=="string" then
+                                kwScan(i,b)
+                            end
+                        end
+                    end
+                end
+            end)
+        end)
         pcall(function()
             ST._hookCap="no-debug"
             if not (type(debug)=="table" and type(debug.getupvalue)=="function" and type(debug.setupvalue)=="function") then
@@ -1237,13 +1292,54 @@ else
     HOOK_OK=false HOOK_ERR=tostring(hkErr)
     pcall(function() print("[Axynth][Hook] namecall FAILED: "..HOOK_ERR) end)
 end
-pcall(function()
+local BVERBS={buy=1,purchase=1,order=1,spawn=1,respawn=1,create=1,make=1,build=1,garage=1,store=1,add=1,give=1,grant=1,equip=1,save=1,load=1,select=1,pick=1,choose=1,apply=1,accept=1,hire=1,employ=1,register=1,work=1,start=1,use=1,open=1,get=1,put=1,take=1,drop=1,trade=1,sell=1,job=1,team=1,summon=1,call=1,drive=1,park=1,request=1,confirm=1,set=1}
+local function bcToks(kws)
+    local out={}
+    pcall(function()
+        local tt=ST._bcTok
+        if type(tt)~="table" then return end
+        local seen={}
+        for _,kw in ipairs(kws) do
+            local arr=tt[kw]
+            if type(arr)=="table" then
+                for _,t in ipairs(arr) do
+                    if BVERBS[t]==1 and not seen[t] and #out<3 then
+                        seen[t]=true
+                        out[#out+1]=t
+                    end
+                end
+            end
+        end
+    end)
+    return out
+end
+local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx69 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
-        ST._clipmsg=msg
+        local msg="build=fx70 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local vo={}
+        pcall(function()
+            if type(ST._bcTok)=="table" then
+                for k,arr in pairs(ST._bcTok) do
+                    if type(arr)=="table" then
+                        local vs={}
+                        for _,t in ipairs(arr) do
+                            if BVERBS[t]==1 and #vs<3 then vs[#vs+1]=t end
+                        end
+                        vo[#vo+1]=tostring(k)..":["..table.concat(vs,",").."]/"..#arr
+                    end
+                end
+            end
+        end)
+        if #vo>0 then
+            ST._clipmsg=msg.." | V:"..string.sub(table.concat(vo," "),1,260)
+        else
+            ST._clipmsg=msg
+        end
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
-end)
+end
+ST._buildClip=buildClip
+pcall(buildClip)
 local function spoofVelocity()
     pcall(function()
         if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
@@ -3226,6 +3322,20 @@ local function spawnVehicle(name, pos, isRetry)
             end
         end
     end)
+    pcall(function()
+        local vks=bcToks({"CarDealer","Garage"})
+        local cr=findRemote("Cars.CarDealer") or findRemote("CarDealer")
+        local gg=findRemote("Garage.Garage")
+        if cr then grFire(cr,{"buy",name},"bcvbuy") end
+        local vrs={}
+        if cr then vrs[#vrs+1]=cr end
+        if gg then vrs[#vrs+1]=gg end
+        for _,vk in ipairs(vks) do
+            for _,r in ipairs(vrs) do
+                if grFire(r,{vk,name},"bcv"..vk) then fired=fired+1 end
+            end
+        end
+    end)
     -- scan for any vehicle remote by name
     pcall(function()
         local vi=0
@@ -3604,6 +3714,21 @@ local function doForceJob(targetPl, jobName)
             end
             for _,ca in ipairs(cands) do
                 if grFire(r,ca,"accT") then fired=fired+1 end
+            end
+        end)
+        pcall(function()
+            local jks=bcToks({"JobCenter","ChangeJob"})
+            if #jks==0 then return end
+            local rs={}
+            local rj=findRemote("JobCenter.JobCenter")
+            local rch=findRemote("Teams.ChangeJob") or findRemote("ChangeJob")
+            if rj then rs[#rs+1]=rj end
+            if rch then rs[#rs+1]=rch end
+            for bi=1,math.min(2,#jks) do
+                local jk=jks[bi]
+                for _,r in ipairs(rs) do
+                    if grFire(r,{jk,jobName},"bcj"..bi) then fired=fired+1 end
+                end
             end
         end)
         task.wait(0.9)
@@ -4433,6 +4558,9 @@ ST._vehUIClick=function(nm)
 end
 btn(tF["set"],"Copy diagnostics to clipboard",function()
     pcall(function()
+        if ST._buildClip then
+            pcall(ST._buildClip)
+        end
         if setclipboard and ST._clipmsg then
             setclipboard(ST._clipmsg)
             ntf("Diag","Copied to clipboard",4)
@@ -4656,6 +4784,24 @@ function giveGRItem(name, kind, noFire, isRetry)
             end
             if jc then grFire(jc,name,"give") end
         end
+        pcall(function()
+            local iks=bcToks({"GiveItem","Inventory","BuyItem"})
+            if #iks==0 then return end
+            local irs={}
+            if kind=="weapon" or kind==nil then
+                if arm then irs[#irs+1]=arm end
+                if inv then irs[#irs+1]=inv end
+            else
+                if sm then irs[#irs+1]=sm end
+                if inv then irs[#irs+1]=inv end
+            end
+            for bi=1,math.min(2,#iks) do
+                local ik=iks[bi]
+                for _,r in ipairs(irs) do
+                    grFire(r,{ik,name},"bci"..bi)
+                end
+            end
+        end)
     end)
     if not noFire then
         pcall(function()
