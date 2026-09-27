@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx71")
+print("[Axynth] Loading... build=fx72")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1315,7 +1315,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx71 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx72 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -1951,7 +1951,7 @@ local function safeTeleport(targetPos)
 end
 ST.goNear=function(pn,afterWait)
     local tgt=nil
-    if type(pn)=="Instance" then
+    if type(pn)~="string" then
         pcall(function()
             if pn:IsA("BasePart") then tgt=pn.Position+Vector3.new(0,2,0) end
         end)
@@ -1969,6 +1969,8 @@ ST.goNear=function(pn,afterWait)
         task.wait(afterWait or 0.3)
         return true
     end
+    if not ST._tpBack then ST._tpBack=hrp.CFrame end
+    ntf("Flow","goNear: walk "..math.floor((hrp.Position-tgt).Magnitude).." studs",6)
     local reached=false
     local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
     if hum and hum.Health>0 then
@@ -1980,7 +1982,9 @@ ST.goNear=function(pn,afterWait)
                 path:ComputeAsync(hrp.Position,flat)
                 if path.Status==Enum.PathStatus.Success then
                     local wps=path:GetWaypoints()
+                    local tWalk=tick()
                     for i=2,#wps do
+                        if tick()-tWalk>30 then break end
                         if not LP.Character then break end
                         local hw=LP.Character:FindFirstChild("HumanoidRootPart")
                         if not hw then break end
@@ -2029,9 +2033,12 @@ ST.goNear=function(pn,afterWait)
         end)
     end
     if reached then
+        ntf("Flow","goNear: arrived",4)
+        ST._tpBack=nil
         task.wait(afterWait or 0.5)
         return true
     end
+    ntf("Flow","goNear: walk failed -> tp",4)
     if not ST._tpBack then ST._tpBack=hrp.CFrame end
     safeTeleport(tgt)
     local t0=tick()
@@ -2040,6 +2047,8 @@ ST.goNear=function(pn,afterWait)
         if h and (h.Position-tgt).Magnitude<6 then break end
         task.wait(0.1)
     end
+    local hg=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if hg then ntf("Flow","goNear: at "..math.floor((hg.Position-tgt).Magnitude).." studs",5) end
     task.wait(afterWait or 0.7)
     return true
 end
