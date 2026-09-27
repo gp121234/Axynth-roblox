@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx73")
+print("[Axynth] Loading... build=fx74")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -658,6 +658,25 @@ local hkOk,hkErr=pcall(function()
                     end
                 end
             end)
+        end)
+        pcall(function()
+            local dec=xnapi("decompile")
+            local ndec=0
+            if type(dec)=="function" then
+                local parts={}
+                for _,i in ipairs(fetch) do
+                    if ndec>=6 then break end
+                    local okD,d=pcall(dec,L[i])
+                    if okD and type(d)=="string" and #d>80 and (d:find("function",1,true) or d:find("local",1,true) or d:find("game.",1,true)) then
+                        ndec=ndec+1
+                        parts[#parts+1]="@@@"..string.sub(paths[i] or "?",1,60).."\n"..string.sub(d,1,6000)
+                    end
+                end
+                if #parts>0 then
+                    ST._decomp=table.concat(parts,"\n")
+                end
+            end
+            ST._probe=ST._probe.."|dec="..ndec.."/"..#fetch.."("..type(dec)..")"
         end)
         pcall(function()
             ST._hookCap="no-debug"
@@ -1335,7 +1354,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx73 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx74 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -1369,6 +1388,11 @@ local function buildClip()
                 if #parts>0 then
                     ST._clipmsg=ST._clipmsg.." | SRC:"..table.concat(parts," ")
                 end
+            end
+        end)
+        pcall(function()
+            if type(ST._decomp)=="string" and #ST._decomp>80 then
+                ST._clipmsg=ST._clipmsg.." | DECOMP:\n"..string.sub(ST._decomp,1,40000)
             end
         end)
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
