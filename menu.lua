@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx70")
+print("[Axynth] Loading... build=fx71")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1315,7 +1315,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx70 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx71 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -1965,8 +1965,71 @@ ST.goNear=function(pn,afterWait)
     if not tgt then return false end
     local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
-    if (hrp.Position-tgt).Magnitude<6 then
+    if (hrp.Position-tgt).Magnitude<4 then
         task.wait(afterWait or 0.3)
+        return true
+    end
+    local reached=false
+    local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+    if hum and hum.Health>0 then
+        pcall(function()
+            local flat=Vector3.new(tgt.X,tgt.Y,tgt.Z)
+            pcall(function()
+                local PS=game:GetService("PathfindingService")
+                local path=PS:CreatePath({AgentRadius=2.5,AgentHeight=5,AgentCanJump=true,WaypointSpacing=4})
+                path:ComputeAsync(hrp.Position,flat)
+                if path.Status==Enum.PathStatus.Success then
+                    local wps=path:GetWaypoints()
+                    for i=2,#wps do
+                        if not LP.Character then break end
+                        local hw=LP.Character:FindFirstChild("HumanoidRootPart")
+                        if not hw then break end
+                        if (hw.Position-tgt).Magnitude<4 then reached=true break end
+                        local wp=wps[i]
+                        hum:MoveTo(wp.Position)
+                        if wp.Action==Enum.PathWaypointAction.Jump then
+                            pcall(function() hum.Jump=true end)
+                        end
+                        local t1=tick()
+                        while tick()-t1<4 do
+                            if not LP.Character then break end
+                            local h2=LP.Character:FindFirstChild("HumanoidRootPart")
+                            if not h2 then break end
+                            if (h2.Position-tgt).Magnitude<4 then reached=true break end
+                            if (h2.Position-wp.Position).Magnitude<3 then break end
+                            task.wait(0.1)
+                        end
+                        if reached then break end
+                    end
+                end
+            end)
+            if reached then return end
+            local hf=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            if hf and (hf.Position-tgt).Magnitude<4 then reached=true return end
+            hum:MoveTo(flat)
+            local t2=tick()
+            local lastP=hf and hf.Position or nil
+            local lastM=tick()
+            while tick()-t2<14 do
+                if not LP.Character then break end
+                local h3=LP.Character:FindFirstChild("HumanoidRootPart")
+                if not h3 then break end
+                if (h3.Position-tgt).Magnitude<4 then reached=true break end
+                if lastP and (h3.Position-lastP).Magnitude>0.5 then
+                    lastP=h3.Position
+                    lastM=tick()
+                end
+                if tick()-lastM>2.5 then
+                    pcall(function() hum:MoveTo(flat+Vector3.new(math.random(-5,5),0,math.random(-5,5))) end)
+                    lastP=h3.Position
+                    lastM=tick()
+                end
+                task.wait(0.15)
+            end
+        end)
+    end
+    if reached then
+        task.wait(afterWait or 0.5)
         return true
     end
     if not ST._tpBack then ST._tpBack=hrp.CFrame end
@@ -3389,14 +3452,22 @@ local function spawnVehicle(name, pos, isRetry)
         if not ST._vehTried then
             ST._vehTried=true
             ntf("Vehicle","standing refused - going to dealer once...",6)
+            ST._vehTripDone=false
             task.spawn(function()
                 pcall(function()
                     if ST._vehUIClick then
                         ST._vehUIClick(name)
                     end
                 end)
+                ST._vehTripDone=true
             end)
-            task.delay(7.5,function()
+            task.spawn(function()
+                local vtw=0
+                while not ST._vehTripDone and vtw<60 do
+                    task.wait(0.5)
+                    vtw=vtw+0.5
+                end
+                task.wait(1.5)
                 pcall(function()
                     spawnVehicle(name,pos,true)
                 end)
@@ -3738,14 +3809,21 @@ local function doForceJob(targetPl, jobName)
             return
         end
         ntf("Job","standing refused - going to jobcenter once...",6)
+        ST._jobTripDone=false
         task.spawn(function()
             pcall(function()
                 if ST._jobUIClick then
                     ST._jobUIClick(jobName)
                 end
             end)
+            ST._jobTripDone=true
         end)
-        task.wait(14)
+        local jtw=0
+        while not ST._jobTripDone and jtw<60 do
+            task.wait(0.5)
+            jtw=jtw+0.5
+        end
+        task.wait(1.5)
     end
     pcall(function()
         local lg=ST._learnLog
@@ -4843,12 +4921,20 @@ function giveGRItem(name, kind, noFire, isRetry)
                 if has then return end
                 ST._giveTried=true
                 ntf("Give","standing refused - going to shop once...",6)
+                ST._giveTripDone=false
                 task.spawn(function()
                     pcall(function()
                         axPromptInteract({"gun","shop","armory","armoury","weapon","store","market","supermarket"},name)
                     end)
+                    ST._giveTripDone=true
                 end)
-                task.delay(7.5,function()
+                task.spawn(function()
+                    local gtw=0
+                    while not ST._giveTripDone and gtw<60 do
+                        task.wait(0.5)
+                        gtw=gtw+0.5
+                    end
+                    task.wait(1.5)
                     pcall(function()
                         giveGRItem(name,kind,nil,true)
                     end)
