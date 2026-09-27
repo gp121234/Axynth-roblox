@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx65")
+print("[Axynth] Loading... build=fx66")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -342,7 +342,7 @@ local hkOk,hkErr=pcall(function()
     task.defer(function()
     pcall(function()
         local extra={}
-        for _,n in ipairs({"getscripts","getrunningscripts","getloadedmodules","getscriptbytecode","getscriptclosure","getscriptfunction","getscripthash","setscriptbytecode","saveinstance","require","getinstances","getconnections"}) do
+        for _,n in ipairs({"getscripts","getrunningscripts","getloadedmodules","getscriptbytecode","getscriptclosure","getscriptfunction","getscripthash","setscriptbytecode","saveinstance","require","getinstances","getconnections","getrawmetatable","setreadonly","hookmetamethod","getnamecallmethod"}) do
             extra[#extra+1]=n.."="..type(xnapi(n))
         end
         ST._probe="T2["..string.sub(table.concat(extra,","),1,430).."]"
@@ -584,6 +584,64 @@ local hkOk,hkErr=pcall(function()
             if #dumps>=6 then break end
         end
         ST._probe=ST._probe.."|dumps:"..string.sub(table.concat(dumps," ## "),1,2250)
+        pcall(function()
+            ST._hookCap="no-debug"
+            if not (type(debug)=="table" and type(debug.getupvalue)=="function" and type(debug.setupvalue)=="function") then
+                return
+            end
+            local wrapped=0
+            local scripts=0
+            local function wrapClo(clo, tag)
+                local ui=1
+                while ui<=24 do
+                    local ok1,nm,fn=pcall(debug.getupvalue,clo,ui)
+                    if not ok1 or nm==nil then break end
+                    if type(fn)=="function" then
+                        local orig=fn
+                        local okw=pcall(function()
+                            debug.setupvalue(clo,ui,function(...)
+                                local a={...}
+                                pcall(function()
+                                    local parts={}
+                                    for k=1,math.min(4,#a) do
+                                        local v=a[k]
+                                        local tv=type(v)
+                                        if tv=="string" then
+                                            parts[#parts+1]=string.sub(v,1,40)
+                                        elseif tv=="number" or tv=="boolean" then
+                                            parts[#parts+1]=tostring(v)
+                                        else
+                                            parts[#parts+1]=tv
+                                        end
+                                    end
+                                    local line=tag.."#"..tostring(nm).."("..table.concat(parts,",")..")"
+                                    ST._capLog=(ST._capLog or "")..line.."; "
+                                    ST._capN=(ST._capN or 0)+1
+                                    if ST._capN<=40 and (not ST._capT or tick()-ST._capT>1.5) then
+                                        ST._capT=tick()
+                                        ntf("CAP","captured client->server: "..string.sub(ST._capLog,1,160),7)
+                                        ST._capLog=""
+                                    end
+                                end)
+                                return orig(...)
+                            end)
+                        end)
+                        if okw then wrapped=wrapped+1 end
+                    end
+                    ui=ui+1
+                end
+            end
+            table.sort(pool,function(x,y) return score[x]>score[y] end)
+            for _,i in ipairs(pool) do
+                if scripts>=4 or wrapped>=20 then break end
+                scripts=scripts+1
+                local okc,clo=pcall(getscriptclosure,L[i])
+                if okc and type(clo)=="function" then
+                    wrapClo(clo, string.sub(paths[i] or "?",1,26))
+                end
+            end
+            ST._hookCap="wrapped="..wrapped.."/"..scripts
+        end)
         local tCI=tick()
         local prList={}
         local cdList={}
@@ -653,6 +711,30 @@ local hkOk,hkErr=pcall(function()
         table.sort(cdList)
         table.sort(btList)
         ST._probe=ST._probe..string.format("|cit=%.1f",tick()-tCI).."|PR:"..#prList.."+b"..bankN..":"..string.sub(table.concat(prList,";"),1,950).."|CD:"..string.sub(table.concat(cdList,";"),1,400).."|BT:"..string.sub(table.concat(btList,";"),1,300)
+        pcall(function()
+            local hs={}
+            local function xok(nm)
+                local v=false
+                pcall(function() v=type(xnapi(nm))=="function" end)
+                if not v then
+                    pcall(function()
+                        local g=getgenv
+                        if type(g)=="function" then g=g() end
+                        if type(g)=="table" then v=type(g[nm])=="function" end
+                    end)
+                end
+                return v
+            end
+            for _,nm in ipairs({"getrawmetatable","setreadonly","hookmetamethod","getnamecallmethod","newcclosure","getcallingscript"}) do
+                if xok(nm) then hs[#hs+1]=nm end
+            end
+            pcall(function()
+                if type(debug)=="table" and type(debug.getupvalue)=="function" and type(debug.setupvalue)=="function" then
+                    hs[#hs+1]="debug.up"
+                end
+            end)
+            ntf("API","hooks avail: "..((#hs>0) and table.concat(hs,",") or "NONE"),12)
+        end)
     end)
     end)
     pcall(function()
@@ -694,6 +776,12 @@ local hkOk,hkErr=pcall(function()
                                             end
                                         end
                                         table.insert(ST._whisp,table.concat(t,","))
+                                        pcall(function()
+                                            if tick()-(ST._lastFire or 0)<8 and (not ST._whT or tick()-ST._whT>1.2) then
+                                                ST._whT=tick()
+                                                ntf("SRV",string.sub(table.concat(t," "),1,170),8)
+                                            end
+                                        end)
                                     end)
                                 end)
                                 okc=true
@@ -1151,7 +1239,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx65 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")
+        local msg="build=fx66 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")
         ST._clipmsg=msg
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
@@ -1283,6 +1371,7 @@ local function grFire(r, args, rateKey)
     if type(st)~="table" then st={t=0,c=0} ST["_rt"..rk]=st end
     local now=tick()
     if now-st.t>=0.05 then st.t=now st.c=0 end
+    ST._lastFire=now
     if st.c>=10 then return false end
     st.c=st.c+1
     local ok2=false
@@ -1801,6 +1890,70 @@ ST.goHome=function()
         if not b then return end
         safeTeleport(b.Position)
     end)
+end
+ST.ask=function(rn,...)
+    local base={...}
+    local out=nil
+    pcall(function()
+        local r=findRemote(rn)
+        if not r then
+            ntf("SRV",rn.." not found",5)
+            return
+        end
+        if not r:IsA("RemoteFunction") then
+            ntf("SRV",rn.." = RemoteEvent (no answer channel)",5)
+            return
+        end
+        local variants={base}
+        if #base==0 then
+            variants={{},{LP},{"get"}}
+        end
+        for _,va in ipairs(variants) do
+            local ok,v=pcall(function() return r:InvokeServer(unpack(va)) end)
+            if ok and v~=nil then
+                out=v
+                break
+            end
+        end
+        if out==nil then
+            ntf("SRV",rn.." gave no answer",6)
+            return
+        end
+        local shown=""
+        if type(out)=="table" then
+            local n=0
+            local parts={}
+            for _,e in ipairs(out) do
+                n=n+1
+                if n<=5 then
+                    if type(e)=="table" then
+                        local sub={}
+                        local m=0
+                        for k2,v2 in pairs(e) do
+                            m=m+1
+                            if m<=4 then sub[#sub+1]=tostring(k2).."="..tostring(v2) end
+                        end
+                        parts[#parts+1]="{"..table.concat(sub,";").."}"
+                    else
+                        parts[#parts+1]=tostring(e)
+                    end
+                end
+            end
+            if n==0 then
+                for k2,v2 in pairs(out) do
+                    n=n+1
+                    if n<=5 then parts[#parts+1]=tostring(k2).."="..tostring(v2) end
+                end
+                shown="map["..n.."] "..table.concat(parts,"; ")
+            else
+                shown="list["..n.."] "..table.concat(parts," | ")
+            end
+        else
+            shown=type(out)..": "..tostring(out)
+        end
+        ntf("SRV",rn.." -> "..string.sub(shown,1,190),9)
+    end)
+    return out
 end
 local FC_KEYS={}
 local fcLastT=tick()
@@ -2897,7 +3050,43 @@ local function spawnVehicle(name, pos)
             ntf("Vehicle","No vehicles found to spawn",4) return
         end
     end
+    if not ST._vehAsked then
+        ST._vehAsked=true
+        pcall(function()
+            ST._srvCars=ST.ask("Garage.Garage")
+        end)
+    end
     local fired=0
+    pcall(function()
+        if type(ST._srvCars)~="table" then return end
+        local lq=string.lower(name or "")
+        local owned=nil
+        local ownedShow=""
+        for _,e in ipairs(ST._srvCars) do
+            local es=nil
+            if type(e)=="table" then
+                es=e.name or e.Name or e.model or e.Model or e.id or e.Id
+            else
+                es=e
+            end
+            es=tostring(es or "")
+            local esl=string.lower(es)
+            if esl~="" and lq~="" and (esl==lq or esl:find(lq,1,true) or lq:find(esl,1,true)) then
+                owned=e
+                ownedShow=es
+                break
+            end
+        end
+        if owned~=nil then
+            ntf("Vehicle","Garage data matched "..ownedShow.." - server spawn attempt",6)
+            local r=findRemote("Garage.Garage")
+            if r then
+                for _,ca in ipairs({{owned},{owned,LP},{"spawn",owned},{LP,owned,"spawn"}}) do
+                    if grFire(r,ca,"gsp") then fired=fired+1 end
+                end
+            end
+        end
+    end)
     pcall(function()
         local lg=ST._learnLog
         if not lg then return end
@@ -3021,7 +3210,7 @@ local function spawnVehicle(name, pos)
             ntf("Vehicle","SERVER car spawned - others see it too. Press E",6)
             return
         end
-        ntf("Vehicle","Only LOCAL clone - others cant see it. Server did not accept spawn",7)
+        ntf("Vehicle","NO server car - spawn rejected (see SRV/Flow/CAP toasts above)",7)
     end
     task.spawn(function()
         pcall(function()
@@ -3029,29 +3218,6 @@ local function spawnVehicle(name, pos)
                 ST._vehUIClick(name)
             end
         end)
-    end)
-    pcall(function()
-        local list=getVehicleList()
-        local lq=string.lower(name or "")
-        local src=nil
-        for _,m in ipairs(list) do
-            if string.lower(m.Name)==lq then src=m break end
-        end
-        if not src and lq~="" then
-            for _,m in ipairs(list) do
-                local mn=string.lower(m.Name)
-                if string.find(mn,lq,1,true) or string.find(lq,mn,1,true) then src=m break end
-            end
-        end
-        if not src and #list>0 then src=list[math.random(1,#list)] end
-        if src then
-            local cl=src:Clone()
-            ST._vehClone=cl
-            cl.Parent=W
-            pcall(function() cl:SetAttribute("AxLocal",true) end)
-            pcall(function() cl:PivotTo(CFrame.new(spawnPos)) end)
-            ntf("Vehicle","Local clone parked (yours only) + server spawn attempted",6)
-        end
     end)
     if fired>0 then
         ntf("Vehicle","Spawning "..tostring(name).." ...",3)
@@ -3310,6 +3476,12 @@ local function doForceJob(targetPl, jobName)
     end
     local jobBefore=readJob()
     if target==LP then
+        if not ST._jobAsked then
+            ST._jobAsked=true
+            pcall(function()
+                ST._srvJobs=ST.ask("Society.GetPlayerJobsRemote")
+            end)
+        end
         pcall(function()
             local r=findRemote("Teams.ChangeJob") or findRemote("ChangeJob")
             if r then
@@ -3325,6 +3497,40 @@ local function doForceJob(targetPl, jobName)
                 if grFire(r,{teamObj or jobName},"jobDir") then
                     fired=fired+1
                 end
+            end
+        end)
+        pcall(function()
+            local r=findRemote("Society.AcceptInTeam")
+            if not r then return end
+            local entry=nil
+            if type(ST._srvJobs)=="table" then
+                local jl=string.lower(jobName)
+                local jn=string.gsub(jl,"[^%w]","")
+                if jn~="" then
+                    for _,e in ipairs(ST._srvJobs) do
+                        local es=""
+                        if type(e)=="table" then
+                            es=tostring(e.name or e.Name or e.id or e.Id or e.job or e.Job or "")
+                        else
+                            es=tostring(e)
+                        end
+                        local esl=string.lower(es)
+                        local esn=string.gsub(esl,"[^%w]","")
+                        if esl~="" and (esl==jl or esn==jn or (esn~="" and esn:find(jn,1,true)) or (esn~="" and jn:find(esn,1,true))) then
+                            entry=e
+                            break
+                        end
+                    end
+                end
+            end
+            local cands
+            if entry~=nil then
+                cands={{entry},{entry,LP},{LP,entry}}
+            else
+                cands={{jobName},{LP,jobName},{jobName,LP}}
+            end
+            for _,ca in ipairs(cands) do
+                if grFire(r,ca,"accT") then fired=fired+1 end
             end
         end)
         task.wait(0.9)
@@ -3729,6 +3935,7 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
     local want=(clickName and clickName~="") and string.lower(clickName) or ""
     want=string.gsub(want,"[_%-]+"," ")
     local engGUI=nil
+    local engTried=false
     ST._engBusy=true
     pcall(function()
         local best=nil
@@ -3782,6 +3989,9 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
             end
         end)
         if best and (not strictPrompt or bestScore==-1) then
+            pcall(function()
+                ntf("Flow","prompt: "..string.sub(best:GetFullName(),1,74),4)
+            end)
             local part=best.Parent
             if not (part and part:IsA("BasePart")) then
                 part=best:FindFirstAncestorOfClass("BasePart") or part
@@ -3808,6 +4018,7 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
                 end
             end)
             if nc>0 then
+                engTried=true
                 local t0=tick()
                 while tick()-t0<1.8 and not engGUI do
                     pcall(function()
@@ -3843,8 +4054,15 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
                 end
                 if engGUI then
                     pcall(function() engGUI.Enabled=false end)
+                    ntf("Flow","game UI opened + hidden, scanning for buttons",4)
+                else
+                    ntf("Flow","no UI appeared (handlers fired: "..nc..")",6)
                 end
             end
+        elseif strictPrompt then
+            pcall(function()
+                ntf("Flow","no facility prompt for '"..tostring(clickName).."' - remote-only, no trip",7)
+            end)
         end
     end)
     local function cleanup()
@@ -3969,6 +4187,9 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
         if not found then task.wait(0.3) end
     end
     if not found then
+        if engTried then
+            ntf("Flow","UI open but no button matched '"..tostring(clickName).."' - stop here",6)
+        end
         cleanup()
         return
     end
@@ -4248,6 +4469,12 @@ function giveGRItem(name, kind, noFire)
     local didReplay=false
     if not noFire then
         if ST.goNear then ST.goNear("ShopOpen",0.5) end
+        if not ST._invAsked then
+            ST._invAsked=true
+            pcall(function()
+                ST._srvInv=ST.ask("Inventory.Inventory")
+            end)
+        end
         task.delay(3.5,function()
             pcall(function() if not ST._engBusy and ST.goHome then ST.goHome() end end)
         end)
