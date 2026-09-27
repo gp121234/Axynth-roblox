@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx72")
+print("[Axynth] Loading... build=fx73")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -342,10 +342,10 @@ local hkOk,hkErr=pcall(function()
     task.defer(function()
     pcall(function()
         local extra={}
-        for _,n in ipairs({"getscripts","getrunningscripts","getloadedmodules","getscriptbytecode","getscriptclosure","getscriptfunction","getscripthash","setscriptbytecode","saveinstance","require","getinstances","getconnections","getrawmetatable","setreadonly","hookmetamethod","getnamecallmethod"}) do
+        for _,n in ipairs({"getscripts","getrunningscripts","getloadedmodules","getscriptbytecode","getscriptclosure","getscriptfunction","getscripthash","setscriptbytecode","saveinstance","require","getinstances","getconnections","getrawmetatable","setreadonly","hookmetamethod","getnamecallmethod","hookfunction","writefile","readfile","makefolder","listfiles","getcustomasset","decompile","islclosure","iscclosure","checkcaller","getgc","getreg","getsenv","getcallbackvalue","gethiddenproperty","sethiddenproperty","queue_on_teleport","request","gethui","setclipboard","identifyexecutor","firesignal"}) do
             extra[#extra+1]=n.."="..type(xnapi(n))
         end
-        ST._probe="T2["..string.sub(table.concat(extra,","),1,430).."]"
+        ST._probe="T2["..string.sub(table.concat(extra,","),1,1000).."]"
         local fgs=xnapi("getscripts")
         local okL,L=pcall(fgs)
         if not (okL and type(L)=="table") then
@@ -530,6 +530,26 @@ local hkOk,hkErr=pcall(function()
         local kwDump={}
         local khidx={}
         local function kwScan(i,b)
+            pcall(function()
+                local g=ST._srcG
+                if type(g)~="table" then g={} ST._srcG=g end
+                local nmk=tostring(paths[i] or i)
+                if not g[nmk] and #g<70 then
+                    local t={}
+                    local seen={}
+                    for seg in b:gmatch(PAT) do
+                        if #seg>=4 and #seg<=60 and string.find(seg,"%a") then
+                            local lk=string.lower(seg)
+                            if not seen[lk] then
+                                seen[lk]=true
+                                t[#t+1]=seg
+                            end
+                            if #t>=25 then break end
+                        end
+                    end
+                    if #t>0 then g[nmk]=t end
+                end
+            end)
             local hit=false
             local news={}
             for _,kw in ipairs(kwl) do
@@ -1315,7 +1335,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx72 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx73 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -1335,6 +1355,22 @@ local function buildClip()
         else
             ST._clipmsg=msg
         end
+        pcall(function()
+            if type(ST._srcG)=="table" then
+                local parts={}
+                local tot=0
+                for nm,arr in pairs(ST._srcG) do
+                    if type(arr)=="table" and tot<34000 then
+                        local sp=tostring(nm).."={"..table.concat(arr,";").."}"
+                        tot=tot+#sp
+                        parts[#parts+1]=sp
+                    end
+                end
+                if #parts>0 then
+                    ST._clipmsg=ST._clipmsg.." | SRC:"..table.concat(parts," ")
+                end
+            end
+        end)
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
 end
