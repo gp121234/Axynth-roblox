@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx68")
+print("[Axynth] Loading... build=fx69")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1239,7 +1239,7 @@ else
 end
 pcall(function()
     if type(setclipboard)=="function" then
-        local msg="build=fx68 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx69 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,7000)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         ST._clipmsg=msg
         print("[Axynth][Hook] diagnostics ready - Settings > Copy diagnostics button")
     end
@@ -1869,7 +1869,7 @@ ST.goNear=function(pn,afterWait)
     if not tgt then return false end
     local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
-    if (hrp.Position-tgt).Magnitude<12 then
+    if (hrp.Position-tgt).Magnitude<6 then
         task.wait(afterWait or 0.3)
         return true
     end
@@ -1878,7 +1878,7 @@ ST.goNear=function(pn,afterWait)
     local t0=tick()
     while tick()-t0<5 do
         local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        if h and (h.Position-tgt).Magnitude<12 then break end
+        if h and (h.Position-tgt).Magnitude<6 then break end
         task.wait(0.1)
     end
     task.wait(afterWait or 0.7)
@@ -3620,7 +3620,7 @@ local function doForceJob(targetPl, jobName)
                 end
             end)
         end)
-        task.wait(12)
+        task.wait(14)
     end
     pcall(function()
         local lg=ST._learnLog
@@ -4058,7 +4058,7 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
         end)
         if best and (not strictPrompt or bestScore==-1) then
             pcall(function()
-                ntf("Flow","prompt: "..string.sub(best:GetFullName(),1,74),4)
+                ntf("Flow","prompt: "..string.sub(best:GetFullName(),1,74),10)
             end)
             local part=best.Parent
             if not (part and part:IsA("BasePart")) then
@@ -4067,6 +4067,22 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
             if part and part:IsA("BasePart") and ST.goNear then
                 ST.goNear(part,0.7)
             end
+            pcall(function()
+                local md=-1
+                local d2=-1
+                local lo=false
+                local en=false
+                pcall(function() md=best.MaxActivationDistance end)
+                pcall(function() en=best.Enabled end)
+                pcall(function() lo=best.RequiresLineOfSight end)
+                pcall(function()
+                    local hrp2=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp2 and part and part:IsA("BasePart") then
+                        d2=math.floor((hrp2.Position-part.Position).Magnitude)
+                    end
+                end)
+                ntf("Flow","at "..tostring(d2).." studs (max "..tostring(md)..", los "..tostring(lo)..", on "..tostring(en)..")",10)
+            end)
             local pre={}
             pcall(function()
                 local g0=LP:FindFirstChild("PlayerGui")
@@ -4083,19 +4099,14 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
                     fireproximityprompt(best)
                     nprox=1
                 end)
-                if nprox==0 then
-                    for _,c in pairs(getconnections(best.Triggered)) do
-                        pcall(function()
-                            c.Function(LP)
-                            nc=nc+1
-                        end)
-                    end
+                for _,c in pairs(getconnections(best.Triggered)) do
+                    pcall(function()
+                        c.Function(LP)
+                        nc=nc+1
+                    end)
                 end
             end)
-            if nprox>0 then
-                nc=nc+1
-            end
-            if nc>0 then
+            if nc>0 or nprox>0 then
                 engTried=true
                 local t0=tick()
                 while tick()-t0<1.8 and not engGUI do
@@ -4134,7 +4145,7 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
                     pcall(function() engGUI.Enabled=false end)
                     ntf("Flow","game UI opened + hidden, scanning for buttons",4)
                 else
-                    ntf("Flow","no UI appeared (handlers fired: "..nc..")",6)
+                    ntf("Flow","no UI appeared (prox "..nprox..", conn "..nc..")",6)
                 end
             end
         elseif strictPrompt then
@@ -4192,13 +4203,13 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
                 if all and cnt>0 then return true end
                 local b2=string.gsub(blob,"[^%w]","")
                 local w2=string.gsub(bw,"[^%w]","")
-                if #w2>=4 and b2:find(w2,1,true) then return true end
-                if #b2>=4 and w2:find(b2,1,true) then return true end
+                if #w2>=3 and b2:find(w2,1,true) then return true end
+                if #b2>=3 and w2:find(b2,1,true) then return true end
                 local w3=w2
                 w3=string.gsub(w3,"employee$","")
                 w3=string.gsub(w3,"worker$","")
                 w3=string.gsub(w3,"job$","")
-                if #w3>=4 and (b2:find(w3,1,true) or w3:find(b2,1,true)) then return true end
+                if #w3>=3 and (b2:find(w3,1,true) or w3:find(b2,1,true)) then return true end
                 return false
             end
             local function actionish(b)
@@ -4268,26 +4279,34 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
         if engTried then
             local labs={}
             pcall(function()
-                if engGUI then
-                    for _,d in ipairs(engGUI:GetDescendants()) do
-                        local cn=d.ClassName
-                        if (cn=="TextButton" or cn=="TextLabel") and #labs<4 then
-                            local tx=string.gsub(tostring(d.Text or ""),"[%c]+"," ")
-                            if #tx>=2 and #tx<40 then
-                                local dup=false
-                                for _,e in ipairs(labs) do
-                                    if e==tx then dup=true break end
+                local g=LP:FindFirstChild("PlayerGui")
+                if g then
+                    for pass=1,2 do
+                        for _,d in ipairs(g:GetDescendants()) do
+                            local cn=d.ClassName
+                            local okC=(pass==1 and (cn=="TextButton" or cn=="ImageButton")) or (pass==2 and cn=="TextLabel")
+                            if okC and #labs<6 then
+                                local sg2=d:FindFirstAncestorOfClass("ScreenGui")
+                                local nmx=sg2 and string.lower(tostring(sg2.Name or "")) or ""
+                                if not (nmx:find("axynth",1,true) or nmx:find("remotescanner",1,true) or nmx:find("remotespy",1,true) or nmx:find("axpalette",1,true)) then
+                                    local tx=string.gsub(tostring(d.Text or ""),"[%c]+"," ")
+                                    if #tx>=2 and #tx<40 then
+                                        local dup=false
+                                        for _,e in ipairs(labs) do
+                                            if e==tx then dup=true break end
+                                        end
+                                        if not dup then table.insert(labs,tx) end
+                                    end
                                 end
-                                if not dup then table.insert(labs,tx) end
                             end
                         end
                     end
                 end
             end)
             if #labs>0 then
-                ntf("Flow","UI labels: "..string.sub(table.concat(labs," | "),1,170),16)
+                ntf("Flow","UI labels: "..string.sub(table.concat(labs," | "),1,190),20)
             end
-            ntf("Flow","UI open but no button matched '"..tostring(clickName).."' - stop here",6)
+            ntf("Flow","no button matched '"..tostring(clickName).."' - see UI labels toast",6)
         end
         cleanup()
         return
@@ -4407,7 +4426,7 @@ local function axPromptInteract(kws, clickName, dlSec, strictPrompt)
     cleanup()
 end
 ST._jobUIClick=function(jn)
-    axPromptInteract({"job","career","jobcenter","center","society","apply"},jn)
+    axPromptInteract({"jobcenter","career","society","apply","center","job"},jn)
 end
 ST._vehUIClick=function(nm)
     axPromptInteract({"dealer","cardealer","car","vehicle","garage"},nm)
