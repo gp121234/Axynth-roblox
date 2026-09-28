@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx78")
+print("[Axynth] Loading... build=fx79")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx78 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx79 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -5113,6 +5113,79 @@ btn(tEx,"Give LockPick",function()
     ntf("Give","LockPick: remotes sent standing still (server decides)",10)
 end,"glockpick")
 table.insert(allToggles,tog(tEx,"Auto Steal Loop",function() return ST.autoSteal end,function() ST.autoSteal=not ST.autoSteal if ST.autoSteal then ntf("Steal","Loop ON - nearest every 0.6s") else ntf("Steal","Loop OFF") end end,"autosteal"))
+lbl(tEx,">> VULNERABLE REMOTE PROBE (server-bug hunt)")
+btn(tEx,"Probe Suspect Remotes (1 pass)",function()
+    if not cd() then return end
+    if ST._probing then ntf("Probe","already running",4) return end
+    ST._probing=true
+    task.spawn(function()
+        pcall(function()
+            local keys={"admin","owner","dev","rank","mod","give","grant","add","gift","free","spawn","create","make","set","job","money","cash","bank","car","vehicle","item","summon","god","debug","cmd","temp"}
+            local skip={"ban","kick","report","punish","anticheat","death","damage","hurt","kill","weaponfired","weaponhit","cuff","arrest","walkspeed","jumppower","gravity","team","health"}
+            local found={}
+            pcall(function()
+                for _,d in pairs(RS:GetDescendants()) do
+                    if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) and #found<25 then
+                        local nm=string.lower(d.Name)
+                        local bad=false
+                        for _,s in ipairs(skip) do if string.find(nm,s,1,true) then bad=true break end end
+                        if not bad then
+                            for _,k in ipairs(keys) do
+                                if string.find(nm,k,1,true) then table.insert(found,d) break end
+                            end
+                        end
+                    end
+                end
+            end)
+            if #found==0 then ntf("Probe","no suspect remotes found",6) return end
+            ntf("Probe","probing "..#found.." remotes - one pass",6)
+            local fired=0
+            ST._probeSeen=ST._probeSeen or {}
+            for _,r in ipairs(found) do
+                if not ST._probeSeen[r] then
+                    ST._probeSeen[r]=true
+                    pcall(function()
+                        if r:IsA("RemoteEvent") then
+                            r.OnClientEvent:Connect(function(a,b)
+                                local gw=tick()
+                                if (ST._probeW or 0)<gw then
+                                    ST._probeW=gw+3
+                                    ntf("PROBE<-",string.sub(r.Name..": "..tostring(a)..", "..tostring(b),1,160),8)
+                                end
+                            end)
+                        end
+                    end)
+                end
+                local nm=string.lower(r.Name)
+                local sets
+                if string.find(nm,"car",1,true) or string.find(nm,"vehicle",1,true) or string.find(nm,"spawn",1,true) then
+                    sets={{LP,"Chiron"},{"Chiron"},{LP.Name,"Chiron"}}
+                elseif string.find(nm,"job",1,true) or string.find(nm,"rank",1,true) or string.find(nm,"set",1,true) then
+                    sets={{LP,"Police"},{LP.Name,"Police"}}
+                elseif string.find(nm,"money",1,true) or string.find(nm,"cash",1,true) or string.find(nm,"bank",1,true) then
+                    sets={{LP,1000000},{LP.UserId,1000000}}
+                elseif string.find(nm,"give",1,true) or string.find(nm,"item",1,true) or string.find(nm,"gift",1,true) or string.find(nm,"grant",1,true) or string.find(nm,"add",1,true) then
+                    sets={{LP,"Chiron"},{LP.UserId,"Chiron"}}
+                else
+                    sets={{LP},{"test"}}
+                end
+                for _,args in ipairs(sets) do
+                    pcall(function()
+                        if r:IsA("RemoteFunction") then
+                            task.spawn(function() pcall(function() r:InvokeServer(unpack(args)) end) end)
+                        else
+                            r:FireServer(unpack(args))
+                        end
+                        fired=fired+1
+                    end)
+                    task.wait(0.25)
+                end
+            end
+            ntf("Probe","done: "..fired.." fires on "..#found.." remotes - check money/job/items + PROBE<- toasts",12)
+        end)
+        ST._probing=nil
+    end)
+end,"probeall")
 sep(tEx)
 lbl(tEx,">> STEAL OUTFIT & PED (Visible - no server.lua)")
 btn(tEx,"Steal Outfit (Selected/Nearest)",function() doStealOutfit() end,"stealoutfit")
