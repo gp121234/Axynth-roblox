@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx81")
+print("[Axynth] Loading... build=fx82")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx81 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx82 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -3632,6 +3632,77 @@ btn(tW,"Despawn Nearest Vehicle",function()
         end
     end)
 end,"despawnveh")
+tog(tW,"Test Drive Loop",function() return ST._tdLoop==true end,function(v)
+    if not v then
+        ST._tdLoop=nil
+        ST._tdGen=(ST._tdGen or 0)+1
+        ntf("Vehicle","Test Drive Loop OFF",4)
+        return
+    end
+    ST._tdLoop=true
+    ST._tdGen=(ST._tdGen or 0)+1
+    local gen=ST._tdGen
+    ntf("Vehicle","Test Drive Loop ON - keeps your free test car alive (re-spawns when it disappears)",10)
+    task.spawn(function()
+        local prev={}
+        local pending=nil
+        local waiting=false
+        local lastFire=0
+        local fireAt=0
+        while ST._tdLoop and ST._tdGen==gen do
+            pcall(function()
+                local cur={}
+                local newSeat=nil
+                for _,d in pairs(W:GetDescendants()) do
+                    if d:IsA("VehicleSeat") then
+                        local isLoc=false
+                        pcall(function()
+                            local m=d:FindFirstAncestorOfClass("Model")
+                            if m and m:GetAttribute("AxLocal") then isLoc=true end
+                        end)
+                        if not isLoc then
+                            cur[d]=true
+                            if not prev[d] then newSeat=d end
+                        end
+                    end
+                end
+                prev=cur
+                if pending and (pending.Parent==nil or not pending:IsDescendantOf(W)) then
+                    pending=nil
+                    ntf("Vehicle","Test Drive Loop: test car gone - re-spawning",6)
+                end
+                if waiting and newSeat then
+                    pending=newSeat
+                    waiting=false
+                end
+                local now=tick()
+                if waiting and now-fireAt>14 then waiting=false end
+                if (not pending) and (not waiting) and now-lastFire>=4 then
+                    local nm=""
+                    pcall(function() nm=vehBox.Text or "" end)
+                    nm=string.match(nm or "","^%s*(.-)%s*$") or nm
+                    if nm=="" then
+                        pcall(function()
+                            local all=getVehicleList()
+                            if #all>0 then nm=all[math.random(1,#all)].Name end
+                        end)
+                    end
+                    if nm~="" then
+                        local rem=nil
+                        pcall(function() rem=findRemote("Cars.CarDealer") end)
+                        if rem and grFire(rem,{nm,true},"vehtest") then
+                            lastFire=now
+                            fireAt=now
+                            waiting=true
+                            ntf("Vehicle","Test Drive Loop: test-drive fired for "..nm.." (free)",5)
+                        end
+                    end
+                end
+            end)
+            task.wait(1)
+        end
+    end)
+end,"tdloop")
 local tP=tF["plr"]
 lbl(tP,">> SELECT PLAYER")
 local pDropBtn=Instance.new("TextButton") pDropBtn.Size=UDim2.new(1,-12,0,34) pDropBtn.Position=UDim2.new(0,6,0,0) pDropBtn.BackgroundColor3=TH.b pDropBtn.BorderSizePixel=0 pDropBtn.Text="  Click to select..." pDropBtn.TextColor3=TH.t pDropBtn.TextSize=13 pDropBtn.Font=Enum.Font.GothamMedium pDropBtn.TextXAlignment=Enum.TextXAlignment.Left pDropBtn.Parent=tP mkCorner(pDropBtn,6) mkStroke(pDropBtn,TH.a,1)
