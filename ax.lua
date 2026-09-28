@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx75")
+print("[Axynth] Loading... build=fx76")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1358,7 +1358,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx75 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx76 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -3394,13 +3394,56 @@ local function spawnVehicle(name, pos, isRetry)
     local fired=0
     pcall(function()
         local cdRem=findRemote("Cars.CarDealer")
-        if cdRem then
-            if grFire(cdRem,{name},"vehbuy") then fired=fired+1 end
-            task.wait(0.12)
-            if grFire(cdRem,{name,true},"vehtest") then fired=fired+1 end
-            ntf("Vehicle","CarDealer fired for "..tostring(name).." (buy + testdrive)",8)
-        else
+        if not cdRem then
             ntf("Vehicle","Cars.CarDealer not found",6)
+            return
+        end
+        local owned=false
+        pcall(function()
+            local cf=LP:FindFirstChild("Cars")
+            local bv=cf and cf:FindFirstChild(name)
+            owned=(bv~=nil)
+        end)
+        if owned then
+            if grFire(cdRem,{name},"vehbuy") then fired=fired+1 end
+            ntf("Vehicle","OWNED - spawn fired for "..tostring(name),8)
+        else
+            ST._vehTestOnly=true
+            if grFire(cdRem,{name,true},"vehtest") then fired=fired+1 end
+            ntf("Vehicle","NOT owned - FREE test-drive fired for "..tostring(name),8)
+            task.spawn(function()
+                local base={}
+                pcall(function()
+                    for _,d in pairs(W:GetDescendants()) do
+                        if d:IsA("VehicleSeat") then base[d]=true end
+                    end
+                end)
+                for i=1,24 do
+                    task.wait(0.5)
+                    local newSeat=nil
+                    pcall(function()
+                        for _,d in pairs(W:GetDescendants()) do
+                            if d:IsA("VehicleSeat") and not base[d] then newSeat=d break end
+                        end
+                    end)
+                    if newSeat then
+                        local nm="?"
+                        local dist=0
+                        pcall(function()
+                            local m=newSeat:FindFirstAncestorOfClass("Model")
+                            if m then nm=m.Name end
+                            local mp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                            dist=mp and math.floor((newSeat.Position-mp.Position).Magnitude) or 0
+                        end)
+                        ST._vehTestOnly=nil
+                        ntf("Vehicle","TEST DRIVE CAR APPEARED: "..nm.." | "..dist.." studs away",15)
+                        return
+                    end
+                end
+                if ST._vehTestOnly then
+                    ntf("Vehicle","test drive: no car in 12s - server may need you near the dealer GUI",10)
+                end
+            end)
         end
     end)
     local function vehStats(m)
@@ -3437,6 +3480,11 @@ local function spawnVehicle(name, pos, isRetry)
         if near then
             ntf("Vehicle","SERVER car spawned - others see it too. Press E",12)
             ST._vehTried=false
+            ST._vehTestOnly=nil
+            return
+        end
+        if ST._vehTestOnly then
+            ntf("Vehicle","test drive fired - no car within 40 studs; watcher reports if it spawned elsewhere (free)",12)
             return
         end
         ntf("Vehicle","NO server car - spawn rejected ("..fired.." remotes total). SRV/CAP toasts above = reason",20)
