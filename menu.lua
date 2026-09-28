@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx83")
+print("[Axynth] Loading... build=fx84")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx83 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx84 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -5484,6 +5484,143 @@ btn(tEx,"Probe Phase 3 (free items)",function()
         ST._probing=nil
     end)
 end,"probe3")
+btn(tEx,"Dump All Remotes (paste back to me)",function()
+    if not cd() then return end
+    task.spawn(function()
+        pcall(function()
+            local lines={}
+            local n=0
+            local roots={}
+            table.insert(roots,RS)
+            table.insert(roots,workspace)
+            pcall(function() table.insert(roots,game:GetService("ServerScriptService")) end)
+            pcall(function() table.insert(roots,game:GetService("ServerStorage")) end)
+            for _,rt in ipairs(roots) do
+                pcall(function()
+                    for _,d in pairs(rt:GetDescendants()) do
+                        if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                            n=n+1
+                            pcall(function() table.insert(lines,string.lower(d.ClassName).." "..d:GetFullName()) end)
+                        end
+                    end
+                end)
+            end
+            table.sort(lines)
+            local txt="== AXYNTH REMOTES "..os.date("%H:%M:%S").." | "..n.." total ==\n"..table.concat(lines,"\n")
+            writefile("axynth_remotes.txt",txt)
+            pcall(function() setclipboard(txt) end)
+            ntf("Dump",n.." remotes -> axynth_remotes.txt + clipboard - paste it to me",16)
+        end)
+    end)
+end,"dumpremotes")
+btn(tEx,"Free Item Sweep (40/run, free args)",function()
+    if not cd() then return end
+    if ST._probing then ntf("Probe","already running",4) return end
+    ST._probing=true
+    task.spawn(function()
+        pcall(function()
+            ST._sweepSeen=ST._sweepSeen or {}
+            ST._probeSeen=ST._probeSeen or {}
+            local cands={}
+            pcall(function()
+                for _,d in pairs(RS:GetDescendants()) do
+                    if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) and not ST._probeSeen[d] and not ST._sweepSeen[d] then
+                        local nm=string.lower(d.Name)
+                        local full=""
+                        pcall(function() full=string.lower(d:GetFullName()) end)
+                        local bad=string.find(nm,"buy",1,true) or string.find(nm,"shop",1,true) or string.find(nm,"market",1,true) or string.find(nm,"store",1,true) or string.find(nm,"pay",1,true) or string.find(nm,"money",1,true) or string.find(nm,"cash",1,true) or string.find(nm,"deposit",1,true) or string.find(nm,"withdraw",1,true) or string.find(nm,"price",1,true) or string.find(nm,"purchase",1,true) or string.find(nm,"steal",1,true) or string.find(nm,"cuff",1,true) or string.find(nm,"kick",1,true) or string.find(nm,"ban",1,true) or string.find(nm,"anticheat",1,true) or string.find(nm,"admin",1,true) or string.find(nm,"report",1,true) or string.find(nm,"mute",1,true) or string.find(nm,"jail",1,true) or string.find(nm,"freeze",1,true) or string.find(nm,"kill",1,true) or string.find(nm,"health",1,true) or string.find(nm,"damage",1,true) or string.find(nm,"team",1,true) or string.find(nm,"job",1,true) or string.find(nm,"rank",1,true) or string.find(nm,"society",1,true) or string.find(full,"fuel",1,true) or string.find(full,"chassis",1,true) or string.find(full,"plugins",1,true)
+                        if not bad then
+                            table.insert(cands,d)
+                        end
+                    end
+                end
+            end)
+            table.sort(cands,function(a,b)
+                local x="" local y=""
+                pcall(function() x=a:GetFullName() end)
+                pcall(function() y=b:GetFullName() end)
+                return x<y
+            end)
+            if #cands==0 then ntf("Sweep","every remote already tried - dump remotes instead",8) return end
+            local batch={}
+            for i=1,math.min(40,#cands) do batch[i]=cands[i] end
+            local log={"== SWEEP "..os.date("%H:%M:%S").." | "..#cands.." left, trying "..#batch.." =="}
+            local gotN=0
+            ST._sweepOn=true
+            local connG=nil
+            local connR=nil
+            pcall(function()
+                connG=LP.Backpack.DescendantAdded:Connect(function(obj)
+                    pcall(function()
+                        if not ST._sweepOn then return end
+                        if obj:IsA("Tool") then
+                            gotN=gotN+1
+                            table.insert(log,"GOT TOOL "..obj.Name.." | "..os.date("%H:%M:%S"))
+                            writefile("axynth_sweep.txt",table.concat(log,"\n"))
+                            ntf("FREE ITEM?!","Backpack received: "..obj.Name,16)
+                        elseif obj:IsA("ValueBase") then
+                            table.insert(log,"GOT VAL "..obj.Name.." ("..obj.ClassName..")")
+                        end
+                    end)
+                end)
+            end)
+            pcall(function()
+                connR=LP.DescendantAdded:Connect(function(obj)
+                    pcall(function()
+                        if not ST._sweepOn then return end
+                        if obj:IsA("ValueBase") and not obj:IsDescendantOf(LP.Backpack) then
+                            table.insert(log,"LP+VAL "..obj.Name.." ("..obj.ClassName..") | "..obj:GetFullName())
+                        end
+                    end)
+                end)
+            end)
+            ntf("Sweep","trying "..#batch.." unseen remotes with free-item args - no buy/shop involved",7)
+            local fired=0
+            for _,r in ipairs(batch) do
+                ST._sweepSeen[r]=true
+                pcall(function()
+                    if r:IsA("RemoteEvent") then
+                        r.OnClientEvent:Connect(function(a,b)
+                            pcall(function()
+                                if not ST._sweepOn then return end
+                                table.insert(log,"RESP "..string.sub(r:GetFullName(),1,120).." | "..string.sub(tostring(a)..", "..tostring(b),1,400))
+                                writefile("axynth_sweep.txt",table.concat(log,"\n"))
+                            end)
+                        end)
+                    end
+                end)
+                local nm=string.lower(r.Name)
+                local sets={{"Medkit"},{"Medkit",1},{LP,"Medkit"}}
+                if string.find(nm,"item",1,true) or string.find(nm,"give",1,true) or string.find(nm,"grant",1,true) or string.find(nm,"add",1,true) then
+                    sets={{"Medkit",1,true},{"Medkit"},{"Medkit",1}}
+                end
+                for _,args in ipairs(sets) do
+                    pcall(function()
+                        if r:IsA("RemoteFunction") then
+                            task.spawn(function() pcall(function() r:InvokeServer(unpack(args)) end) end)
+                        else
+                            r:FireServer(unpack(args))
+                        end
+                        fired=fired+1
+                        table.insert(log,"FIRE "..string.sub(r:GetFullName(),1,120).." | "..axSerStr(args))
+                    end)
+                    task.wait(0.15)
+                end
+            end
+            pcall(function()
+                table.insert(log,"== DONE: "..fired.." fires / "..#batch.." remotes / received "..gotN.." ==")
+                local txt=table.concat(log,"\n")
+                writefile("axynth_sweep.txt",txt)
+                pcall(function() setclipboard(txt) end)
+                if connG then pcall(function() connG:Disconnect() end) end
+                if connR then pcall(function() connR:Disconnect() end) end
+                ST._sweepOn=nil
+                ntf("Sweep","done - "..fired.." fires, "..gotN.." received. axynth_sweep.txt + clipboard",15)
+            end)
+        end)
+        ST._probing=nil
+    end)
+end,"itemsweep")
 sep(tEx)
 lbl(tEx,">> STEAL OUTFIT & PED (Visible - no server.lua)")
 btn(tEx,"Steal Outfit (Selected/Nearest)",function() doStealOutfit() end,"stealoutfit")
