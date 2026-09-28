@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx77")
+print("[Axynth] Loading... build=fx78")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx77 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx78 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -3411,7 +3411,7 @@ local function spawnVehicle(name, pos, isRetry)
         pcall(function()
             local cf=LP:FindFirstChild("Cars")
             local bv=cf and cf:FindFirstChild(name)
-            owned=(bv~=nil)
+            owned=(bv~=nil and bv:IsA("BoolValue") and bv.Value==true)
         end)
         if owned then
             local replayed=false
