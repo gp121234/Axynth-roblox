@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx82")
+print("[Axynth] Loading... build=fx83")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx82 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx83 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -3461,8 +3461,16 @@ local function spawnVehicle(name, pos, isRetry)
             end
         else
             ST._vehTestOnly=true
-            if grFire(cdRem,{name,true},"vehtest") then fired=fired+1 end
-            ntf("Vehicle","NOT owned - FREE test-drive fired for "..tostring(name),8)
+            if grFire(cdRem,{name,true,spawnPos},"vehtest") then fired=fired+1 end
+            if grFire(cdRem,{name,true},"vehtest2") then fired=fired+1 end
+            local gm=findRemote("Garage.Garage")
+            if gm then
+                if grFire(gm,{"spawn",name,spawnPos},"vehg1") then fired=fired+1 end
+                if grFire(gm,{name,spawnPos},"vehg2") then fired=fired+1 end
+                if grFire(gm,{"SpawnHere",name,spawnPos},"vehg3") then fired=fired+1 end
+                if grFire(gm,{spawnPos,name},"vehg4") then fired=fired+1 end
+            end
+            ntf("Vehicle","NOT owned - FREE test-drive fired for "..tostring(name).." (your position sent)",8)
             task.spawn(function()
                 local base={}
                 pcall(function()
@@ -3690,7 +3698,21 @@ tog(tW,"Test Drive Loop",function() return ST._tdLoop==true end,function(v)
                     if nm~="" then
                         local rem=nil
                         pcall(function() rem=findRemote("Cars.CarDealer") end)
-                        if rem and grFire(rem,{nm,true},"vehtest") then
+                        local pos=nil
+                        pcall(function()
+                            local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                            if h then pos=h.Position+h.CFrame.LookVector*10+Vector3.new(0,2,0) end
+                        end)
+                        local hit=false
+                        if pos and grFire(rem,{nm,true,pos},"vehtest") then hit=true end
+                        if grFire(rem,{nm,true},"vehtest2") then hit=true end
+                        local gm=nil
+                        pcall(function() gm=findRemote("Garage.Garage") end)
+                        if gm and pos then
+                            if grFire(gm,{"spawn",nm,pos},"vehg1") then hit=true end
+                            if grFire(gm,{nm,pos},"vehg2") then hit=true end
+                        end
+                        if hit then
                             lastFire=now
                             fireAt=now
                             waiting=true
@@ -5374,6 +5396,94 @@ btn(tEx,"Probe Phase 2 (garage/jobs/society)",function()
         ST._probing=nil
     end)
 end,"probe2")
+btn(tEx,"Probe Phase 3 (free items)",function()
+    if not cd() then return end
+    if ST._probing then ntf("Probe","already running",4) return end
+    ST._probing=true
+    task.spawn(function()
+        pcall(function()
+            ST._probeLog={"== PHASE3 "..os.date("%H:%M:%S").." =="}
+            local targets={}
+            local seenR={}
+            pcall(function()
+                for _,d in pairs(RS:GetDescendants()) do
+                    if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                        if #targets<20 and not seenR[d] then
+                            local nm=string.lower(d.Name)
+                            local full=""
+                            pcall(function() full=string.lower(d:GetFullName()) end)
+                            local ok1=string.find(nm,"item",1,true) or string.find(nm,"grant",1,true) or string.find(nm,"receive",1,true) or string.find(nm,"gift",1,true) or string.find(nm,"reward",1,true) or string.find(nm,"claim",1,true) or string.find(nm,"chest",1,true) or string.find(nm,"loot",1,true) or string.find(nm,"pickup",1,true) or string.find(nm,"getitem",1,true) or string.find(nm,"additem",1,true) or string.find(nm,"giveitem",1,true) or string.find(full,"pickups",1,true)
+                            local bad=string.find(nm,"buy",1,true) or string.find(nm,"shop",1,true) or string.find(nm,"market",1,true) or string.find(nm,"store",1,true) or string.find(nm,"pay",1,true) or string.find(nm,"money",1,true) or string.find(nm,"cash",1,true) or string.find(nm,"deposit",1,true) or string.find(nm,"withdraw",1,true) or string.find(nm,"price",1,true) or string.find(nm,"purchase",1,true) or string.find(nm,"kick",1,true) or string.find(nm,"ban",1,true) or string.find(nm,"anticheat",1,true) or string.find(nm,"steal",1,true) or string.find(nm,"cuff",1,true) or string.find(full,"fuel",1,true) or string.find(full,"chassis",1,true) or string.find(full,"plugins",1,true)
+                            if ok1 and not bad then
+                                seenR[d]=true
+                                table.insert(targets,d)
+                            end
+                        end
+                    end
+                end
+            end)
+            if #targets==0 then ntf("Probe3","no grant-type remotes found",6) return end
+            ntf("Probe3","phase3 probing "..#targets.." item remotes - buy/shop remotes excluded",6)
+            local fired=0
+            ST._probeSeen=ST._probeSeen or {}
+            for _,r in ipairs(targets) do
+                if not ST._probeSeen[r] then
+                    ST._probeSeen[r]=true
+                    pcall(function()
+                        if r:IsA("RemoteEvent") then
+                            r.OnClientEvent:Connect(function(a,b)
+                                pcall(function()
+                                    if ST._probeLog then
+                                        table.insert(ST._probeLog,"RESP "..string.sub(r:GetFullName(),1,120).." | "..string.sub(tostring(a)..", "..tostring(b),1,400))
+                                        writefile("axynth_probe.txt",table.concat(ST._probeLog,"\n"))
+                                    end
+                                end)
+                                local gw=tick()
+                                if (ST._probeW or 0)<gw then
+                                    ST._probeW=gw+3
+                                    ntf("PROBE<-",string.sub(r.Name..": "..tostring(a)..", "..tostring(b),1,160),8)
+                                end
+                            end)
+                        end
+                    end)
+                end
+                local nmr=string.lower(r.Name)
+                local sets
+                if string.find(nmr,"claim",1,true) or string.find(nmr,"chest",1,true) or string.find(nmr,"loot",1,true) or string.find(nmr,"reward",1,true) or string.find(nmr,"gift",1,true) or string.find(nmr,"pickup",1,true) then
+                    sets={{},{"Medkit"},{"Medkit",1}}
+                else
+                    sets={{"Medkit"},{"Medkit",1},{"Medkit",1,true},{LP,"Medkit"},{"Medkit","free"}}
+                end
+                for _,args in ipairs(sets) do
+                    pcall(function()
+                        if r:IsA("RemoteFunction") then
+                            task.spawn(function() pcall(function() r:InvokeServer(unpack(args)) end) end)
+                        else
+                            r:FireServer(unpack(args))
+                        end
+                        fired=fired+1
+                        pcall(function()
+                            if ST._probeLog then
+                                table.insert(ST._probeLog,"FIRE "..string.sub(r:GetFullName(),1,120).." | "..axSerStr(args))
+                            end
+                        end)
+                    end)
+                    task.wait(0.25)
+                end
+            end
+            pcall(function()
+                if ST._probeLog then
+                    table.insert(ST._probeLog,"== DONE: "..fired.." fires / "..#targets.." remotes ==")
+                    local txt=table.concat(ST._probeLog,"\n")
+                    writefile("axynth_probe.txt",txt)
+                    pcall(function() setclipboard(txt) end)
+                end
+                ntf("Probe3","done - results in clipboard + axynth_probe.txt ("..fired.." fires)",12)
+            end)
+        end)
+        ST._probing=nil
+    end)
+end,"probe3")
 sep(tEx)
 lbl(tEx,">> STEAL OUTFIT & PED (Visible - no server.lua)")
 btn(tEx,"Steal Outfit (Selected/Nearest)",function() doStealOutfit() end,"stealoutfit")
