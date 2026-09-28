@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx80")
+print("[Axynth] Loading... build=fx81")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx80 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx81 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -5205,6 +5205,104 @@ btn(tEx,"Probe Suspect Remotes (1 pass)",function()
         ST._probing=nil
     end)
 end,"probeall")
+btn(tEx,"Probe Phase 2 (garage/jobs/society)",function()
+    if not cd() then return end
+    if ST._probing then ntf("Probe","already running",4) return end
+    ST._probing=true
+    task.spawn(function()
+        pcall(function()
+            ST._probeLog={"== PHASE2 "..os.date("%H:%M:%S").." =="}
+            local targets={}
+            local seenR={}
+            pcall(function()
+                for _,d in pairs(RS:GetDescendants()) do
+                    if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") then
+                        if #targets<20 and not seenR[d] then
+                            local nm=string.lower(d.Name)
+                            local full=""
+                            pcall(function() full=string.lower(d:GetFullName()) end)
+                            local ok1=string.find(full,"garage",1,true) or string.find(nm,"changejob",1,true) or string.find(nm,"changeteam",1,true) or nm=="jobcenter" or string.find(nm,"editmemberrank",1,true) or nm=="added" or string.find(nm,"createmember",1,true) or string.find(nm,"hire",1,true)
+                            local bad=string.find(full,"fuel",1,true) or string.find(full,"chassis",1,true) or string.find(full,"plugins",1,true) or string.find(nm,"weapon",1,true) or string.find(nm,"kick",1,true) or string.find(nm,"ban",1,true) or string.find(nm,"anticheat",1,true)
+                            if ok1 and not bad then
+                                seenR[d]=true
+                                table.insert(targets,d)
+                            end
+                        end
+                    end
+                end
+            end)
+            pcall(function()
+                for _,nm2 in ipairs({"Garage.Garage","JobCenter.JobCenter","Teams.ChangeJob","Teams.ChangeTeam","Society.MainEvent","Society.EditMemberRankRemote"}) do
+                    local r=findRemote(nm2)
+                    if r and not seenR[r] and #targets<20 then seenR[r]=true table.insert(targets,r) end
+                end
+            end)
+            if #targets==0 then ntf("Probe2","no targets found",6) return end
+            ntf("Probe2","phase2 probing "..#targets.." remotes - one pass",6)
+            local fired=0
+            ST._probeSeen=ST._probeSeen or {}
+            for _,r in ipairs(targets) do
+                if not ST._probeSeen[r] then
+                    ST._probeSeen[r]=true
+                    pcall(function()
+                        if r:IsA("RemoteEvent") then
+                            r.OnClientEvent:Connect(function(a,b)
+                                pcall(function()
+                                    if ST._probeLog then
+                                        table.insert(ST._probeLog,"RESP "..string.sub(r:GetFullName(),1,120).." | "..string.sub(tostring(a)..", "..tostring(b),1,400))
+                                        writefile("axynth_probe.txt",table.concat(ST._probeLog,"\n"))
+                                    end
+                                end)
+                                local gw=tick()
+                                if (ST._probeW or 0)<gw then
+                                    ST._probeW=gw+3
+                                    ntf("PROBE<-",string.sub(r.Name..": "..tostring(a)..", "..tostring(b),1,160),8)
+                                end
+                            end)
+                        end
+                    end)
+                end
+                local nm=string.lower(r.Name)
+                local sets
+                if string.find(nm,"garage",1,true) or string.find(nm,"spawn",1,true) then
+                    sets={{"Chiron"},{"spawn","Chiron"},{"Spawn","Chiron"},{LP,"Chiron"},{"spawn",LP,"Chiron"}}
+                elseif string.find(nm,"changejob",1,true) or string.find(nm,"changeteam",1,true) or nm=="jobcenter" then
+                    sets={{"Police"},{"EFOOD"},{"CLEANER"},{LP,"Police"}}
+                elseif string.find(nm,"rank",1,true) or nm=="added" or string.find(nm,"member",1,true) or string.find(nm,"hire",1,true) then
+                    sets={{LP,"boss"},{LP.Name,"boss"},{LP,1}}
+                else
+                    sets={{LP},{"Police"}}
+                end
+                for _,args in ipairs(sets) do
+                    pcall(function()
+                        if r:IsA("RemoteFunction") then
+                            task.spawn(function() pcall(function() r:InvokeServer(unpack(args)) end) end)
+                        else
+                            r:FireServer(unpack(args))
+                        end
+                        fired=fired+1
+                        pcall(function()
+                            if ST._probeLog then
+                                table.insert(ST._probeLog,"FIRE "..string.sub(r:GetFullName(),1,120).." | "..axSerStr(args))
+                            end
+                        end)
+                    end)
+                    task.wait(0.25)
+                end
+            end
+            pcall(function()
+                if ST._probeLog then
+                    table.insert(ST._probeLog,"== DONE: "..fired.." fires / "..#targets.." remotes ==")
+                    local txt=table.concat(ST._probeLog,"\n")
+                    writefile("axynth_probe.txt",txt)
+                    pcall(function() setclipboard(txt) end)
+                end
+                ntf("Probe2","done - results in clipboard + axynth_probe.txt ("..fired.." fires)",12)
+            end)
+        end)
+        ST._probing=nil
+    end)
+end,"probe2")
 sep(tEx)
 lbl(tEx,">> STEAL OUTFIT & PED (Visible - no server.lua)")
 btn(tEx,"Steal Outfit (Selected/Nearest)",function() doStealOutfit() end,"stealoutfit")
