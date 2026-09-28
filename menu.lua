@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx79")
+print("[Axynth] Loading... build=fx80")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx79 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx80 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -5140,6 +5140,7 @@ btn(tEx,"Probe Suspect Remotes (1 pass)",function()
             if #found==0 then ntf("Probe","no suspect remotes found",6) return end
             ntf("Probe","probing "..#found.." remotes - one pass",6)
             local fired=0
+            ST._probeLog={"== AXYNTH PROBE "..os.date("%H:%M:%S").." =="}
             ST._probeSeen=ST._probeSeen or {}
             for _,r in ipairs(found) do
                 if not ST._probeSeen[r] then
@@ -5147,6 +5148,11 @@ btn(tEx,"Probe Suspect Remotes (1 pass)",function()
                     pcall(function()
                         if r:IsA("RemoteEvent") then
                             r.OnClientEvent:Connect(function(a,b)
+                                pcall(function()
+                                    if not ST._probeLog then return end
+                                    table.insert(ST._probeLog,"RESP "..string.sub(r:GetFullName(),1,120).." | "..string.sub(tostring(a)..", "..tostring(b),1,400))
+                                    writefile("axynth_probe.txt",table.concat(ST._probeLog,"\n"))
+                                end)
                                 local gw=tick()
                                 if (ST._probeW or 0)<gw then
                                     ST._probeW=gw+3
@@ -5177,11 +5183,24 @@ btn(tEx,"Probe Suspect Remotes (1 pass)",function()
                             r:FireServer(unpack(args))
                         end
                         fired=fired+1
+                        pcall(function()
+                            if ST._probeLog then
+                                table.insert(ST._probeLog,"FIRE "..string.sub(r:GetFullName(),1,120).." | "..axSerStr(args))
+                            end
+                        end)
                     end)
                     task.wait(0.25)
                 end
             end
-            ntf("Probe","done: "..fired.." fires on "..#found.." remotes - check money/job/items + PROBE<- toasts",12)
+            pcall(function()
+                if ST._probeLog then
+                    table.insert(ST._probeLog,"== DONE: "..fired.." fires / "..#found.." remotes ==")
+                    local txt=table.concat(ST._probeLog,"\n")
+                    writefile("axynth_probe.txt",txt)
+                    pcall(function() setclipboard(txt) end)
+                end
+                ntf("Probe","done - results in clipboard + axynth_probe.txt ("..fired.." fires / "..#found.." remotes)",12)
+            end)
         end)
         ST._probing=nil
     end)
