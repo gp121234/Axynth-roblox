@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx74")
+print("[Axynth] Loading... build=fx75")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -217,6 +217,10 @@ local hkOk,hkErr=pcall(function()
                     end
                     local charParts=_G._mbParts
                     if charParts and #charParts>0 then
+                        local mbw=tick()
+                        if (ST._mbHWin or 0)<mbw then ST._mbHWin=mbw+1 ST._mbHits=0 end
+                        if (ST._mbHits or 0)>=8 then return orig(self,rcp,dir,params) end
+                        ST._mbHits=(ST._mbHits or 0)+1
                         local newParams=params:Clone()
                         newParams.FilterType=Enum.RaycastFilterType.Include
                         newParams.FilterDescendantsInstances=charParts
@@ -1354,7 +1358,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx74 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx75 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -2697,6 +2701,48 @@ pcall(function()
         if ST._axCamTick then ST._axCamTick(...) end
     end)
 end)
+ST._aimRayCB=function()
+    local cam=W.CurrentCamera or CAM
+    local tg=ST.aimTarget
+    local part=tg and tg.Character and (tg.Character:FindFirstChild(ST.aimTargetPart) or tg.Character:FindFirstChild("HumanoidRootPart"))
+    if isAimActive() and part and cam then
+        local o=cam.CFrame.Position
+        local d=part.Position-o
+        if d.Magnitude>1 then return Ray.new(o,d) end
+    end
+    if cam then return Ray.new(cam.CFrame.Position,cam.CFrame.LookVector*500) end
+    return Ray.new(Vector3.new(0,0,0),Vector3.new(0,-1,0))
+end
+ST._wireAimRay=function()
+    pcall(function()
+        local mods={}
+        pcall(function()
+            local a=RS:FindFirstChild("WeaponsSystem")
+            local b=a and a:FindFirstChild("WeaponsSystem")
+            if b then mods[#mods+1]=b end
+        end)
+        pcall(function()
+            local tool=LP.Character and LP.Character:FindFirstChildOfClass("Tool")
+            local a=tool and tool:FindFirstChild("WeaponsSystem")
+            local b=a and a:FindFirstChild("WeaponsSystem")
+            if b then mods[#mods+1]=b end
+        end)
+        for _,mi in ipairs(mods) do
+            pcall(function()
+                local ok,mod=pcall(require,mi)
+                if ok and type(mod)=="table" then
+                    if isAimActive() then mod.aimRayCallback=ST._aimRayCB else mod.aimRayCallback=nil end
+                end
+            end)
+        end
+    end)
+end
+task.spawn(function()
+    while true do
+        task.wait(0.3)
+        pcall(ST._wireAimRay)
+    end
+end)
 function findRemote(name)
     local cur=RS
     local okPath=true
@@ -2974,6 +3020,10 @@ local hitRemotesCache=nil
 local function mpKillPlayer(victim, hitPos)
     if not victim or victim==LP or not victim.Character then return end
     ensureWeaponEquipped()
+    local now=tick()
+    if (ST._mpkWin or 0)<now then ST._mpkWin=now+1 ST._mpkN=0 end
+    if (ST._mpkN or 0)>=6 then return end
+    ST._mpkN=(ST._mpkN or 0)+1
     pcall(function()
         local part=victim.Character:FindFirstChild("Head") or victim.Character:FindFirstChild("HumanoidRootPart")
         local hrp=victim.Character:FindFirstChild("HumanoidRootPart")
@@ -3341,145 +3391,16 @@ local function spawnVehicle(name, pos, isRetry)
             ntf("Vehicle","No vehicles found to spawn",4) return
         end
     end
-    if not ST._vehAsked then
-        ST._vehAsked=true
-        pcall(function()
-            ST._srvCars=ST.ask("Garage.Garage")
-        end)
-    end
     local fired=0
     pcall(function()
-        if type(ST._srvCars)~="table" then return end
-        local lq=string.lower(name or "")
-        local owned=nil
-        local ownedShow=""
-        for _,e in ipairs(ST._srvCars) do
-            local es=nil
-            if type(e)=="table" then
-                es=e.name or e.Name or e.model or e.Model or e.id or e.Id
-            else
-                es=e
-            end
-            es=tostring(es or "")
-            local esl=string.lower(es)
-            if esl~="" and lq~="" and (esl==lq or esl:find(lq,1,true) or lq:find(esl,1,true)) then
-                owned=e
-                ownedShow=es
-                break
-            end
-        end
-        if owned~=nil then
-            ntf("Vehicle","Garage data matched "..ownedShow.." - server spawn attempt",10)
-            local r=findRemote("Garage.Garage")
-            if r then
-                for _,ca in ipairs({{owned},{owned,LP},{"spawn",owned},{LP,owned,"spawn"}}) do
-                    if grFire(r,ca,"gsp") then fired=fired+1 end
-                end
-            end
-        end
-    end)
-    pcall(function()
-        local lg=ST._learnLog
-        if not lg then return end
-        if ST._learnVPend then
-            ST._learnVPend=nil
-            ntf("Vehicle","Vehicle args learned - Spawn now replays them",5)
-        end
-        local verbSet={buy=1,sell=1,spawn=1,respawn=1,select=1,use=1,set=1,get=1,open=1,park=1,add=1,save=1,create=1}
-        local replays=0
-        for path,arr in pairs(lg) do
-            if replays>=2 then break end
-            local lp=string.lower(path)
-            if string.find(lp,"cardealer",1,true) or string.find(lp,"spawncar",1,true) or string.find(lp,"vehicle",1,true) or string.find(lp,"garage",1,true) or string.find(lp,"dealership",1,true) or string.find(lp,"cars",1,true) then
-                local rec=arr[1]
-                if rec and axLearnInst(rec) then
-                    local function build(usePos)
-                        local na={} local sub=false
-                        for i,a in ipairs(rec.args) do
-                            if typeof(a)=="string" then
-                                local lv=string.lower(a)
-                                if verbSet[lv]==1 or string.find(a,"%d") or string.find(a,"_",1,true) then
-                                    na[i]=a
-                                else
-                                    na[i]=name sub=true
-                                end
-                            elseif usePos and typeof(a)=="Vector3" then
-                                na[i]=spawnPos sub=true
-                            elseif usePos and typeof(a)=="CFrame" then
-                                na[i]=CFrame.new(spawnPos) sub=true
-                            else
-                                na[i]=a
-                            end
-                        end
-                        return na,sub
-                    end
-                    local na1,sub1=build(false)
-                    if sub1 then
-                        grFire(rec.inst,na1,"lv"..replays) replays=replays+1
-                    end
-                    if replays<2 then
-                        local hasPos=false
-                        for _,a in ipairs(rec.args) do
-                            if typeof(a)=="Vector3" or typeof(a)=="CFrame" then hasPos=true break end
-                        end
-                        if hasPos then
-                            local na2,sub2=build(true)
-                            if sub2 then grFire(rec.inst,na2,"lv"..replays) replays=replays+1 end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-    pcall(function()
-        local rems={
-            RS:FindFirstChild("Cars") and RS.Cars:FindFirstChild("CarDealer"),
-            RS:FindFirstChild("CarDealer"),
-            W:FindFirstChild("Cars") and W.Cars:FindFirstChild("CarDealer"),
-            findRemote("Cars.CarDealer"),
-            findRemote("CarDealer"),
-            findRemote("SpawnVehicle"),
-            findRemote("BuyVehicle"),
-            findRemote("CreateVehicle"),
-            findRemote("VehicleSpawn"),
-        }
-        local seenR={}
-        for ri,r in ipairs(rems) do
-            if r and not seenR[r] then
-                seenR[r]=true
-                if grFire(r,{name},"veh"..ri) then fired=fired+1 end
-                if r:IsA("RemoteFunction") then
-                    pcall(function() r:InvokeServer(name) fired=fired+1 end)
-                end
-            end
-        end
-    end)
-    pcall(function()
-        local vks=bcToks({"CarDealer","Garage"})
-        local cr=findRemote("Cars.CarDealer") or findRemote("CarDealer")
-        local gg=findRemote("Garage.Garage")
-        if cr then grFire(cr,{"buy",name},"bcvbuy") end
-        local vrs={}
-        if cr then vrs[#vrs+1]=cr end
-        if gg then vrs[#vrs+1]=gg end
-        for _,vk in ipairs(vks) do
-            for _,r in ipairs(vrs) do
-                if grFire(r,{vk,name},"bcv"..vk) then fired=fired+1 end
-            end
-        end
-    end)
-    -- scan for any vehicle remote by name
-    pcall(function()
-        local vi=0
-        for _,obj in pairs(RS:GetDescendants()) do
-            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-                local nm=string.lower(obj.Name)
-                if nm:find("car",1,true) or nm:find("vehicle",1,true) then
-                    vi=vi+1
-                    if grFire(obj,{name},"vehS"..vi) then fired=fired+1 end
-                    if vi>=3 then break end
-                end
-            end
+        local cdRem=findRemote("Cars.CarDealer")
+        if cdRem then
+            if grFire(cdRem,{name},"vehbuy") then fired=fired+1 end
+            task.wait(0.12)
+            if grFire(cdRem,{name,true},"vehtest") then fired=fired+1 end
+            ntf("Vehicle","CarDealer fired for "..tostring(name).." (buy + testdrive)",8)
+        else
+            ntf("Vehicle","Cars.CarDealer not found",6)
         end
     end)
     local function vehStats(m)
@@ -3516,31 +3437,6 @@ local function spawnVehicle(name, pos, isRetry)
         if near then
             ntf("Vehicle","SERVER car spawned - others see it too. Press E",12)
             ST._vehTried=false
-            return
-        end
-        if not ST._vehTried then
-            ST._vehTried=true
-            ntf("Vehicle","standing refused - going to dealer once...",6)
-            ST._vehTripDone=false
-            task.spawn(function()
-                pcall(function()
-                    if ST._vehUIClick then
-                        ST._vehUIClick(name)
-                    end
-                end)
-                ST._vehTripDone=true
-            end)
-            task.spawn(function()
-                local vtw=0
-                while not ST._vehTripDone and vtw<60 do
-                    task.wait(0.5)
-                    vtw=vtw+0.5
-                end
-                task.wait(1.5)
-                pcall(function()
-                    spawnVehicle(name,pos,true)
-                end)
-            end)
             return
         end
         ntf("Vehicle","NO server car - spawn rejected ("..fired.." remotes total). SRV/CAP toasts above = reason",20)
@@ -3877,22 +3773,7 @@ local function doForceJob(targetPl, jobName)
             ntf("Job","SERVER OK -> "..j1.." (direct)",12)
             return
         end
-        ntf("Job","standing refused - going to jobcenter once...",6)
-        ST._jobTripDone=false
-        task.spawn(function()
-            pcall(function()
-                if ST._jobUIClick then
-                    ST._jobUIClick(jobName)
-                end
-            end)
-            ST._jobTripDone=true
-        end)
-        local jtw=0
-        while not ST._jobTripDone and jtw<60 do
-            task.wait(0.5)
-            jtw=jtw+0.5
-        end
-        task.wait(1.5)
+        ntf("Job","SERVER refused - no auto-trip (jobs need known button names)",6)
     end
     pcall(function()
         local lg=ST._learnLog
@@ -4796,7 +4677,7 @@ function nearestPl(maxD)
     end
     return best
 end
-local GR_ITEMS={"Bandage","Bread","Cheeseburger","Water","LockPick","Broom","Bronze Pickaxe","Gold","Pill"}
+local GR_ITEMS={"Bandage","Bread","Cheeseburger","Water","LockPick","Broom","Bronze Pickaxe","Gold","Pill","Medkit","Gold Broom","Diamond Pickaxe","Ice Pickaxe","Lava Pickaxe","Silver Pickaxe","Gold Pickaxe","Glow Pickaxe","Rainbow Pickaxe","Drill","C4"}
 function cloneToolFull(tool, destBp)
     if not tool or not tool:IsA("Tool") or not destBp then return false end
     local okC=false
@@ -4862,101 +4743,23 @@ function giveGRItem(name, kind, noFire, isRetry)
         return 1
     end
     local n=0
-    local didReplay=false
     if not noFire then
-        if not ST._invAsked then
-            ST._invAsked=true
-            pcall(function()
-                ST._srvInv=ST.ask("Inventory.Inventory")
-            end)
-        end
-    end
-    pcall(function()
-        if noFire then return end
-        local arm=findRemote("Armory.RemoteEvent")
-        local inv=findRemote("Inventory.Inventory")
-        local sm=findRemote("SupermarketEvent.Triggered") or findRemote("SupermarketEvent.BuyItem")
-        local jc=findRemote("JobCenter.JobCenter")
-        local rk="give"..(kind or "w")
         pcall(function()
-            local lg=ST._learnLog
-            if not lg then return end
-            local verbSet={buy=1,sell=1,add=1,use=1,equip=1,give=1,save=1,set=1,drop=1,take=1,select=1,spawn=1,craft=1,collect=1,pickup=1,pick=1,eat=1,heal=1,store=1,load=1,get=1,put=1,trade=1,accept=1,apply=1,open=1}
-            for path,arr in pairs(lg) do
-                local lp=string.lower(path)
-                if string.find(lp,"inventory",1,true) or string.find(lp,"armory",1,true) or string.find(lp,"supermarket",1,true) or string.find(lp,"shop",1,true) or string.find(lp,"store",1,true) then
-                    local rec=arr[1]
-                    if rec and axLearnInst(rec) then
-                        local newArgs={}
-                        local sub=false
-                        for i,a in ipairs(rec.args) do
-                            if typeof(a)=="string" then
-                                local lv=string.lower(a)
-                                if verbSet[lv]==1 or string.find(a,"%d") or string.find(a,"_",1,true) then
-                                    newArgs[i]=a
-                                else
-                                    newArgs[i]=name sub=true
-                                end
-                            else
-                                newArgs[i]=a
-                            end
-                        end
-                        if sub then grFire(rec.inst,newArgs,"learn") didReplay=true end
-                    end
-                end
-            end
-        end)
-        if kind=="weapon" or kind==nil then
+            local sm1=findRemote("Supermarket.Supermarket")
+            if sm1 and grFire(sm1,{name,1},"give") then n=n+1 end
+            local sm2=findRemote("SupermarketEvent.Triggered")
+            if sm2 and grFire(sm2,{name,1,1},"give") then n=n+1 end
+            local arm=findRemote("Armory.RemoteEvent")
             if arm then
-                grFire(arm,{"buy",name},rk)
-                grFire(arm,{name},"give")
-                grFire(arm,{"give",name},"give")
+                local pg=LP:FindFirstChild("PlayerGui")
+                local ag=pg and pg:FindFirstChild("Armory")
+                local at=ag and ag:GetAttribute("ArmoryType")
+                local an=ag and ag:GetAttribute("Name")
+                if at and an and grFire(arm,{"sendArmory",at,an,name,1},"give") then n=n+1 end
             end
-            if inv then
-                grFire(inv,{"add",name},"give")
-                grFire(inv,{name},"give")
-                grFire(inv,{"save",name},"give")
-                grFire(inv,{"save",name,1},"give")
-            end
-        else
-            if sm then
-                grFire(sm,{"buy",name},"give")
-                grFire(sm,name,"give")
-            end
-            if inv then
-                grFire(inv,{"add",name},"give")
-                grFire(inv,{name},"give")
-                grFire(inv,{"save",name},"give")
-                grFire(inv,{"save",name,1},"give")
-            end
-            if jc then grFire(jc,name,"give") end
-        end
-        pcall(function()
-            local iks=bcToks({"GiveItem","Inventory","BuyItem"})
-            if #iks==0 then return end
-            local irs={}
-            if kind=="weapon" or kind==nil then
-                if arm then irs[#irs+1]=arm end
-                if inv then irs[#irs+1]=inv end
-            else
-                if sm then irs[#irs+1]=sm end
-                if inv then irs[#irs+1]=inv end
-            end
-            for bi=1,math.min(2,#iks) do
-                local ik=iks[bi]
-                for _,r in ipairs(irs) do
-                    grFire(r,{ik,name},"bci"..bi)
-                end
-            end
-        end)
-    end)
-    if not noFire then
-        pcall(function()
-            if didReplay then
-                ntf("Give","Using real shop remote (learned) - if others dont see the item, server rejected the replay",12)
-            else
-                ntf("Give","remotes sent standing still (others see it only if server accepts)",12)
-            end
+            local inv=findRemote("Inventory.Inventory")
+            if inv then grFire(inv,{"equip",name},"equip") end
+            ntf("Give","exact shop args sent for "..tostring(name).." (server checks money)",12)
         end)
     end
     if not noFire then
@@ -4966,48 +4769,6 @@ function giveGRItem(name, kind, noFire, isRetry)
                 if inv then
                     grFire(inv,{"equip",name},"equip")
                 end
-            end)
-        end)
-    end
-    if not noFire then
-        task.delay(1.7,function()
-            pcall(function()
-                if ST._giveTried then return end
-                local has=false
-                local ln=string.lower(name)
-                local c=LP.Character
-                local bp=LP:FindFirstChild("Backpack")
-                if c then
-                    for _,v in ipairs(c:GetChildren()) do
-                        if v:IsA("Tool") and string.lower(v.Name)==ln then has=true break end
-                    end
-                end
-                if not has and bp then
-                    for _,v in ipairs(bp:GetChildren()) do
-                        if v:IsA("Tool") and string.lower(v.Name)==ln then has=true break end
-                    end
-                end
-                if has then return end
-                ST._giveTried=true
-                ntf("Give","standing refused - going to shop once...",6)
-                ST._giveTripDone=false
-                task.spawn(function()
-                    pcall(function()
-                        axPromptInteract({"gun","shop","armory","armoury","weapon","store","market","supermarket"},name)
-                    end)
-                    ST._giveTripDone=true
-                end)
-                task.spawn(function()
-                    local gtw=0
-                    while not ST._giveTripDone and gtw<60 do
-                        task.wait(0.5)
-                        gtw=gtw+0.5
-                    end
-                    task.wait(1.5)
-                    pcall(function()
-                        giveGRItem(name,kind,nil,true)
-                    end)
-                end)
             end)
         end)
     end
@@ -5100,79 +4861,29 @@ function doGreenSteal()
             end)
         end
     end)
-    pcall(function()
-        -- real steal: try many arg combos so server actually transfers (not just duplicate)
-        local inv=findRemote("Inventory.Inventory")
-        if inv then
-            for _,a in ipairs({t, t.UserId, t.Name, t.Character}) do
-                if a then
-                    grFire(inv,{"steal",a},"steal")
-                    grFire(inv,{"pickpocket",a},"steal")
-                    grFire(inv,{"rob",a},"steal")
-                end
-            end
-            grFire(inv,{"steal",t.UserId},"steal")
-            grFire(inv,{"steal",t.Name},"steal")
-        end
-        local arm=findRemote("Armory.RemoteEvent")
-        if arm then
-            for _,a in ipairs({t, t.UserId, t.Name}) do
-                if a then grFire(arm,{"steal",a},"steal") grFire(arm,{"rob",a},"steal") end
-            end
-            grFire(arm,{"steal",t.Name},"steal")
-        end
-        local thief=findRemote("ThiefSystem.RemoteEvent")
-        if thief then
-            grFire(thief,{"steal",t},"steal")
-            grFire(thief,{"steal",t.Name},"steal")
-        end
-    end)
     local fired=0
-    local budget=6
-    local function tryFire(r,args)
-        if not r or fired>=budget then return end
-        if grFire(r,args,"steal") then fired=fired+1 end
-    end
     pcall(function()
-        local inv=findRemote("Inventory.Inventory")
-        local arm=findRemote("Armory.RemoteEvent")
         local thief=findRemote("ThiefSystem.RemoteEvent")
-        local claim=findRemote("ClaimEvent")
-        local sets={
-            {"steal",t.UserId},
-            {"steal",t.Name},
-            {"rob",t.Name},
-            {"pickpocket",t.Name},
-            {"transfer",t.UserId,LP.UserId}
-        }
-        for _,args in ipairs(sets) do
-            tryFire(inv,args)
-            tryFire(arm,args)
-            tryFire(thief,args)
-            if claim then tryFire(claim,args) end
-        end
-    end)
-    pcall(function()
-        local scanned=0
-        local keys={"steal","thief","pickpocket","rob","transfer","claim"}
-        for _,parent in ipairs({RS}) do
-            if fired>=budget then break end
-            for _,d in pairs(parent:GetDescendants()) do
-                if fired>=budget or scanned>=4 then break end
-                if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) then
-                    local nm=d.Name:lower()
-                    local hitk=false
-                    for _,k in ipairs(keys) do
-                        if nm:find(k,1,true) and not nm:find("group") and not nm:find("anticheat") then hitk=true break end
-                    end
-                    if hitk then
-                        scanned=scanned+1
-                        tryFire(d,{"steal",t.UserId})
-                        tryFire(d,{"steal",t.Name})
-                        tryFire(d,{"pickpocket",t.Name})
-                    end
-                end
-            end
+        if not thief then return end
+        local items={}
+        pcall(function()
+            local vbp=t:FindFirstChild("Backpack")
+            local function add(c) if c and c:IsA("Tool") and #items<6 then items[#items+1]=c.Name end end
+            if vbp then for _,c in pairs(vbp:GetChildren()) do add(c) end end
+            if t.Character then for _,c in pairs(t.Character:GetChildren()) do add(c) end end
+        end)
+        if #items==0 then items[1]="Cash" end
+        local tgt=t
+        pcall(function()
+            local pg=LP:FindFirstChild("PlayerGui")
+            local sg=pg and pg:FindFirstChild("Steal")
+            local atg=sg and sg:GetAttribute("Target")
+            if atg~=nil then tgt=atg end
+        end)
+        for _,it in ipairs(items) do
+            if fired>=6 then break end
+            if grFire(thief,{"Steal",tgt,it,1},"steal") then fired=fired+1 end
+            task.wait(0.12)
         end
     end)
     local parts={}
@@ -5331,11 +5042,43 @@ btn(tEx,"Reset Names",function()
 end,"resetnames")
 sep(tEx)
 lbl(tEx,">> VISIBLE REMOTE EFFECTS")
-btn(tEx,"Fire Weapon (Visible)",function() if not cd() then return end equipAnyTool() local cam=W.CurrentCamera or CAM local pos=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character.HumanoidRootPart.Position or Vector3.new(0,0,0) local dir=cam and cam.CFrame.LookVector*100 or Vector3.new(0,0,100) local hit=MS.Hit and MS.Hit.Position or pos+dir pcall(function() local r=findRemote("WeaponsSystem.Network.WeaponFired") if r then grFire(r,{pos,hit},"wfire") grFire(r,{pos,dir},"wfire") end local ra=findRemote("WeaponsSystem.Network.WeaponActivated") if ra then grFire(ra,{"FN FAL"},"wfire") end ntf("Weapon","Fired visible!",4) end) end,"weapfire")
-btn(tEx,"Toggle Police Siren",function() pcall(function() local r=findRemote("ToggleSirenEvent") if r then grFire(r,{true},"siren") ntf("Siren","Toggled visible!",4) end end) end,"siren")
-btn(tEx,"Spam Siren x5",function() if cd() then pcall(function() local r=findRemote("ToggleSirenEvent") if r then for i=1,5 do r:FireServer(true) task.wait(0.1) end ntf("Siren","Spam x5!") end end) end end,"siren5")
-btn(tEx,"Siren Off",function() pcall(function() local r=findRemote("ToggleSirenEvent") if r then r:FireServer(false) ntf("Siren","Off!") end end) end,"sirenoff")
-btn(tEx,"Weapon Hit (Visible)",function() if not cd() then return end local t=ST.selectedPlayer or nearestPl(40) if not t or not t.Character then ntf("Weapon","No target",4) return end local part=t.Character:FindFirstChild("Head") or t.Character:FindFirstChild("HumanoidRootPart") if not part then return end equipAnyTool() pcall(function() local r=findRemote("WeaponsSystem.Network.WeaponHit") or findRemote("WeaponsSystem.Network.Hit") if r then grFire(r,{part.Position},"whit") grFire(r,{t,part},"whit") end ntf("Weapon","Hit "..t.DisplayName.." visible!",4) end) end,"weaphit")
+ST._sirenBody=function()
+    local m=nil
+    pcall(function()
+        local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        local sp=hum and hum.SeatPart
+        local mm=sp and sp:FindFirstAncestorOfClass("Model")
+        if mm and mm:IsDescendantOf(workspace) then m=mm end
+    end)
+    if not m then
+        pcall(function()
+            local mp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            local best=nil
+            local bd=60
+            for _,o in pairs(workspace:GetChildren()) do
+                if o:IsA("Model") then
+                    local vs=o:FindFirstChildWhichIsA("VehicleSeat",true)
+                    if vs and mp then
+                        local d=(vs.Position-mp.Position).Magnitude
+                        if d<bd then bd=d best=o end
+                    end
+                end
+            end
+            m=best
+        end)
+    end
+    local body=m and m:FindFirstChild("Body",true)
+    return m,body
+end
+btn(tEx,"Fire Weapon (Visible)",function() if not cd() then return end equipAnyTool() local cam=W.CurrentCamera or CAM local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") local pos=my and my.Position or Vector3.new(0,0,0) local hit=MS.Hit and MS.Hit.Position or (cam and cam.CFrame.Position+cam.CFrame.LookVector*300) pcall(function() local tool=LP.Character and LP.Character:FindFirstChildOfClass("Tool") local r=findRemote("WeaponsSystem.Network.WeaponFired") if r and tool then local dir=hit-pos if dir.Magnitude<1 then dir=Vector3.new(0,0,1) end ST._shotId=(ST._shotId or 0)+1 grFire(r,{tool,{origin=pos,dir=dir.Unit,charge=0,id=ST._shotId}},"wfire") ntf("Weapon","Fired visible!",4) else ntf("Weapon","equip a weapon first",4) end end) end,"weapfire")
+btn(tEx,"Toggle Police Siren",function() pcall(function() local r=findRemote("ToggleSirenEvent") local m,b=ST._sirenBody() if r and b then grFire(r,{"Wail",b},"siren") ntf("Siren","Wail ON - visible!",4) elseif not b then ntf("Siren","sit in a car first",5) else ntf("Siren","ToggleSirenEvent not found",4) end end) end,"siren")
+btn(tEx,"Spam Siren x5",function() if cd() then pcall(function() local r=findRemote("ToggleSirenEvent") local m,b=ST._sirenBody() if r and b then for i=1,5 do r:FireServer("Wail",b) task.wait(0.1) end ntf("Siren","Spam x5!") elseif not b then ntf("Siren","sit in a car first",5) else ntf("Siren","ToggleSirenEvent not found",4) end end) end end,"siren5")
+btn(tEx,"Siren Off",function() pcall(function() local r=findRemote("ToggleSirenEvent") local m,b=ST._sirenBody() if r and b then r:FireServer("Off",b) ntf("Siren","Off!") elseif not b then ntf("Siren","sit in a car first",5) else ntf("Siren","ToggleSirenEvent not found",4) end end) end,"sirenoff")
+btn(tEx,"Weapon Hit (Visible)",function() if not cd() then return end local t=ST.selectedPlayer or nearestPl(40) if not t or not t.Character then ntf("Weapon","No target",4) return end local part=t.Character:FindFirstChild("Head") or t.Character:FindFirstChild("HumanoidRootPart") if not part then return end equipAnyTool() pcall(function() local tool=LP.Character and LP.Character:FindFirstChildOfClass("Tool") local rf=findRemote("WeaponsSystem.Network.WeaponFired") local rh=findRemote("WeaponsSystem.Network.WeaponHit") or findRemote("WeaponsSystem.Network.Hit") if not (tool and rf and rh) then ntf("Weapon","need equipped weapon + WeaponHit remote",4) return end local my=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") local pos=my and my.Position or Vector3.new(0,0,0) local dist=(part.Position-pos).Magnitude if dist>900 then ntf("Weapon","target beyond 900 studs - not firing",4) return end local now=tick() if (ST._whWin or 0)<now then ST._whWin=now+1 ST._whN=0 end ST._whN=(ST._whN or 0)+1 if ST._whN>6 then ntf("Weapon","hit rate limited (6/s)",4) return end ST._shotId=(ST._shotId or 0)+1 if grFire(rf,{tool,{origin=pos,dir=(part.Position-pos).Unit,charge=0,id=ST._shotId}},"whit") then task.wait(0.05) grFire(rh,{tool,{part=part,p=part.Position,n=Vector3.new(0,1,0),d=dist,sid=ST._shotId,pid=t.UserId,maxDist=900,m=false,h=true}},"whit") ntf("Weapon","Hit "..t.DisplayName.." visible!",4) end end) end,"weaphit")
+btn(tEx,"Claim Reward x5",function() if not cd() then return end pcall(function() local r=findRemote("ClaimEvent") if not r then ntf("Claim","ClaimEvent not found",4) return end local k=0 for i=1,5 do if grFire(r,{},"claimx5") then k=k+1 end task.wait(1) end ntf("Claim","Claim sent x"..k.." (server timer decides reward)",6) end) end,"claimx5")
+btn(tEx,"Bank Grab x5",function() if not cd() then return end pcall(function() local r=findRemote("Bank.TablesEvents.Grab") or findRemote("Grab") if not r then ntf("Bank","Bank grab remote not found",4) return end for i=1,5 do grFire(r,{},"bankgrab") task.wait(0.3) end ntf("Bank","Grab sent x5",4) end) end,"bankgrab5")
+btn(tEx,"eFood Accept Order",function() if not cd() then return end pcall(function() local r=findRemote("efood.acceptOrder") or findRemote("acceptOrder") if not r then ntf("eFood","acceptOrder remote not found",4) return end local dl=nil local rl=nil local pg=LP:FindFirstChild("PlayerGui") if pg then for _,d in pairs(pg:GetDescendants()) do if d.Name=="deliveryLocation" and d:IsA("ValueBase") then dl=d.Value end if d.Name=="restaurantLocation" and d:IsA("ValueBase") then rl=d.Value end end end if not dl or not rl then ntf("eFood","open the eFood app once first (values missing)",6) return end if grFire(r,{dl,rl},"efoodacc") then ntf("eFood","Order accepted: "..tostring(dl),6) end end) end,"efoodacc")
+btn(tEx,"Cuff Nearest (Ranged)",function() if not cd() then return end pcall(function() local t=ST.selectedPlayer or nearestPl(30) if not t or not t.Character then ntf("Cuff","No target",4) return end local torso=t.Character:FindFirstChild("Torso") or t.Character:FindFirstChild("UpperTorso") or t.Character:FindFirstChild("HumanoidRootPart") if not torso then return end local tool=nil pcall(function() local bp=LP:FindFirstChild("Backpack") if bp then for _,v in pairs(bp:GetChildren()) do if v:IsA("Tool") and string.find(string.lower(v.Name),"cuff",1,true) then tool=v break end end end end) if not tool then pcall(function() for _,v in pairs(LP.Character:GetChildren()) do if v:IsA("Tool") and string.find(string.lower(v.Name),"cuff",1,true) then tool=v break end end end) end if not tool then ntf("Cuff","buy handcuffs first",5) return end local rem=nil pcall(function() for _,c in pairs(tool:GetChildren()) do if c:IsA("RemoteEvent") then rem=c break end end end) if not rem then ntf("Cuff","no RemoteEvent on handcuff tool",5) return end if grFire(rem,{"Cuff",torso},"cuffnear") then ntf("Cuff","Cuff sent to "..t.DisplayName,5) end end) end,"cuffnear")
 sep(tEx)
 lbl(tEx,">> MAGIC BULLET")
 table.insert(allToggles,tog(tEx,"Magic Bullet",function() return ST.magicBullet end,function() ST.magicBullet=not ST.magicBullet ntf("MagicBullet",ST.magicBullet and "ON - Bullets hit through walls!" or "OFF") end,"magbul"))
