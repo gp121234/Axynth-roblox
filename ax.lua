@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx85")
+print("[Axynth] Loading... build=fx86")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx85 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx86 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -5513,7 +5513,7 @@ btn(tEx,"Dump All Remotes (paste back to me)",function()
         end)
     end)
 end,"dumpremotes")
-btn(tEx,"Free Item Sweep (ALL remotes)",function()
+btn(tEx,"Free Item Sweep (safe list)",function()
     if not cd() then return end
     if ST._probing then ntf("Probe","already running",4) return end
     ST._probing=true
@@ -5528,7 +5528,7 @@ btn(tEx,"Free Item Sweep (ALL remotes)",function()
                         local nm=string.lower(d.Name)
                         local full=""
                         pcall(function() full=string.lower(d:GetFullName()) end)
-                        local bad=string.find(nm,"buy",1,true) or string.find(nm,"shop",1,true) or string.find(nm,"market",1,true) or string.find(nm,"store",1,true) or string.find(nm,"pay",1,true) or string.find(nm,"money",1,true) or string.find(nm,"cash",1,true) or string.find(nm,"deposit",1,true) or string.find(nm,"withdraw",1,true) or string.find(nm,"price",1,true) or string.find(nm,"purchase",1,true) or string.find(full,"fuel",1,true) or string.find(full,"chassis",1,true) or string.find(full,"plugins",1,true)
+                        local bad=string.find(nm,"buy",1,true) or string.find(nm,"shop",1,true) or string.find(nm,"market",1,true) or string.find(nm,"store",1,true) or string.find(nm,"pay",1,true) or string.find(nm,"money",1,true) or string.find(nm,"cash",1,true) or string.find(nm,"deposit",1,true) or string.find(nm,"withdraw",1,true) or string.find(nm,"price",1,true) or string.find(nm,"purchase",1,true) or string.find(nm,"kick",1,true) or string.find(nm,"ban",1,true) or string.find(nm,"anticheat",1,true) or string.find(nm,"vmenu",1,true) or string.find(nm,"admin",1,true) or string.find(nm,"report",1,true) or string.find(nm,"logger",1,true) or string.find(nm,"receipt",1,true) or string.find(nm,"weapon",1,true) or string.find(nm,"cuff",1,true) or string.find(nm,"steal",1,true) or string.find(nm,"jail",1,true) or string.find(nm,"mute",1,true) or string.find(nm,"freeze",1,true) or string.find(nm,"kill",1,true) or string.find(nm,"health",1,true) or string.find(nm,"damage",1,true) or string.find(nm,"team",1,true) or string.find(nm,"job",1,true) or string.find(nm,"rank",1,true) or string.find(nm,"society",1,true) or string.find(nm,"noclip",1,true) or string.find(nm,"chat",1,true) or string.find(nm,"mafia",1,true) or string.find(nm,"throttle",1,true) or string.find(nm,"exitseat",1,true) or string.find(nm,"atm",1,true) or string.find(nm,"bank",1,true) or string.find(nm,"claim",1,true) or string.find(nm,"cardealer",1,true) or string.find(nm,"garage",1,true) or string.find(nm,"ekab",1,true) or string.find(nm,"hospital",1,true) or string.find(nm,"efood",1,true) or string.find(nm,"delivered",1,true) or string.find(nm,"collected",1,true) or string.find(nm,"siren",1,true) or string.find(full,"hdadmin",1,true) or string.find(full,"anticheat",1,true) or string.find(full,"fuel",1,true) or string.find(full,"chassis",1,true) or string.find(full,"plugins",1,true)
                         if not bad then
                             table.insert(cands,d)
                         end
@@ -5574,7 +5574,7 @@ btn(tEx,"Free Item Sweep (ALL remotes)",function()
                     end)
                 end)
             end)
-            ntf("Sweep","trying "..#batch.." remotes (kick/ban/anticheat included, buy/money excluded)",7)
+            ntf("Sweep","trying "..#batch.." remotes - weapon/anticheat/hdadmin/report/bank excluded (kick causes)",7)
             local fired=0
             for _,r in ipairs(batch) do
                 ST._sweepSeen[r]=true
@@ -5590,21 +5590,32 @@ btn(tEx,"Free Item Sweep (ALL remotes)",function()
                     end
                 end)
                 local nm=string.lower(r.Name)
-                local sets={{},{"Medkit"},{"Medkit",1},{LP,"Medkit"}}
+                local sets={{"Medkit"},{"Medkit",1}}
                 if string.find(nm,"item",1,true) or string.find(nm,"give",1,true) or string.find(nm,"grant",1,true) or string.find(nm,"add",1,true) then
-                    sets={{"Medkit",1,true},{"Medkit",1},{"Medkit"},{}}
+                    sets={{"Medkit",1,true},{"Medkit",1},{"Medkit"}}
                 end
                 for _,args in ipairs(sets) do
                     pcall(function()
                         if r:IsA("RemoteFunction") then
-                            task.spawn(function() pcall(function() r:InvokeServer(unpack(args)) end) end)
+                            task.spawn(function()
+                                pcall(function()
+                                    local ret=r:InvokeServer(unpack(args))
+                                    if ret~=nil then
+                                        local ss=""
+                                        local okS,so=pcall(axSerStr,ret)
+                                        if okS then ss=so else ss="<"..type(ret)..">" end
+                                        table.insert(log,"RET "..string.sub(r:GetFullName(),1,120).." | "..string.sub(ss,1,400))
+                                        writefile("axynth_sweep.txt",table.concat(log,"\n"))
+                                    end
+                                end)
+                            end)
                         else
                             r:FireServer(unpack(args))
                         end
                         fired=fired+1
                         table.insert(log,"FIRE "..string.sub(r:GetFullName(),1,120).." | "..axSerStr(args))
                     end)
-                    task.wait(0.15)
+                    task.wait(0.25)
                 end
             end
             pcall(function()
@@ -5621,6 +5632,7 @@ btn(tEx,"Free Item Sweep (ALL remotes)",function()
         ST._probing=nil
     end)
 end,"itemsweep")
+
 
 sep(tEx)
 lbl(tEx,">> STEAL OUTFIT & PED (Visible - no server.lua)")
