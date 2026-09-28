@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx76")
+print("[Axynth] Loading... build=fx77")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -283,6 +283,13 @@ local hkOk,hkErr=pcall(function()
                             ST._lsForce=true
                         end
                         if axSaveLearn then pcall(axSaveLearn) end
+                        if not ST._vehReplaying and (string.find(fl,"garage",1,true) or string.find(fl,"spawncar",1,true) or (string.find(fl,"cars.",1,true) and not string.find(fl,"cardealer",1,true))) then
+                            local gtw=tick()
+                            if (ST._glogW or 0)<gtw then
+                                ST._glogW=gtw+4
+                                pcall(function() ntf("GARAGE<-",string.sub(fn.." | "..axSerStr(copyargs),1,170),10) end)
+                            end
+                        end
                         if not ST._learnNtf and (string.find(fl,"inventory",1,true) or string.find(fl,"shop",1,true)) then
                             ST._learnNtf=true
                             ST._learnPending=true
@@ -1358,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx76 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx77 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -3375,6 +3382,8 @@ end
 local function spawnVehicle(name, pos, isRetry)
     if not isRetry then
         ST._vehTried=false
+        ST._vehTestOnly=nil
+        ST._vehReplayed=nil
     end
     pcall(function() if ST._vehClone and ST._vehClone.Parent then ST._vehClone:Destroy() end ST._vehClone=nil end)
     local hrp=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
@@ -3405,8 +3414,51 @@ local function spawnVehicle(name, pos, isRetry)
             owned=(bv~=nil)
         end)
         if owned then
-            if grFire(cdRem,{name},"vehbuy") then fired=fired+1 end
-            ntf("Vehicle","OWNED - spawn fired for "..tostring(name),8)
+            local replayed=false
+            pcall(function()
+                local lg=ST._learnLog
+                if type(lg)~="table" then return end
+                local carNames={}
+                pcall(function()
+                    local cf=RS:FindFirstChild("Cars") and RS.Cars:FindFirstChild("Cars")
+                    if cf then
+                        for _,c in pairs(cf:GetChildren()) do carNames[string.lower(c.Name)]=true end
+                    end
+                end)
+                for pth,recs in pairs(lg) do
+                    if replayed then break end
+                    local pl=string.lower(tostring(pth))
+                    local rel=(string.find(pl,"garage",1,true) or string.find(pl,"spawncar",1,true) or (string.find(pl,"cars.",1,true) and not string.find(pl,"cardealer",1,true)))
+                    if rel and type(recs)=="table" then
+                        for _,rec in ipairs(recs) do
+                            if type(rec.args)=="table" then
+                                local sub=false
+                                local newArgs={}
+                                for i,a in ipairs(rec.args) do
+                                    if typeof(a)=="string" and carNames[string.lower(a)] then
+                                        newArgs[i]=name sub=true
+                                    else
+                                        newArgs[i]=a
+                                    end
+                                end
+                                if sub then
+                                    local ri=axLearnInst(rec)
+                                    ST._vehReplaying=true
+                                    local okg=ri and grFire(ri,newArgs,"learnVeh")
+                                    ST._vehReplaying=nil
+                                    if okg then fired=fired+1 replayed=true ST._vehReplayed=true break end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            if replayed then
+                ntf("Vehicle","OWNED - replayed exact garage spawn args for "..tostring(name),8)
+            else
+                if grFire(cdRem,{name},"vehbuy") then fired=fired+1 end
+                ntf("Vehicle","OWNED - no garage args learned yet: spawn it ONCE from the game garage UI, then press this again",14)
+            end
         else
             ST._vehTestOnly=true
             if grFire(cdRem,{name,true},"vehtest") then fired=fired+1 end
@@ -3481,6 +3533,12 @@ local function spawnVehicle(name, pos, isRetry)
             ntf("Vehicle","SERVER car spawned - others see it too. Press E",12)
             ST._vehTried=false
             ST._vehTestOnly=nil
+            ST._vehReplayed=nil
+            return
+        end
+        if ST._vehReplayed then
+            ntf("Vehicle","garage args replayed - car may have spawned at the garage, not within 40 studs",12)
+            ST._vehReplayed=nil
             return
         end
         if ST._vehTestOnly then
