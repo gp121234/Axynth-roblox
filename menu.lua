@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx87")
+print("[Axynth] Loading... build=fx88")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx87 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx88 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -5697,6 +5697,116 @@ btn(tEx,"Free Item Sweep (safe list)",function()
         ST._probing=nil
     end)
 end,"itemsweep")
+lbl(tEx,">> FORCE SERVER - any remote / any args (paste path from Dump All Remotes)")
+local frcPath=Instance.new("TextBox") frcPath.Size=UDim2.new(1,-12,0,26) frcPath.Position=UDim2.new(0,6,0,0) frcPath.BackgroundColor3=TH.b frcPath.BorderSizePixel=0 frcPath.PlaceholderText="remote path, e.g. Cars.CarDealer | Garage.Garage | Receipt.Receipt | RemoteEvent" frcPath.PlaceholderColor3=Color3.fromRGB(100,100,120) frcPath.Text="" frcPath.TextColor3=TH.t frcPath.TextSize=11 frcPath.Font=Enum.Font.Gotham frcPath.ClearTextOnFocus=false frcPath.Parent=tEx mkCorner(frcPath,6)
+local frcArgs=Instance.new("TextBox") frcArgs.Size=UDim2.new(1,-12,0,26) frcArgs.Position=UDim2.new(0,6,0,0) frcArgs.BackgroundColor3=TH.b frcArgs.BorderSizePixel=0 frcArgs.PlaceholderText="args Lua table like {Chiron,true} - empty = auto battery" frcArgs.PlaceholderColor3=Color3.fromRGB(100,100,120) frcArgs.Text="" frcArgs.TextColor3=TH.t frcArgs.TextSize=11 frcArgs.Font=Enum.Font.Gotham frcArgs.ClearTextOnFocus=false frcArgs.Parent=tEx mkCorner(frcArgs,6)
+ST.forceGo=function(full)
+    local path=string.match(frcPath.Text or "","^%s*(.-)%s*$") or ""
+    if path=="" then ntf("Force","type a remote path first (Dump All Remotes gives the list)",8) return end
+    local r=findRemote(path)
+    if not r then ntf("Force","remote not found: "..path,8) return end
+    local args=nil
+    local raw=string.match(frcArgs.Text or "","^%s*(.-)%s*$") or ""
+    if raw~="" then
+        local okR,ret=pcall(function()
+            local f=loadstring("return "..raw)
+            assert(f,"bad syntax")
+            return f()
+        end)
+        if not okR then ntf("Force","args parse error: "..string.sub(tostring(ret),1,140),8) return end
+        args=ret
+        if type(args)~="table" then args={args} end
+    end
+    if ST._probing then ntf("Force","busy - wait for current run",4) return end
+    ST._probing=true
+    task.spawn(function()
+        pcall(function()
+            ST._forceLog={"== FORCE "..path.." | "..os.date("%H:%M:%S").." =="}
+            local gotN=0
+            local fired=0
+            ST._sweepOn=true
+            local connG=nil
+            pcall(function()
+                connG=LP.Backpack.DescendantAdded:Connect(function(obj)
+                    pcall(function()
+                        if not ST._sweepOn then return end
+                        if obj:IsA("Tool") then
+                            gotN=gotN+1
+                            table.insert(ST._forceLog,"GOT TOOL "..obj.Name.." | "..os.date("%H:%M:%S"))
+                            writefile("axynth_force.txt",table.concat(ST._forceLog,"\n"))
+                            ntf("FORCE?!","Backpack received: "..obj.Name,16)
+                        end
+                    end)
+                end)
+            end)
+            pcall(function()
+                r.OnClientEvent:Connect(function(a,b)
+                    pcall(function()
+                        if not ST._sweepOn then return end
+                        table.insert(ST._forceLog,"RESP | "..string.sub(tostring(a)..", "..tostring(b),1,400))
+                        writefile("axynth_force.txt",table.concat(ST._forceLog,"\n"))
+                    end)
+                end)
+            end)
+            local function one(a)
+                pcall(function()
+                    if r:IsA("RemoteFunction") then
+                        task.spawn(function()
+                            pcall(function()
+                                local ret=r:InvokeServer(unpack(a))
+                                if ret~=nil then
+                                    local ss=""
+                                    local okS,so=pcall(axSerStr,ret)
+                                    if okS then ss=so else ss="<"..type(ret)..">" end
+                                    table.insert(ST._forceLog,"RET | "..string.sub(ss,1,400))
+                                    writefile("axynth_force.txt",table.concat(ST._forceLog,"\n"))
+                                end
+                            end)
+                        end)
+                    else
+                        r:FireServer(unpack(a))
+                    end
+                    fired=fired+1
+                    table.insert(ST._forceLog,"FIRE | "..axSerStr(a))
+                end)
+                task.wait(0.2)
+            end
+            if args then
+                one(args)
+            end
+            if full or not args then
+                local pos=nil
+                pcall(function()
+                    local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                    if h then pos=h.Position+h.CFrame.LookVector*10+Vector3.new(0,2,0) end
+                end)
+                local bat={{},{"spawn"},{"give"},{"free"},{"Chiron"},{"Medkit"},{"Medkit",1},{LP},{LP,"spawn"},{LP,"Medkit"}}
+                if pos then
+                    table.insert(bat,{pos})
+                    table.insert(bat,{"spawn",pos})
+                    table.insert(bat,{"Chiron",true,pos})
+                    table.insert(bat,{"Chiron",pos})
+                    table.insert(bat,{"Medkit",1,true})
+                end
+                for _,a in ipairs(bat) do one(a) end
+            end
+            task.wait(1)
+            pcall(function()
+                table.insert(ST._forceLog,"== DONE: "..fired.." fires / received "..gotN.." ==")
+                local txt=table.concat(ST._forceLog,"\n")
+                writefile("axynth_force.txt",txt)
+                pcall(function() setclipboard(txt) end)
+                if connG then pcall(function() connG:Disconnect() end) end
+                ST._sweepOn=nil
+                ntf("Force","done - "..fired.." fires, "..gotN.." received -> axynth_force.txt + clipboard",15)
+            end)
+        end)
+        ST._probing=nil
+    end)
+end
+btn(tEx,"FORCE: fire remote (typed args / battery if empty)",function() ST.forceGo(false) end,"forcefire")
+btn(tEx,"FORCE: full fuzz (battery + RESP/RET + Backpack watch)",function() ST.forceGo(true) end,"forcefuzz")
+
 
 
 sep(tEx)
