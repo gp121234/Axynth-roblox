@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx91")
+print("[Axynth] Loading... build=fx92")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx91 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx92 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -6196,6 +6196,81 @@ btn(tEx,"CRASH SERVER (12s flood)",function()
         ntf("Crash","flood done ("..math.floor(tick()-t0).."s, "..sent.." sent)",12)
     end)
 end,"crashsrv")
+
+sep(tEx)
+lbl(tEx,">> DEBUG / BYPASS (FiveM-style)")
+btn(tEx,"DEBUG Probe (upvalue/constants/getgc/hooks)",function()
+    if cd() then return end
+    if ST._dbgOn then ntf("Debug","probe already running...",4) return end
+    ST._dbgOn=true
+    task.spawn(function()
+        local out={}
+        local function plog(t) table.insert(out,t) end
+        local names={"debug","getupvalue","getupvalues","setupvalue","getconstants","getproto","hookfunction","clonefunction","newcclosure","hookmetamethod","getrawmetatable","setreadonly","isreadonly","getgc","getreg","getcallbackvalue","checkcaller","islclosure","iscclosure","getinfo","getupvalueid","getnamecallmethod","getcallingscript","getthreadidentity","setthreadidentity","getloadedmodules","getinstances","getscripts","fireclickdetector"}
+        plog("== AVAILABILITY ==")
+        for _,n in ipairs(names) do
+            local v=nil
+            local ok1=pcall(function() v=_G[n] end)
+            if (not ok1 or v==nil) then pcall(function() v=loadstring("return "..n)() end) end
+            if type(debug)=="table" and debug[n]~=nil and v==nil then v=debug[n] n="debug."..n end
+            plog(n.." = "..(v~=nil and type(v) or "MISSING"))
+        end
+        local keys={"anticheat","detect","kicked","kick","walkspeed","jumppower","freefall","suspicious","exceeded","speedhack","cheat"}
+        local found=0
+        local gcok=false
+        local gct=nil
+        pcall(function() gct=getgc(true) gcok=(type(gct)=="table") end)
+        if gcok then
+            plog("== getgc "..#gct.." objects, hunting anticheat closures ==")
+            for _,o in ipairs(gct) do
+                if type(o)=="function" and found<30 then
+                    local cs=nil
+                    pcall(function() if getconstants then cs=getconstants(o) end end)
+                    if not cs and type(debug)=="table" then pcall(function() if debug.getconstants then cs=debug.getconstants(o) end end) end
+                    if type(cs)=="table" then
+                        local hit=false
+                        local frag={}
+                        local nums={}
+                        for k,v in pairs(cs) do
+                            if type(k)=="number" and type(v)=="string" and v~="" then
+                                local l=string.lower(v)
+                                for _,kk in ipairs(keys) do
+                                    if string.find(l,kk,1,true) then hit=true break end
+                                end
+                                if #frag<8 and (string.find(l,"speed",1,true) or string.find(l,"kick",1,true) or string.find(l,"jump",1,true) or string.find(l,"anticheat",1,true) or string.find(l,"detect",1,true) or string.find(l,"ban",1,true) or string.find(l,"freefall",1,true) or string.find(l,"teleport",1,true)) then
+                                    table.insert(frag,"c"..k.."=\""..string.sub(v,1,70).."\"")
+                                end
+                            elseif type(k)=="number" and type(v)=="number" and #nums<14 then
+                                table.insert(nums,k.."="..tostring(v))
+                            end
+                        end
+                        if hit then
+                            found=found+1
+                            local info="?"
+                            pcall(function()
+                                local iv=nil
+                                if getinfo then iv=getinfo(o) end
+                                if not iv and type(debug)=="table" and debug.getinfo then iv=debug.getinfo(o) end
+                                if iv and type(iv)=="table" then info=tostring(iv.short_src or iv.source or "?")..":"..tostring(iv.linedefined or "?") end
+                            end)
+                            plog("CLOSURE#"..found.." "..info)
+                            for _,f in ipairs(frag) do plog("   "..f) end
+                            if #nums>0 then plog("   nums "..table.concat(nums," ")) end
+                        end
+                    end
+                end
+            end
+        else
+            plog("getgc MISSING or failed")
+        end
+        plog("== flagged closures: "..found.." ==")
+        local txt=table.concat(out,"\n")
+        pcall(function() writefile("axynth_debug.txt",txt) end)
+        pcall(function() setclipboard(txt) end)
+        ntf("Debug","probe done: "..found.." closures found - axynth_debug.txt + clipboard",14)
+        ST._dbgOn=nil
+    end)
+end,"debugprobe")
 
 
 
