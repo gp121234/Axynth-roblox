@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx88")
+print("[Axynth] Loading... build=fx89")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx88 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx89 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -5806,6 +5806,161 @@ ST.forceGo=function(full)
 end
 btn(tEx,"FORCE: fire remote (typed args / battery if empty)",function() ST.forceGo(false) end,"forcefire")
 btn(tEx,"FORCE: full fuzz (battery + RESP/RET + Backpack watch)",function() ST.forceGo(true) end,"forcefuzz")
+ST._freeRun=function()
+    if ST._freeBusy then return end
+    ST._freeBusy=true
+    pcall(function()
+        ST._freeLog=ST._freeLog or {"== FREE ITEMS =="}
+        local log=ST._freeLog
+        table.insert(log,"== FREE RUN "..os.date("%H:%M:%S").." ==")
+        local gotN=0
+        local connG=nil
+        pcall(function()
+            connG=LP.Backpack.DescendantAdded:Connect(function(obj)
+                pcall(function()
+                    if obj:IsA("Tool") then
+                        gotN=gotN+1
+                        table.insert(log,"GOT TOOL "..obj.Name.." | "..os.date("%H:%M:%S"))
+                        writefile("axynth_free.txt",table.concat(log,"\n"))
+                        ntf("FREE ITEM?!","Backpack received: "..obj.Name,16)
+                    elseif obj:IsA("ValueBase") then
+                        table.insert(log,"GOT VAL "..obj.Name.." ("..obj.ClassName..")")
+                    end
+                end)
+            end)
+        end)
+        local nA=0
+        pcall(function()
+            local arm=findRemote("Armory.RemoteEvent")
+            local at=nil
+            local an=nil
+            pcall(function()
+                local pg=LP:FindFirstChild("PlayerGui")
+                local ag=pg and pg:FindFirstChild("Armory")
+                if ag then
+                    at=ag:GetAttribute("ArmoryType")
+                    an=ag:GetAttribute("Name")
+                end
+            end)
+            if arm and at and an then
+                for _,it in ipairs(GR_ITEMS) do
+                    pcall(function()
+                        if grFire(arm,{"sendArmory",at,an,it,1},"give") then nA=nA+1 end
+                    end)
+                    task.wait(0.08)
+                end
+                table.insert(log,"ARMORY: "..nA.." fires type="..tostring(at).." name="..tostring(an))
+            else
+                table.insert(log,"ARMORY: ArmoryType/Name attributes missing - open armory once in game")
+            end
+        end)
+        local nS=0
+        pcall(function()
+            local thief=findRemote("ThiefSystem.RemoteEvent")
+            if thief then
+                local mine=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                local pls={}
+                pcall(function()
+                    for _,pl in pairs(game:GetService("Players"):GetPlayers()) do
+                        if pl~=LP and pl.Character then
+                            local h=pl.Character:FindFirstChild("HumanoidRootPart")
+                            if h and mine then
+                                table.insert(pls,{pl,(h.Position-mine.Position).Magnitude})
+                            end
+                        end
+                    end
+                end)
+                table.sort(pls,function(a,b) return a[2]<b[2] end)
+                for _,e in ipairs(pls) do
+                    local t=e[1]
+                    local items={}
+                    pcall(function()
+                        local vbp=t:FindFirstChild("Backpack")
+                        local function add(c)
+                            if c and c:IsA("Tool") and #items<6 then items[#items+1]=c.Name end
+                        end
+                        if vbp then for _,c in pairs(vbp:GetChildren()) do add(c) end end
+                        if t.Character then for _,c in pairs(t.Character:GetChildren()) do add(c) end end
+                    end)
+                    for _,it in ipairs(items) do
+                        pcall(function()
+                            if grFire(thief,{"Steal",t,it,1},"steal") then
+                                nS=nS+1
+                                table.insert(log,"FIRE steal "..it.." <- "..t.Name)
+                            end
+                        end)
+                        task.wait(0.12)
+                    end
+                    task.wait(0.1)
+                end
+                table.insert(log,"STEAL: "..nS.." fires from "..#pls.." players")
+            end
+        end)
+        local nM=0
+        pcall(function()
+            local mr=findRemote("RemoteEvent")
+            if mr then
+                for _,it in ipairs({"Medkit","LockPick","Gold"}) do
+                    pcall(function()
+                        if grFire(mr,{it,1,true},"mystery") then nM=nM+1 end
+                        if grFire(mr,{it,1},"mystery") then nM=nM+1 end
+                    end)
+                    task.wait(0.1)
+                end
+                table.insert(log,"MYSTERY: "..nM.." fires on ReplicatedStorage.RemoteEvent")
+            end
+        end)
+        local nE=0
+        pcall(function()
+            local inv=findRemote("Inventory.Inventory")
+            local bp=LP:FindFirstChild("Backpack")
+            if inv and bp then
+                local want={}
+                for _,it in ipairs(GR_ITEMS) do want[string.lower(it)]=true end
+                for _,c in pairs(bp:GetChildren()) do
+                    if c:IsA("Tool") and want[string.lower(c.Name)] then
+                        pcall(function()
+                            if grFire(inv,{"equip",c.Name},"equip") then nE=nE+1 end
+                        end)
+                    end
+                end
+                if nE>0 then table.insert(log,"EQUIP: "..nE.." tools equipped") end
+            end
+        end)
+        task.wait(1.5)
+        pcall(function()
+            table.insert(log,"== RUN DONE: armory "..nA.." / steal "..nS.." / mystery "..nM.." / equip "..nE.." / got "..gotN.." ==")
+            local txt=table.concat(log,"\n")
+            writefile("axynth_free.txt",txt)
+            pcall(function() setclipboard(txt) end)
+            if connG then pcall(function() connG:Disconnect() end) end
+            ntf("FreeItems","run done - got "..gotN.." -> axynth_free.txt + clipboard",14)
+        end)
+    end)
+    ST._freeBusy=nil
+end
+tog(tEx,"Free Items Loop (armory+steal+mystery)",function() return ST._freeLoop==true end,function(v)
+    if v then
+        ST._freeLoop=true
+        ST._freeGen=(ST._freeGen or 0)+1
+        local gen=ST._freeGen
+        ntf("FreeItems","LOOP ON - runs every 25s: armory force + steal all players + mystery remote + equip",10)
+        ST._freeRun()
+        task.spawn(function()
+            while ST._freeLoop and ST._freeGen==gen do
+                task.wait(25)
+                if ST._freeLoop and ST._freeGen==gen and not ST._probing then
+                    ST._freeRun()
+                end
+            end
+        end)
+    else
+        ST._freeLoop=nil
+        ST._freeGen=(ST._freeGen or 0)+1
+        ntf("FreeItems","LOOP OFF",4)
+    end
+end,"freeloop")
+
 
 
 
