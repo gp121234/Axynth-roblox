@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx86")
+print("[Axynth] Loading... build=fx87")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx86 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx87 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -5513,6 +5513,71 @@ btn(tEx,"Dump All Remotes (paste back to me)",function()
         end)
     end)
 end,"dumpremotes")
+btn(tEx,"Dump Scripts (Xeno decompile targets)",function()
+    if not cd() then return end
+    task.spawn(function()
+        pcall(function()
+            local lines={}
+            local srv={}
+            local seen={}
+            local total=0
+            local readable=0
+            local all={}
+            pcall(function()
+                for _,d in pairs(getinstances()) do
+                    table.insert(all,d)
+                end
+            end)
+            local roots={RS,workspace,game:GetService("ReplicatedFirst"),game:GetService("StarterPlayer"),game:GetService("StarterGui"),game:GetService("StarterPack"),game:GetService("Lighting"),game:GetService("ServerScriptService"),game:GetService("ServerStorage")}
+            for _,rt in ipairs(roots) do
+                pcall(function()
+                    for _,d in pairs(rt:GetDescendants()) do
+                        table.insert(all,d)
+                    end
+                end)
+            end
+            pcall(function()
+                local pg=LP:FindFirstChild("PlayerGui")
+                if pg then
+                    for _,d in pairs(pg:GetDescendants()) do
+                        table.insert(all,d)
+                    end
+                end
+            end)
+            for _,d in ipairs(all) do
+                if not seen[d] and (d:IsA("ModuleScript") or d:IsA("LocalScript") or d:IsA("Script")) then
+                    seen[d]=true
+                    total=total+1
+                    local okB=false
+                    local nb=0
+                    pcall(function()
+                        local bc=getscriptbytecode(d)
+                        if type(bc)=="string" then
+                            nb=#bc
+                            if nb>0 then okB=true end
+                        end
+                    end)
+                    if okB then readable=readable+1 end
+                    local tag=okB and "OK" or "EMPTY"
+                    pcall(function() table.insert(lines,tag.." | "..d.ClassName.." | "..d:GetFullName()) end)
+                    if okB and d:IsA("Script") then
+                        pcall(function() table.insert(srv,"== "..d:GetFullName().." | "..nb.." bytes ==\n"..tostring(getscriptbytecode(d))) end)
+                    end
+                end
+            end
+            table.sort(lines)
+            local txt="== AXYNTH SCRIPTS "..os.date("%H:%M:%S").." | "..total.." total, "..readable.." readable ==\n"..table.concat(lines,"\n")
+            writefile("axynth_scripts.txt",txt)
+            pcall(function() setclipboard(txt) end)
+            if #srv>0 then
+                pcall(function() writefile("axynth_srvcode.txt",table.concat(srv,"\n")) end)
+                ntf("Scripts",total.." scripts, "..readable.." readable -> axynth_scripts.txt + clipboard | "..#srv.." SERVER scripts bytecode -> axynth_srvcode.txt",18)
+            else
+                ntf("Scripts",total.." scripts, "..readable.." readable -> axynth_scripts.txt + clipboard (server bytecode: none)",18)
+            end
+        end)
+    end)
+end,"dumpscripts")
 btn(tEx,"Free Item Sweep (safe list)",function()
     if not cd() then return end
     if ST._probing then ntf("Probe","already running",4) return end
