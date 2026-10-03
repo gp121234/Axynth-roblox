@@ -1,4 +1,4 @@
-print("[Axynth] Loading... build=fx92")
+print("[Axynth] Loading... build=fx93")
 local _t0=tick()
 local ok, err = pcall(function()
 P = game:GetService("Players")
@@ -1365,7 +1365,7 @@ local function bcToks(kws)
 end
 local function buildClip()
     if type(setclipboard)=="function" then
-        local msg="build=fx92 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
+        local msg="build=fx93 | t="..string.format("%.1f",tick()-_t0).." | "..string.sub(tostring(ST._probe or ""),1,9500)..((ST._probe1 and (" ["..string.sub(ST._probe1,1,150).."]")) or "").." | "..(HOOK_OK and ("HOOK_OK | "..tostring(HOOK_PATH)) or ("HOOK_FAIL | "..tostring(HOOK_ERR)))..((ST._whisp and #ST._whisp>0) and (" | W:"..string.sub(table.concat(ST._whisp,";"),1,700)) or "")..((ST._lsnLog and #ST._lsnLog>0) and (" | R:"..string.sub(table.concat(ST._lsnLog,"/"),1,600)) or "")
         local vo={}
         pcall(function()
             if type(ST._bcTok)=="table" then
@@ -3252,7 +3252,7 @@ btn(tH,"Jump 150",function() ST.jumpPreset=150 pcall(function() local h=LP.Chara
 btn(tH,"Reset Jump",function() ST.jumpPreset=0 pcall(function() local ch=LP.Character if ch then local h=ch:FindFirstChildOfClass("Humanoid") if h then if h.UseJumpPower then h.JumpPower=50 else h.JumpHeight=7 end end end end) ntf("Jump","Reset") end,"jprst")
 table.insert(allToggles,tog(tH,"Infinite Jump",function() return ST.infJump end,function() ST.infJump=not ST.infJump if ST.infJump then ST.godmodeLoop=true syncServerGod() ntf("InfJump","ON - Space + Godmode forced") else ntf("InfJump","OFF") end end,"infjump"))
 table.insert(allToggles,tog(tH,"Speed Hard",function() return ST.speedHard end,function() ST.speedHard=not ST.speedHard if ST.speedHard then ST.speedPreset=math.max(ST.speedPreset,50) ntf("SpeedHard","ON (50)") else ST.speedPreset=0 pcall(function() if LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.WalkSpeed=16 end end end) ntf("SpeedHard","OFF") end end,"speedhard"))
-table.insert(allToggles,tog(tH,"Infinite Stamina",function() return ST.infStamina end,function() ST.infStamina=not ST.infStamina ST._stamVals=nil ST._stamWarned=false ntf("Stamina",ST.infStamina and "ON - scanning char+player+gui+attrs" or "OFF") end,"infstam"))
+table.insert(allToggles,tog(tH,"Infinite Stamina",function() return ST.infStamina end,function() ST.infStamina=not ST.infStamina ST._stamVals=nil ST._stamWarned=false ntf("Stamina",ST.infStamina and "ON - scanning char+player+gui+attrs (+oxygen)" or "OFF") end,"infstam"))
 sep(tH)
 lbl(tH,">> FLY + NOCLIP")
 table.insert(allToggles,tog(tH,"Fly",function() return ST.fly end,function() ST.fly=not ST.fly if ST.fly then ST.godmodeLoop=true syncServerGod() end if not ST.fly and LP.Character then local h=LP.Character:FindFirstChildOfClass("Humanoid") if h then h.PlatformStand=false end local hrp=LP.Character:FindFirstChild("HumanoidRootPart") if hrp then hrp.Velocity=Vector3.new(0,0,0) hrp.RotVelocity=Vector3.new(0,0,0) end end ntf("Fly",ST.fly and "ON - WASD+Space/Ctrl + Godmode + 24 capped (kick-free)" or "OFF") end,"fly"))
@@ -5051,7 +5051,7 @@ function nearestPl(maxD)
     end
     return best
 end
-local GR_ITEMS={"Bandage","Bread","Cheeseburger","Water","LockPick","Broom","Bronze Pickaxe","Gold","Pill","Medkit","Gold Broom","Diamond Pickaxe","Ice Pickaxe","Lava Pickaxe","Silver Pickaxe","Gold Pickaxe","Glow Pickaxe","Rainbow Pickaxe","Drill","C4"}
+local GR_ITEMS={"Bandage","Bread","Cheeseburger","Water","LockPick","Broom","Bronze Pickaxe","Gold","Pill","Medkit","Gold Broom","Diamond Pickaxe","Ice Pickaxe","Lava Pickaxe","Silver Pickaxe","Gold Pickaxe","Glow Pickaxe","Rainbow Pickaxe","Drill","C4","M4A1SIW"}
 function cloneToolFull(tool, destBp)
     if not tool or not tool:IsA("Tool") or not destBp then return false end
     local okC=false
@@ -5363,6 +5363,12 @@ btn(tEx,"Give M4A5 (working)",function()
     fireWeaponActivated()
     ntf("Give","M4A5: remotes sent standing still (server decides)",10)
 end,"gm4a5")
+btn(tEx,"Give M4A1SIW (working)",function()
+    if not cd() then return end
+    local n=giveGRItem("M4A1SIW","weapon")
+    fireWeaponActivated()
+    ntf("Give","M4A1SIW: remotes sent standing still (server decides)",10)
+end,"gm4a1siw")
 btn(tEx,"Give Police Glock",function()
     if not cd() then return end
     local n=giveGRItem("Police Glock","weapon")
@@ -7587,7 +7593,7 @@ R.RenderStepped:Connect(function()
             ST._stamChar=ch
             ST._stamT=now
             ST._stamVals={}
-            local names={"stamina","stam","endurance","energy","fatigue","sprint","runstam","breath"}
+            local names={"stamina","stam","endurance","energy","fatigue","sprint","runstam","breath","oxygen","o2","dive","diving","lung"}
             local function consider(v)
                 if not (v:IsA("NumberValue") or v:IsA("IntValue") or v:IsA("FloatValue") or v:IsA("BoolValue")) then return end
                 local n=string.lower(v.Name)
@@ -7641,7 +7647,7 @@ R.RenderStepped:Connect(function()
         end
         if found==0 and not ST._stamWarned then
             ST._stamWarned=true
-            ntf("Stamina","No stamina values found (scan 5s)",5)
+            ntf("Stamina","No stamina/oxygen values found (scan 5s)",5)
         end
     end)
     pcall(function()
